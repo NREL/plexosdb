@@ -1,0 +1,15 @@
+[project]
+name = "plexosdb"
+version = 0.0.0
+readme = "README.md"
+keywords = []
+authors = [
+    { name = "Pedro Andres Sanchez Perez", email = "psanchez@nrel.gov" },
+    { name = "Kodi Obika", email = "kodi.obika@nrel.gov" },
+]
+description = "Coming soon"
+
+[project.urls]
+Documentation = "https://github.com/NREL/infrasys#readme"
+Issues = "https://github.com/NREL/infrasys/issues"
+Source = "https://github.com/NREL/infrasys"
