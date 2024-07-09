@@ -1,6 +1,6 @@
 [project]
 name = "plexosdb"
-version = 0.0.0
+version = "0.0.0"
 readme = "README.md"
 keywords = []
 authors = [
