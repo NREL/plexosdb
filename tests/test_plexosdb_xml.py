@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import xml.etree.ElementTree as ET  # noqa: N817
 from plexosdb.exceptions import MultlipleElementsError
-from plexosdb.enums import Schema, ClassEnum
+from plexosdb.enums import Schema
 from plexosdb.xml_handler import XMLHandler
 from plexosdb.xml_handler import xml_query
 
@@ -48,17 +48,6 @@ def test_cache_construction():
     handler = XMLHandler.parse(fpath=XML_FPATH, in_memory=True)
     assert handler._cache is not None
     assert len(handler._cache) == 7  # Total number of elements parsed
-
-
-def test_counts():
-    handler = XMLHandler.parse(fpath=XML_FPATH, in_memory=True)
-    assert handler._cache is not None
-    assert len(handler._cache) == 7  # Total number of elements parsed
-    assert handler._counts[Schema.Objects.name] == 2
-
-    # Check that the counter works correctyly
-    handler.add_object(ClassEnum.Generator, object_name="test_generator")
-    assert handler._counts[Schema.Objects.name] == 3
 
 
 @pytest.mark.parametrize(

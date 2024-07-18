@@ -227,6 +227,45 @@ def test_add_property(sqlite_database):
         collection=collection,
         text={"Data File": "test.csv"},
     )
+    assert data_id
+
+    # Test Scenarios
+    property = "Fuel Price"
+    collection = CollectionEnum.SystemGenerators
+    property_id = sqlite_database.get_id(Schema.Property, property, collection_id=collection)
+    value = 100
+    scenario = "Awesome Scenario"
+
+    # Test data files
+    data_id = sqlite_database.add_property(
+        object_name,
+        property,
+        value,
+        object_class=ClassEnum.Generator,
+        collection=collection,
+        text={"Data File": "test.csv"},
+        scenario=scenario,
+    )
+    assert data_id
+
+    # Test wrong property
+    property = "F Price"
+    collection = CollectionEnum.SystemGenerators
+    property_id = sqlite_database.get_id(Schema.Property, property, collection_id=collection)
+    value = 100
+    scenario = "Awesome Scenario"
+
+    # Test data files
+    with pytest.raises(KeyError):
+        _ = sqlite_database.add_property(
+            object_name,
+            property,
+            value,
+            object_class=ClassEnum.Generator,
+            collection=collection,
+            text={"Data File": "test.csv"},
+            scenario=scenario,
+        )
 
 
 def test_add_report(caplog, sqlite_database):
@@ -239,7 +278,7 @@ def test_add_report(caplog, sqlite_database):
         "property": "Generation",
     }
 
-    # Check that we raise the warning if you try to add a report withouth aan object on the system.
+    # Check that we raise the warning if you try to add a report without a object on the system.
     sqlite_database.add_report(**input_report)
     assert "WARNING" in caplog.text
 
@@ -309,6 +348,31 @@ def test_create_table_element(sqlite_database):
                         assert column_element.text == "false"
                 else:
                     assert column_element.text == str(column_value)
+
+
+def test_get_memberships(sqlite_database):
+    node_name = "Node 1"
+    node_id = sqlite_database.add_object(
+        node_name, ClassEnum.Node, CollectionEnum.SystemNodes, description="Test Node"
+    )
+    assert node_id
+
+    # Add membership to node_id
+    generator_name = "gen1"
+
+    sqlite_database.add_membership(
+        generator_name,
+        node_name,
+        parent_class=ClassEnum.Generator,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.GeneratorNodes,
+    )
+
+    memberships = sqlite_database.get_memberships(generator_name, object_class=ClassEnum.Generator)
+
+    assert memberships
+    assert memberships[0][2] == generator_name
+    assert memberships[0][3] == node_name
 
 
 def test_to_xml(sqlite_database, tmp_path):

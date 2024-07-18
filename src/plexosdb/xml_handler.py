@@ -1,7 +1,6 @@
 """Plexos Input XML API."""
 
 from collections import defaultdict
-import uuid
 import xml.etree.ElementTree as ET  # noqa: N817
 from collections.abc import Iterable, Iterator
 from enum import Enum
@@ -10,8 +9,8 @@ from os import PathLike
 
 from loguru import logger
 
-from .exceptions import ModelError, MultlipleElementsError
-from .enums import ClassEnum, CollectionEnum, Schema, str2enum
+from .exceptions import MultlipleElementsError
+from .enums import CollectionEnum, Schema
 from .utils import validate_string
 
 
@@ -49,42 +48,6 @@ class XMLHandler:
     ) -> "XMLHandler":
         """Return XML instance from file requested."""
         return XMLHandler(fpath=fpath, namespace=namespace, **kwargs)
-
-    def _preprocess_xml(self, model_name: str | None = None) -> None:
-        if model_name is None:
-            logger.info("No model provided. Skipping preprocess step.")
-            return
-
-        logger.debug("Parsing model {}", model_name)
-        model_data = self.get_records(Schema.Objects, class_id=ClassEnum.Model, name=model_name)
-
-        if not model_data:
-            msg = f"Model {model_name} not found on the database. Validate that the model exists."
-            raise KeyError(msg)
-
-        # Safety mechanism for multiple models
-        if len(model_data) > 1:
-            msg = (
-                f"Multiple models returned for {model_name}. "
-                "Check spelling or database for duplicate entries."
-            )
-            raise ModelError(msg)
-        else:
-            model_data = model_data[0]
-
-        scenarios_memberships_for_model = self.get_records(
-            Schema.Memberships,
-            parent_object_id=model_data.get("object_id", None),
-            child_class_id=ClassEnum.Scenario,
-        )
-
-        scenarios_in_model = set(map(lambda x: x.get("child_object_id"), scenarios_memberships_for_model))
-        tag_data = self.get_records(Schema.Tags)
-        model_data_ids = [e.get("data_id") for e in tag_data if e.get("object_id") in scenarios_in_model]
-        self.model_scenarios = scenarios_in_model
-        self.model_data_ids = model_data_ids
-        self.valid_properties = self.get_valid_properties_dict()
-        return
 
     def get_records(
         self,
@@ -145,279 +108,6 @@ class XMLHandler:
             return element[0].findtext(element_enum.label)  # type: ignore
 
         return element[0].findtext(label)  # type: ignore
-
-    def add_attribute(  # noqa: D102
-        self,
-        /,
-        *,
-        object_name: str,
-        object_class: ClassEnum,
-        attribute_class: ClassEnum,
-        attribute_name: str,
-        attribute_value: str | float | int,
-    ) -> int:
-        logger.trace("Addding properties for object: {}", object_name)
-        object_id = self.get_id(Schema.Objects, name=object_name, clas_id=object_class)
-        attribute_id = self.get_id(Schema.Attributes, class_id=attribute_class, name=attribute_name)
-        new_xml = self._add_xml_child(
-            Schema.AttributeData.name,
-            attribute_id=attribute_id,
-            value=attribute_value,
-            object_id=object_id,
-        )
-        attribute_id = new_xml.findtext("attribute_id")
-        assert attribute_id
-
-        return int(attribute_id)
-
-    def add_single_property(
-        self,
-        object_name,
-        property_name,
-        property_value,
-        *,
-        parent_object_name: str | None = None,
-        property_enum: Schema = Schema.Property,
-        collection_enum: CollectionEnum = CollectionEnum.SystemGenerators,
-        data_enum: Schema = Schema.Data,
-        scenario: str | None = "default",
-        time_series_dict: dict | None = None,
-        **kwargs,
-    ) -> None:
-        """Add property for a given object in the database.
-
-        Parameters
-        ----------
-        object_name
-            Name to be added to the object
-        property_name
-            Valid plexos property to be added for the given collection
-        property_value
-            Value to assign to the property
-        object_class
-            ClassEnum from the object to be added. E.g., for generators class_id=ClassEnum.Generators
-        parent_object_name
-            Name of the parent object. User for creating the membership.
-        collection
-            Collection for membership
-        scenario
-            Scenario tag to add to the property
-        text
-            Additional text to add to the property. E.g., memo data or Data File.
-
-        Returns
-        -------
-        int
-            data_id of the added property.
-        """
-        logger.trace("Addding properties for object: {}", object_name)
-        object_id = self.get_id(Schema.Objects, name=object_name, **kwargs)
-        property_id = self.get_id(property_enum, collection_id=collection_enum.value, name=property_name)
-        if parent_object_name is not None:
-            parent_object_id = self.get_id(Schema.Objects, name=parent_object_name, **kwargs)
-        else:
-            parent_object_id = None
-
-        try:
-            membership_id = self.get_id(Schema.Memberships, child_object_id=object_id)
-        except MultlipleElementsError:
-            membership_id = self.get_id(
-                Schema.Memberships,
-                child_object_id=object_id,
-                collection_id=collection_enum.value,
-                parent_object_id=parent_object_id,
-            )
-
-        data_id = self.get_max_id(data_enum) + 1  # Increment so that property does not start in 0
-
-        # Change property to dynamic so that it is showed at the bottom of the Plexos GUI
-        # We could probably do this once.
-        property = self._get_xml_element(property_enum, property_id=property_id)
-        setattr(property.find("is_dynamic"), "text", "true")
-        setattr(property.find("is_enabled"), "text", "true")
-
-        self._add_xml_child(
-            data_enum.name,
-            data_id=data_id,
-            membership_id=membership_id,
-            property_id=property_id,
-            value=property_value,
-        )
-
-        # Create tags for scenario
-        if scenario:
-            try:
-                scenario_object_id = self.get_id(Schema.Objects, name=scenario, class_id=ClassEnum.Scenario)
-            except KeyError:
-                scenario_object_id = self.add_object(
-                    scenario,
-                    ClassEnum.Scenario,
-                    CollectionEnum.SystemScenarios,
-                )
-            self._add_xml_child(Schema.Tags.name, data_id=data_id, object_id=scenario_object_id)
-
-        if time_series_dict:
-            for key, value in time_series_dict.items():
-                class_id = self.get_id(Schema.Class, name=key)
-                self._add_xml_child(Schema.Text.name, data_id=data_id, class_id=class_id, value=value)
-
-    def add_membership(  # noqa: D102
-        self,
-        parent_object_name,
-        child_object_name,
-        /,
-        *,
-        parent_class,
-        child_class,
-        collection,
-        **kwargs,
-    ):
-        parent_object_class_id = kwargs.pop("parent_object_class_id", None)
-        child_object_class_id = kwargs.pop("child_object_class_id", None)
-        if not parent_object_class_id:
-            parent_object_class_id = self.get_id(Schema.Objects, name=parent_object_name, label="class_id")
-        if not child_object_class_id:
-            child_object_class_id = self.get_id(Schema.Objects, name=child_object_name, label="class_id")
-        parent_object_id = self.get_id(
-            Schema.Objects, name=parent_object_name, class_id=parent_object_class_id, **kwargs
-        )
-        child_object_id = self.get_id(
-            Schema.Objects, name=child_object_name, class_id=child_object_class_id, **kwargs
-        )
-
-        self._add_membership(
-            child_object_class_id,
-            child_object_id,
-            parent_object_class_id,
-            parent_object_id,
-            collection,
-            Schema.Memberships,
-        )
-
-        return
-
-    def add_object(
-        self,
-        class_enum: ClassEnum,
-        object_name: str,
-        category_name: str | None = None,
-        object_enum: Schema = Schema.Objects,
-        collection_enum: CollectionEnum = CollectionEnum.SystemGenerators,
-    ) -> str:
-        """Add a plexos object to the XML."""
-        logger.trace("Adding object {}", object_name)
-        category_id = self.add_category(class_enum, category_name)
-        if _ := list(self.iter(object_enum, class_id=class_enum.value, name=object_name)):
-            raise KeyError(
-                f"{object_name=} already exist in Objects for Class={class_enum}. Pick another name."
-            )
-
-        object_id = self.get_max_id(object_enum) + 1
-
-        # Assert the class is enabled
-        class_tag = self._get_xml_element(Schema.Class, class_id=class_enum.value)
-        setattr(class_tag.find("is_enabled"), "text", "true")
-
-        self._add_xml_child(
-            object_enum.name,
-            object_id=object_id,
-            class_id=class_enum.value,
-            name=object_name,
-            category_id=category_id if category_id else "",
-            GUID=str(uuid.uuid4()),
-        )
-
-        # Default membership is the System
-        system_class_id = self.get_id(Schema.Class, class_id=ClassEnum.System.value)
-        system_object_id = self.get_id(Schema.Objects, class_id=system_class_id)
-        self._add_membership(
-            class_enum.value,
-            object_id,
-            system_class_id,
-            system_object_id,
-            collection_enum=collection_enum,
-        )
-
-        return str(object_id)
-
-    def add_category(  # noqa: D102
-        self,
-        class_enum: ClassEnum,
-        category_name: str | None = None,
-        category_enum: Schema = Schema.Categories,
-    ) -> int:
-        if not category_name:
-            logger.trace("Skipping empty category")
-            return int(self.get_id(category_enum, class_id=class_enum.value))
-        categories = self.iter(category_enum, class_id=class_enum.value)
-        categories_names = list(map(lambda x: x.findtext("name"), categories))
-        category_id = self.get_max_id(Schema.Categories) + 1  # Increase category number
-
-        # Increase rank based on existing categories
-        if not categories_names:
-            rank = 0
-        else:
-            rank = len(categories_names)  # List start at 0
-
-        if category_name in categories_names:
-            logger.trace(f"{category_name=} already exists. Skipping")
-            return int(self.get_id(Schema.Categories, class_id=class_enum.value, name=category_name))
-        logger.trace("Adding category {} to Class {}", category_name, class_enum)
-        self._add_xml_child(
-            Schema.Categories.name,
-            category_id=category_id,
-            class_id=class_enum.value,
-            rank=rank,
-            name=category_name,
-        )
-
-        return category_id
-
-    def _add_membership(
-        self,
-        child_class_id: int | str,
-        child_object_id: int | str,
-        parent_class_id: int | str,
-        parent_object_id: int | str,
-        collection_enum: CollectionEnum = CollectionEnum.SystemGenerators,
-        membership_enum: Schema = Schema.Memberships,
-    ):
-        membership_id = self.get_max_id(membership_enum) + 1
-        logger.trace(
-            "Adding membership {} for {}.{}",
-            membership_id,
-            parent_object_id,
-            child_object_id,
-        )
-        self._add_xml_child(
-            membership_enum.name,
-            membership_id=membership_id,
-            parent_class_id=parent_class_id,
-            parent_object_id=parent_object_id,
-            collection_id=collection_enum.value,
-            child_class_id=child_class_id,
-            child_object_id=child_object_id,
-        )
-        return membership_id
-
-    def _add_xml_child(self, child_name: str, **tag_elements):
-        logger.trace("Creating new xml child with {}", child_name)
-        xml_child = ET.SubElement(self.root, child_name)
-        for key, value in tag_elements.items():
-            new_tag = ET.SubElement(xml_child, key)
-            if isinstance(value, float):
-                text = round(value, 4)
-            else:
-                text = value
-            new_tag.text = f"{text}"
-        child_enum = str2enum(child_name)
-        self._cache[child_enum.name].append(xml_child)
-        # If cache is empty assign it to 1. This happen when we start from an empty xml.
-        try:
-            self._counts[child_enum.name] += 1
-        except KeyError:
-            self._counts[child_enum.name] = 1
-        return xml_child
 
     def get_max_id(self, element_type: Schema):
         """Return max id for a given child class.
@@ -553,13 +243,6 @@ class XMLHandler:
         for elem in self.root.iter():
             if elem.tag.startswith(ns):
                 elem.tag = elem.tag[nsl:]
-
-    def _validate_get_element_id(self, element_name, *elements, **tag_elements):
-        try:
-            element = self.get_id(element_name, *elements, **tag_elements)
-        except KeyError:
-            return None
-        return element
 
 
 def construct_condition_lambda(**kwargs):  # noqa: D103

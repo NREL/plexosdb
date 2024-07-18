@@ -579,29 +579,6 @@ class PlexosSQLite:
             raise
         return result
 
-    def _get_memberships(
-        self,
-        *objects,
-        object_class: ClassEnum,
-        collection: CollectionEnum,
-        parent_class: ClassEnum,
-    ):
-        """Return all memberships for a given object or list of objects of the same class."""
-        _ = f"""
-            SELECT
-              t_object.name as name,
-              membership_id
-            FROM
-              t_membership
-              inner join t_object on t_membership.child_object_id = t_object.object_id
-            WHERE
-              t_membership.parent_class_id = {parent_class.value} and
-              t_membership.collection_id = ?
-              t_membership.child_class_id = ?
-              t_object.name in ({", ".join(["?" for _ in range(len(objects))])})
-        """
-        return NotImplementedError
-
     def get_scenario_id(self, scenario_name: str) -> int:
         """Return scenario id for a given scenario name."""
         scenario_id = self.get_id(Schema.Objects, scenario_name, class_id=ClassEnum.Scenario)
