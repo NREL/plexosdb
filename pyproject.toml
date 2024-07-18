@@ -1,6 +1,6 @@
 [project]
 name = "plexosdb"
-version = "0.0.0"
+version = "0.0.1"
 readme = "README.md"
 keywords = []
 authors = [
@@ -10,6 +10,10 @@ authors = [
 description = "Coming soon"
 
 [project.urls]
-Documentation = "https://github.com/NREL/infrasys#readme"
-Issues = "https://github.com/NREL/infrasys/issues"
-Source = "https://github.com/NREL/infrasys"
+Documentation = "https://github.com/NREL/plexosdb#readme"
+Issues = "https://github.com/NREL/plexosdb/issues"
+Source = "https://github.com/NREL/plexosdb"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
