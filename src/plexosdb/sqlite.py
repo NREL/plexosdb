@@ -76,6 +76,8 @@ class PlexosSQLite:
         -----
         By default, we add all objects to the system membership.
         """
+
+        #Class name instead of class id
         object_id = self.get_id(Schema.Objects, object_name, class_id=object_class)
         attribute_id = self.get_id(Schema.Attributes, attribute_name, class_id=attribute_class)
 
@@ -160,7 +162,8 @@ class PlexosSQLite:
         child_object_id = self.get_id(Schema.Objects, child_object_name, class_id=child_class)
         assert parent_object_id, f"Could not find {parent_object_name=} with {parent_class}"
         assert child_object_id, f"Could not find {child_object_name=} with {child_class}"
-
+        breakpoint()
+        # add something that looks for the ID of the parent class and child class. Add two more searches.
         self.execute_query(
             membership_query,
             (
@@ -517,7 +520,7 @@ class PlexosSQLite:
         }
         if class_id:
             query_id += " and class_id = :class_id"
-            params["class_id"] = class_id.value
+            params["class_id"] = class_id
 
         if collection_id:
             query_id += " and collection_id = :collection_id"
@@ -543,8 +546,9 @@ class PlexosSQLite:
         This function returns a list of tuples of memberships listed as follow:
             - [(parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id)]
         """
+        class_id = self.query("select class_id from t_class where name = ?", (object_class.name,))[0][0]
         object_ids = tuple(
-            self.get_id(Schema.Objects, object_name, class_id=object_class) for object_name in object_names
+            self.get_id(Schema.Objects, object_name, class_id=class_id) for object_name in object_names
         )
         if not object_ids:
             raise KeyError(f"Objects {object_names=} not found on the database. Check that they exists.")
@@ -554,11 +558,15 @@ class PlexosSQLite:
             mem.child_class_id,
             parent_object.name parent,
             child_object.name child,
-            mem.collection_id
+            mem.collection_id,
+            parent_class.name AS parent_class_name,
+            collections.name AS collection_name
         FROM
             t_membership as mem
             INNER JOIN t_object AS parent_object ON mem.parent_object_id = parent_object.object_id
             INNER JOIN t_object AS child_object ON mem.child_object_id = child_object.object_id
+            left join t_class as parent_class on mem.parent_class_id = parent_class.class_id
+            left join t_collection as collections on mem.collection_id = collections.collection_id
         WHERE
             mem.parent_class_id <> 1
         """
@@ -571,7 +579,8 @@ class PlexosSQLite:
                 f"and (child_object.object_id in {object_ids} or parent_object.object_id in {object_ids})"
             )
         if collection:
-            query_string += f"and mem.collection_id = {collection.value}"
+            query_string += f"and parent_class.name = '{collection[0].value}' and collections.name = '{collection[1].value}'"
+            # query_string += f"and mem.collection_id = {collection.value}"
         try:
             result = self.query(query_string)
         except sqlite3.OperationalError:

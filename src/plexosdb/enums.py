@@ -1,6 +1,6 @@
 """Plexos model enums that define the data schema."""
 
-from enum import Enum, IntEnum
+from enum import Enum, IntEnum, auto
 from .utils import StrEnum
 
 
@@ -42,93 +42,81 @@ class Schema(Enum):
         return self.value[1]
 
 
-class ClassEnum(IntEnum):
+class ClassEnum(StrEnum):
     """Enum that defines the different Plexos classes."""
+    def _generate_next_value_(name, start, count, last_values):
+        return str(name)
 
-    System = 1
-    Generator = 2
-    Fuel = 4
-    Battery = 7
-    Storage = 8
-    Emission = 10
-    Reserve = 14
-    Region = 19
-    Zone = 21
-    Node = 22
-    Line = 24
-    Transformer = 26
-    Interface = 28
-    DataFile = 74
-    Timeslice = 76
-    Scenario = 78
-    Model = 80
-    Horizon = 82
-    Report = 83
-    PASA = 87
-    MTSchedule = 88
-    STSchedule = 89
-    Transmission = 90
-    Diagnostic = 94
-    Production = 91
-    Performance = 93
-    Variable = 75
+    System = auto()
+    Generator = auto()
+    Fuel = auto()
+    Battery = auto()
+    Storage = auto()
+    Emission = auto()
+    Reserve = auto()
+    Region = auto()
+    Zone = auto()
+    Node = auto()
+    Line = auto()
+    Transformer = auto()
+    Interface = auto()
+    DataFile = auto()
+    Timeslice = auto()
+    Scenario = auto()
+    Model = auto()
+    Horizon = auto()
+    Report = auto()
+    PASA = auto()
+    MTSchedule = auto()
+    STSchedule = auto()
+    Transmission = auto()
+    Diagnostic = auto()
+    Production = auto()
+    Performance = auto()
+    Variable = auto()
 
 
 plexos_class_mapping = {enum_member.name: enum_member.value for enum_member in ClassEnum}
 
 
 class CollectionEnum(StrEnum):
-    """Enum that defines the different Plexos colections."""
+    """Enum that defines the different Plexos colections via Collection Name."""
+    def _generate_next_value_(name, start, count, last_values):
+        return str(name)
 
-    SystemGenerators = "1"
-    GeneratorFuels = "7"
-    GeneratorHeadStorage = "10"
-    GeneratorTailStorage = "11"
-    GeneratorNodes = "12"
-    SystemBattery = "79"
-    BatteryNodes = "82"
-    SystemStorage = "91"
-    SystemEmissions = "106"
-    EmissionGenerators = "109"
-    SystemReserves = "154"
-    ReserveGenerators = "157"
-    ReserveBatteries = "161"
-    ReserveRegions = "165"
-    SystemRegions = "196"
-    SystemZones = "227"
-    SystemNodes = "261"
-    NodesRegion = "264"
-    NodesZone = "265"
-    SystemLines = "283"
-    LineNodeFrom = "286"
-    LineNodeTo = "287"
-    SystemTransformers = "299"
-    TransformerNodeFrom = "302"
-    TransformerNodeTo = "303"
-    SystemInterfaces = "313"
-    InterfaceLines = "316"
-    SystemScenarios = "700"
-    SystemModel = "707"
-    ModelScenario = "708"
-    ModelHorizon = "710"
-    ModelReport = "711"
-    ModelPASA = "714"
-    ModelMTSchedule = "715"
-    ModelSTSchedule = "716"
-    ModelTransmission = "718"
-    ModelProduction = "719"
-    ModelDiagnostic = "722"
-    SystemHorizon = "728"
-    SystemReport = "729"
-    ModelPerformance = "721"
-    SystemPASA = "742"
-    SystemMTSchedule = "748"
-    SystemSTSchedule = "755"
-    SystemTransmission = "761"
-    SystemProduction = "762"
-    SystemPerformance = "764"
-    SystemDiagnostic = "765"
-    DataFiles = "686"
+    Generators = auto()
+    Fuels = auto()
+    HeadStorage = auto()
+    TailStorage = auto()
+    Nodes = auto()
+    Battery = auto()
+    Storage = auto()
+    Emissions = auto()
+    Reserves = auto()
+    Batteries = auto()
+    Regions = auto()
+    Zones = auto()
+    Region = auto()
+    Zone = auto()
+    Lines = auto()
+    NodeFrom = auto()
+    NodeTo = auto()
+    Transformers = auto()
+    Interfaces = auto()
+    Scenarios = auto()
+    Model = auto()
+    Scenario = auto()
+    Horizon = auto()
+    Report = auto()
+    PASA = auto()
+    MTSchedule = auto()
+    STSchedule = auto()
+    Transmission = auto()
+    Production = auto()
+    Diagnostic = auto()
+    Performance = auto()
+    DataFiles = auto()
+
 
 
 def str2enum(string, schema_enum=Schema) -> Schema | None:
