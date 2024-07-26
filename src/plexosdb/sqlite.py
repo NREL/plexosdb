@@ -162,7 +162,7 @@ class PlexosSQLite:
         child_object_id = self.get_id(Schema.Objects, child_object_name, class_id=child_class)
         assert parent_object_id, f"Could not find {parent_object_name=} with {parent_class}"
         assert child_object_id, f"Could not find {child_object_name=} with {child_class}"
-        breakpoint()
+        # breakpoint()
         # add something that looks for the ID of the parent class and child class. Add two more searches.
         self.execute_query(
             membership_query,
@@ -547,9 +547,8 @@ class PlexosSQLite:
             - [(parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id)]
         """
         class_id = self.query("select class_id from t_class where name = ?", (object_class.name,))[0][0]
-        object_ids = tuple(
-            self.get_id(Schema.Objects, object_name, class_id=class_id) for object_name in object_names
-        )
+
+        object_ids = tuple(self.get_id(Schema.Objects, object_name, class_id=class_id) for object_name in object_names)
         if not object_ids:
             raise KeyError(f"Objects {object_names=} not found on the database. Check that they exists.")
         query_string = """
