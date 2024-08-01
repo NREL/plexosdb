@@ -162,8 +162,7 @@ class PlexosSQLite:
         child_object_id = self.get_id(Schema.Objects, child_object_name, class_id=child_class)
         assert parent_object_id, f"Could not find {parent_object_name=} with {parent_class}"
         assert child_object_id, f"Could not find {child_object_name=} with {child_class}"
-        # breakpoint()
-        # add something that looks for the ID of the parent class and child class. Add two more searches.
+
         self.execute_query(
             membership_query,
             (
@@ -539,6 +538,7 @@ class PlexosSQLite:
         self,
         *object_names,
         object_class: ClassEnum,
+        parent_class: ClassEnum | None = None,
         collection: CollectionEnum | None = None,
     ):
         """Return all memberships for the given object except the system membership.
@@ -577,8 +577,10 @@ class PlexosSQLite:
             query_string += (
                 f"and (child_object.object_id in {object_ids} or parent_object.object_id in {object_ids})"
             )
+        if not parent_class:
+            parent_class = object_class
         if collection:
-            query_string += f"and parent_class.name = '{collection[0].value}' and collections.name = '{collection[1].value}'"
+            query_string += f"and parent_class.name = '{parent_class.value}' and collections.name = '{collection.value}'"
             # query_string += f"and mem.collection_id = {collection.value}"
         try:
             result = self.query(query_string)
