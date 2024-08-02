@@ -30,7 +30,8 @@ text_cte AS (
         text.class_id AS text_class_id,
         text.action_id AS text_action_id,
         class_text.name AS class_text_name,
-        action.action_symbol AS action_symbol
+        action.action_symbol AS action_symbol,
+        tag.action_id AS tag_action_id
     FROM
         t_membership AS mem
     LEFT JOIN t_data AS d ON
@@ -76,7 +77,8 @@ SELECT
     MAX(CASE WHEN class_text_name = 'Data File' THEN text END) AS data_file,
     MAX(CASE WHEN class_text_name = 'Variable' THEN text END) AS variable,
     MAX(CASE WHEN class_text_name = 'Timeslice' THEN text END) AS timeslice,
-    nested_object.action_symbol AS action_symbol
+    nested_object.action_symbol AS action_symbol,
+    nested_object.tag_action_id AS tag_action_id
 FROM
     t_membership AS mem
 LEFT JOIN t_class AS class_parent ON
