@@ -77,7 +77,7 @@ class PlexosSQLite:
         By default, we add all objects to the system membership.
         """
 
-        #Class name instead of class id
+        # TODO: Get class_id from class name
         object_id = self.get_id(Schema.Objects, object_name, class_id=object_class)
         attribute_id = self.get_id(Schema.Attributes, attribute_name, class_id=attribute_class)
 
