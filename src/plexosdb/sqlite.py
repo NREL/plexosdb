@@ -564,8 +564,8 @@ class PlexosSQLite:
             t_membership as mem
             INNER JOIN t_object AS parent_object ON mem.parent_object_id = parent_object.object_id
             INNER JOIN t_object AS child_object ON mem.child_object_id = child_object.object_id
-            left join t_class as parent_class on mem.parent_class_id = parent_class.class_id
-            left join t_collection as collections on mem.collection_id = collections.collection_id
+            LEFT JOIN t_class AS parent_class ON mem.parent_class_id = parent_class.class_id
+            LEFT JOIN t_collection AS collections ON mem.collection_id = collections.collection_id
         WHERE
             mem.parent_class_id <> 1
         """
