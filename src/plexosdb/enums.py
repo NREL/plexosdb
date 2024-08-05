@@ -1,8 +1,6 @@
 """Plexos model enums that define the data schema."""
 
-from enum import Enum, IntEnum
-from .utils import StrEnum
-
+from enum import Enum, IntEnum, StrEnum
 
 class Schema(Enum):
     """Enum that defines the Plexos Schema."""
@@ -42,93 +40,74 @@ class Schema(Enum):
         return self.value[1]
 
 
-class ClassEnum(IntEnum):
+class ClassEnum(StrEnum):
     """Enum that defines the different Plexos classes."""
-
-    System = 1
-    Generator = 2
-    Fuel = 4
-    Battery = 7
-    Storage = 8
-    Emission = 10
-    Reserve = 14
-    Region = 19
-    Zone = 21
-    Node = 22
-    Line = 24
-    Transformer = 26
-    Interface = 28
-    DataFile = 74
-    Timeslice = 76
-    Scenario = 78
-    Model = 80
-    Horizon = 82
-    Report = 83
-    PASA = 87
-    MTSchedule = 88
-    STSchedule = 89
-    Transmission = 90
-    Diagnostic = 94
-    Production = 91
-    Performance = 93
-    Variable = 75
+    System = "System"
+    Generator = "Generator"
+    Fuel = "Fuel"
+    Battery = "Battery"
+    Storage = "Storage"
+    Emission = "Emission"
+    Reserve = "Reserve"
+    Region = "Region"
+    Zone = "Zone"
+    Node = "Node"
+    Line = "Line"
+    Transformer = "Transformer"
+    Interface = "Interface"
+    DataFile = "DataFile"
+    Timeslice = "Timeslice"
+    Scenario = "Scenario"
+    Model = "Model"
+    Horizon = "Horizon"
+    Report = "Report"
+    PASA = "PASA"
+    MTSchedule = "MTSchedule"
+    STSchedule = "STSchedule"
+    Transmission = "Transmission"
+    Diagnostic = "Diagnostic"
+    Production = "Production"
+    Performance = "Performance"
+    Variable = "Variable"
 
 
 plexos_class_mapping = {enum_member.name: enum_member.value for enum_member in ClassEnum}
 
-
 class CollectionEnum(StrEnum):
-    """Enum that defines the different Plexos colections."""
+    """Enum that defines the different Plexos colections via Collection Name."""
+    Generators = "Generators"
+    Fuels = "Fuels"
+    HeadStorage = "HeadStorage"
+    TailStorage = "TailStorage"
+    Nodes = "Nodes"
+    Battery = "Battery"
+    Storage = "Storage"
+    Emissions = "Emissions"
+    Reserves = "Reserves"
+    Batteries = "Batteries"
+    Regions = "Regions"
+    Zones = "Zones"
+    Region = "Region"
+    Zone = "Zone"
+    Lines = "Lines"
+    NodeFrom = "NodeFrom"
+    NodeTo = "NodeTo"
+    Transformers = "Transformers"
+    Interfaces = "Interfaces"
+    Scenarios = "Scenarios"
+    Model = "Model"
+    Scenario = "Scenario"
+    Horizon = "Horizon"
+    Report = "Report"
+    PASA = "PASA"
+    MTSchedule = "MTSchedule"
+    STSchedule = "STSchedule"
+    Transmission = "Transmission"
+    Production = "Production"
+    Diagnostic = "Diagnostic"
+    Performance = "Performance"
+    DataFiles = "DataFiles"
 
-    SystemGenerators = "1"
-    GeneratorFuels = "7"
-    GeneratorHeadStorage = "10"
-    GeneratorTailStorage = "11"
-    GeneratorNodes = "12"
-    SystemBattery = "79"
-    BatteryNodes = "82"
-    SystemStorage = "91"
-    SystemEmissions = "106"
-    EmissionGenerators = "109"
-    SystemReserves = "154"
-    ReserveGenerators = "157"
-    ReserveBatteries = "161"
-    ReserveRegions = "165"
-    SystemRegions = "196"
-    SystemZones = "227"
-    SystemNodes = "261"
-    NodesRegion = "264"
-    NodesZone = "265"
-    SystemLines = "283"
-    LineNodeFrom = "286"
-    LineNodeTo = "287"
-    SystemTransformers = "299"
-    TransformerNodeFrom = "302"
-    TransformerNodeTo = "303"
-    SystemInterfaces = "313"
-    InterfaceLines = "316"
-    SystemScenarios = "700"
-    SystemModel = "707"
-    ModelScenario = "708"
-    ModelHorizon = "710"
-    ModelReport = "711"
-    ModelPASA = "714"
-    ModelMTSchedule = "715"
-    ModelSTSchedule = "716"
-    ModelTransmission = "718"
-    ModelProduction = "719"
-    ModelDiagnostic = "722"
-    SystemHorizon = "728"
-    SystemReport = "729"
-    ModelPerformance = "721"
-    SystemPASA = "742"
-    SystemMTSchedule = "748"
-    SystemSTSchedule = "755"
-    SystemTransmission = "761"
-    SystemProduction = "762"
-    SystemPerformance = "764"
-    SystemDiagnostic = "765"
-    DataFiles = "686"
 
 
 def str2enum(string, schema_enum=Schema) -> Schema | None:
