@@ -1,8 +1,6 @@
 """Plexos model enums that define the data schema."""
 
-from enum import Enum, IntEnum, auto
-from .utils import StrEnum
-
+from enum import Enum, IntEnum, StrEnum
 
 class Schema(Enum):
     """Enum that defines the Plexos Schema."""
@@ -44,78 +42,71 @@ class Schema(Enum):
 
 class ClassEnum(StrEnum):
     """Enum that defines the different Plexos classes."""
-    def _generate_next_value_(name, start, count, last_values):
-        return str(name)
-
-    System = auto()
-    Generator = auto()
-    Fuel = auto()
-    Battery = auto()
-    Storage = auto()
-    Emission = auto()
-    Reserve = auto()
-    Region = auto()
-    Zone = auto()
-    Node = auto()
-    Line = auto()
-    Transformer = auto()
-    Interface = auto()
-    DataFile = auto()
-    Timeslice = auto()
-    Scenario = auto()
-    Model = auto()
-    Horizon = auto()
-    Report = auto()
-    PASA = auto()
-    MTSchedule = auto()
-    STSchedule = auto()
-    Transmission = auto()
-    Diagnostic = auto()
-    Production = auto()
-    Performance = auto()
-    Variable = auto()
+    System = "System"
+    Generator = "Generator"
+    Fuel = "Fuel"
+    Battery = "Battery"
+    Storage = "Storage"
+    Emission = "Emission"
+    Reserve = "Reserve"
+    Region = "Region"
+    Zone = "Zone"
+    Node = "Node"
+    Line = "Line"
+    Transformer = "Transformer"
+    Interface = "Interface"
+    DataFile = "DataFile"
+    Timeslice = "Timeslice"
+    Scenario = "Scenario"
+    Model = "Model"
+    Horizon = "Horizon"
+    Report = "Report"
+    PASA = "PASA"
+    MTSchedule = "MTSchedule"
+    STSchedule = "STSchedule"
+    Transmission = "Transmission"
+    Diagnostic = "Diagnostic"
+    Production = "Production"
+    Performance = "Performance"
+    Variable = "Variable"
 
 
 plexos_class_mapping = {enum_member.name: enum_member.value for enum_member in ClassEnum}
 
-
 class CollectionEnum(StrEnum):
     """Enum that defines the different Plexos colections via Collection Name."""
-    def _generate_next_value_(name, start, count, last_values):
-        return str(name)
-
-    Generators = auto()
-    Fuels = auto()
-    HeadStorage = auto()
-    TailStorage = auto()
-    Nodes = auto()
-    Battery = auto()
-    Storage = auto()
-    Emissions = auto()
-    Reserves = auto()
-    Batteries = auto()
-    Regions = auto()
-    Zones = auto()
-    Region = auto()
-    Zone = auto()
-    Lines = auto()
-    NodeFrom = auto()
-    NodeTo = auto()
-    Transformers = auto()
-    Interfaces = auto()
-    Scenarios = auto()
-    Model = auto()
-    Scenario = auto()
-    Horizon = auto()
-    Report = auto()
-    PASA = auto()
-    MTSchedule = auto()
-    STSchedule = auto()
-    Transmission = auto()
-    Production = auto()
-    Diagnostic = auto()
-    Performance = auto()
-    DataFiles = auto()
+    Generators = "Generators"
+    Fuels = "Fuels"
+    HeadStorage = "HeadStorage"
+    TailStorage = "TailStorage"
+    Nodes = "Nodes"
+    Battery = "Battery"
+    Storage = "Storage"
+    Emissions = "Emissions"
+    Reserves = "Reserves"
+    Batteries = "Batteries"
+    Regions = "Regions"
+    Zones = "Zones"
+    Region = "Region"
+    Zone = "Zone"
+    Lines = "Lines"
+    NodeFrom = "NodeFrom"
+    NodeTo = "NodeTo"
+    Transformers = "Transformers"
+    Interfaces = "Interfaces"
+    Scenarios = "Scenarios"
+    Model = "Model"
+    Scenario = "Scenario"
+    Horizon = "Horizon"
+    Report = "Report"
+    PASA = "PASA"
+    MTSchedule = "MTSchedule"
+    STSchedule = "STSchedule"
+    Transmission = "Transmission"
+    Production = "Production"
+    Diagnostic = "Diagnostic"
+    Performance = "Performance"
+    DataFiles = "DataFiles"
 
 
 
