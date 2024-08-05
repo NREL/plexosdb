@@ -7,19 +7,6 @@ from typing import Any
 
 from loguru import logger
 
-
-class StrEnum(Enum):
-    """Class to allow printing of Enums.
-
-    NOTE: This class could be deprecated once most people migrate to
-    python3.11. For the mean time, we are going to maintain this for backwards
-    compatibility.
-    """
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-
 def batched(iterable, n):
     """Implement batched iterator.
 
