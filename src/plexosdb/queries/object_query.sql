@@ -14,44 +14,6 @@ WITH scenario_cte AS (
         mem.child_class_id = 78
         AND mem.collection_id IN (1, 698, 706, 700) -- Collections belong to scenarios
 ),
--- text_cte AS (
---     SELECT
---         obj.object_id,
---         obj.name AS nested_object_name,
---         prop.name AS nested_property_name,
---         text.value AS text,
---         text.data_id AS text_data_id,
---         date_from.date AS date_from,
---         date_to.date AS date_to,
---         memo.value AS memo,
---         scenario.name AS scenario,
---         class_text.name AS class_text_name,
---         action.action_symbol AS action_symbol
---     FROM
---         t_membership AS mem
---     LEFT JOIN t_data AS d ON
---         mem.membership_id = d.membership_id
---     LEFT JOIN t_property AS prop ON
---         prop.property_id = d.property_id
---     LEFT JOIN t_memo_data AS memo ON
---         memo.data_id = d.data_id
---     LEFT JOIN t_date_from AS date_from ON
---         d.data_id = date_from.data_id
---     LEFT JOIN t_date_to AS date_to ON
---         d.data_id = date_to.data_id
---     INNER JOIN t_text AS text ON
---         text.data_id = d.data_id
---     INNER JOIN t_object AS obj ON
---         mem.child_object_id = obj.object_id
---     INNER JOIN t_tag AS tag ON
---         tag.object_id = obj.object_id
---     LEFT JOIN t_class AS class_text ON
---         text.class_id = class_text.class_id
---     LEFT JOIN t_action AS action ON
---         text.action_id = action.action_id
---     LEFT JOIN scenario_cte AS scenario ON
---         d.data_id = scenario.data_id
--- )
 tag_cte AS (
     SELECT
         obj.object_id,
@@ -117,11 +79,10 @@ SELECT
     MAX(CASE WHEN tag_object_class.name = 'Data File' THEN tag_object.name END) AS data_file_tag,
     MAX(CASE WHEN tag_object_class.name = 'Timeslice' THEN tag_object.name END) AS timeslice_tag,
     MAX(action.action_symbol) AS action_symbol,
-    nested_object.tag_data_id,
+    MAX(VAR_TEXT.value) AS var_text,
     MAX(CASE WHEN class_text_name = 'Data File' THEN text END) AS data_file,
-    MAX(CASE WHEN class_text_name = 'Variable' THEN text END) AS variable,
     MAX(CASE WHEN class_text_name = 'Timeslice' THEN text END) AS timeslice,
-    MAX(VAR_TEXT.value) AS var_text
+    MAX(CASE WHEN class_text_name = 'Variable' THEN text END) AS variable
 FROM
     t_membership AS mem
 LEFT JOIN t_class AS class_parent ON
