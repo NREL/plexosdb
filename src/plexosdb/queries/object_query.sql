@@ -20,7 +20,7 @@ tag_cte AS (
         obj.name AS nested_object,
         prop.name AS nested_property_name,
         text.value AS text,
-        d.data_id as t_data_id,
+        d.data_id AS t_data_id,
         d.value,
         tag.data_id AS tag_data_id,
         date_from.date AS date_from,
@@ -59,20 +59,20 @@ tag_cte AS (
 SELECT
     mem.membership_id,
     class_parent.class_id AS parent_class_id,
-    mem.parent_object_id as parent_object_id,
+    mem.parent_object_id AS parent_object_id,
     class_parent.name AS parent_class,
     class_child.class_id AS child_class_id,
     class_child.name AS child_class,
     cat.name AS category,
-    child_obj.object_id as child_object_id,
-    child_obj.name as child_object_name,
+    child_obj.object_id AS child_object_id,
+    child_obj.name AS child_object_name,
     prop.name AS property_name,
     unit.value AS property_unit,
-    data.value as property_value,
-    IFNULL(band.band_id, 1) as band,
-    COALESCE(date_from.date, nested_object.date_from) as date_from,
-    COALESCE(date_to.date, nested_object.date_to) as date_to,
-    COALESCE(memo.value, nested_object.memo) as memo,
+    data.value AS property_value,
+    IFNULL(band.band_id, 1) AS band,
+    COALESCE(date_from.date, nested_object.date_from) AS date_from,
+    COALESCE(date_to.date, nested_object.date_to) AS date_to,
+    COALESCE(memo.value, nested_object.memo) AS memo,
     COALESCE(scenario.name, nested_object.scenario) AS scenario,
     MAX(CASE WHEN tag_object_class.name = 'Scenario' THEN tag_object.name END) AS scenario_tag,
     MAX(CASE WHEN tag_object_class.name = 'Variable' THEN tag_object.name END) AS var_tag,
@@ -115,22 +115,22 @@ LEFT JOIN t_tag AS tag ON
     data.data_id = tag.data_id
 LEFT JOIN t_object AS tag_object ON
     tag_object.object_id = tag.object_id
-LEFT JOIN t_class as tag_object_class ON
+LEFT JOIN t_class AS tag_object_class ON
     tag_object.class_id = tag_object_class.class_id
-LEFT JOIN t_action as action ON
+LEFT JOIN t_action AS action ON
     action.action_id = tag.action_id
 -- backtrack to bring in the variable object 
 LEFT JOIN t_membership AS VAR_tag_obj_mem ON
     VAR_tag_obj_mem.child_object_id = tag_object.object_id
-LEFT JOIN t_data as VAR_tag_obj_data ON
+LEFT JOIN t_data AS VAR_tag_obj_data ON
     VAR_tag_obj_mem.membership_id = VAR_tag_obj_data.membership_id
-LEFT JOIN t_tag as VAR_tag_obj_data_tag ON
+LEFT JOIN t_tag AS VAR_tag_obj_data_tag ON
     VAR_tag_obj_data.data_id = VAR_tag_obj_data_tag.data_id
 LEFT JOIN t_membership AS VAR_MEM_BASE ON
     VAR_tag_obj_data_tag.object_id = VAR_MEM_BASE.child_object_id
-LEFT JOIN t_data as VAR_BASE ON
+LEFT JOIN t_data AS VAR_BASE ON
     VAR_MEM_BASE.membership_id = VAR_BASE.membership_id
-LEFT JOIN t_text as VAR_TEXT ON
+LEFT JOIN t_text AS VAR_TEXT ON
     VAR_BASE.data_id = VAR_TEXT.data_id
 GROUP BY
     class_parent.class_id,
