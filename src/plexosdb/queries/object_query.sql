@@ -19,18 +19,11 @@ tag_cte AS (
         obj.object_id,
         obj.name AS nested_object_name,
         prop.name AS nested_property_name,
-        text.value AS nested_text,
-        d.data_id AS t_data_id,
-        d.value,
         tag.data_id AS tag_data_id,
         date_from.date AS date_from,
         date_to.date AS date_to,
         memo.value AS memo,
-        scenario.name AS scenario,
-        text.class_id AS text_class_id,
-        text.action_id AS text_action_id,
-        class_text.name AS class_text_name,
-        action.action_symbol AS action_symbol
+        scenario.name AS scenario
     FROM
         t_membership AS mem
     LEFT JOIN t_data AS d ON
@@ -49,10 +42,6 @@ tag_cte AS (
         mem.child_object_id = obj.object_id
     INNER JOIN t_tag AS tag ON
         tag.object_id = obj.object_id
-    LEFT JOIN t_class AS class_text ON
-        text.class_id = class_text.class_id
-    LEFT JOIN t_action AS action ON
-        text.action_id = action.action_id
     LEFT JOIN scenario_cte AS scenario ON
         d.data_id = scenario.data_id
 )
