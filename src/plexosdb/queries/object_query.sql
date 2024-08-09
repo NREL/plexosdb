@@ -3,13 +3,16 @@ WITH scenario_cte AS (
         obj.name,
         obj.object_id,
         tag.data_id,
-        mem.collection_id
+        mem.collection_id,
+        cat.name as category_name
     FROM
         t_membership AS mem
     INNER JOIN t_tag AS tag ON
         tag.object_id = mem.child_object_id
     INNER JOIN t_object AS obj ON
         mem.child_object_id = obj.object_id
+    LEFT JOIN t_category AS cat ON
+    	obj.category_id = cat.category_id
     WHERE
         mem.child_class_id = 78
         AND mem.collection_id IN (1, 698, 706, 701) -- Collections belong to scenarios
@@ -131,6 +134,7 @@ where var_tag_obj_class IN ('Data File', 'Variable')
 SELECT
     mem.membership_id,
     mem.parent_object_id AS parent_object_id,
+    parent_object.name AS parent_object_name,
     class_parent.name AS parent_class,
     class_child.name AS child_class,
     cat.name AS category,
@@ -143,6 +147,7 @@ SELECT
     COALESCE(date_from.date, nested_object_df.date_from) AS date_from,
     COALESCE(date_to.date, nested_object_df.date_to) AS date_to,
     COALESCE(memo.value, nested_object_df.memo) AS memo,
+    scenario.category_name as scenario_category,
     COALESCE(scenario.name, nested_object_df.scenario) AS scenario,
     nested_variable_object.action_symbol as action_symbol,
 	nested_object_df.tagged_object_name as data_file_tag,
@@ -155,6 +160,8 @@ FROM
     t_membership AS mem
 LEFT JOIN t_class AS class_parent ON
     mem.parent_class_id = class_parent.class_id
+LEFT JOIN t_object AS parent_object ON
+	mem.parent_object_id = parent_object.object_id
 LEFT JOIN t_object AS child_obj ON -- generator objects
     child_obj.object_id = mem.child_object_id
 LEFT JOIN t_class AS class_child ON
@@ -187,9 +194,3 @@ LEFT JOIN tag_cte AS nested_variable_object ON
 LEFT JOIN text_cte AS nested_object_ts ON
     data.data_id = nested_object_ts.parent_object_data_id
 	AND nested_object_ts.text_class_type = 'Timeslice'
-
-    
-    
-    
-    
-    
