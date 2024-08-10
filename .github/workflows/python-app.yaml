@@ -13,7 +13,7 @@ jobs:
   pytest:
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12"]
         os: [ubuntu-latest, windows-latest]
 
     steps:
