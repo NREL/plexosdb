@@ -1,6 +1,7 @@
 """Plexos model enums that define the data schema."""
 
-from enum import Enum, IntEnum, StrEnum
+from enum import Enum, StrEnum
+
 
 class Schema(Enum):
     """Enum that defines the Plexos Schema."""
@@ -42,6 +43,7 @@ class Schema(Enum):
 
 class ClassEnum(StrEnum):
     """Enum that defines the different Plexos classes."""
+
     System = "System"
     Generator = "Generator"
     Fuel = "Fuel"
@@ -73,8 +75,10 @@ class ClassEnum(StrEnum):
 
 plexos_class_mapping = {enum_member.name: enum_member.value for enum_member in ClassEnum}
 
+
 class CollectionEnum(StrEnum):
     """Enum that defines the different Plexos colections via Collection Name."""
+
     Generators = "Generators"
     Fuels = "Fuels"
     HeadStorage = "HeadStorage"
@@ -107,7 +111,6 @@ class CollectionEnum(StrEnum):
     Diagnostic = "Diagnostic"
     Performance = "Performance"
     DataFiles = "DataFiles"
-
 
 
 def str2enum(string, schema_enum=Schema) -> Schema | None:

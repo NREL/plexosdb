@@ -35,7 +35,7 @@ dev = [
     "bump2version",
     "ipython",
     "pudb",
-    "mypy",
+    "mypy~=1.11.0",
     "pre-commit",
     "pytest",
     "pytest-cov",
@@ -89,7 +89,6 @@ exclude = [
 select = [
     "E",   # pycodestyle
     "TD",  # flake-8 todos
-    "PD",  # pandas vet
     "RUF", # Ruff rules
     "N",   # pep8
     "F",   # pyflakes

@@ -76,8 +76,6 @@ class PlexosSQLite:
         -----
         By default, we add all objects to the system membership.
         """
-        # TODO(ktehranchi): Get class_id from class name
-        # https://github.com/NREL/plexosdb/issues/4
         object_id = self.get_id(Schema.Objects, object_name, class_id=object_class)
         attribute_id = self.get_id(Schema.Attributes, attribute_name, class_id=attribute_class)
 
@@ -579,11 +577,6 @@ class PlexosSQLite:
         """
         class_id = self.query("select class_id from t_class where name = ?", (object_class.name,))
 
-        if not class_id:
-            msg = f"Object class {object_class=} not found on the database. Check that Class exists."
-            raise KeyError(msg)
-        class_id = class_id[0][0]  # Taking the first match
-
         object_ids = tuple(
             self.get_id(Schema.Objects, object_name, class_id=class_id) for object_name in object_names
         )
@@ -619,7 +612,7 @@ class PlexosSQLite:
             parent_class = object_class
         if collection:
             query_string += (
-                f"AND parent_class.name = '{parent_class.value}' AND collections.name = '{collection.value}'"
+                f"and parent_class.name = '{parent_class.value}' and collections.name = '{collection.value}'"
             )
             # query_string += f"and mem.collection_id = {collection.value}"
         try:
