@@ -76,8 +76,8 @@ class PlexosSQLite:
         -----
         By default, we add all objects to the system membership.
         """
-
-        # TODO: Get class_id from class name
+        # TODO(ktehranchi): Get class_id from class name
+        # https://github.com/NREL/plexosdb/issues/4
         object_id = self.get_id(Schema.Objects, object_name, class_id=object_class)
         attribute_id = self.get_id(Schema.Attributes, attribute_name, class_id=attribute_class)
 
@@ -536,19 +536,57 @@ class PlexosSQLite:
 
     def get_memberships(
         self,
-        *object_names,
+        *object_names: list[str],
         object_class: ClassEnum,
         parent_class: ClassEnum | None = None,
         collection: CollectionEnum | None = None,
-    ):
-        """Return all memberships for the given object except the system membership.
+    ) -> list[tuple]:
+        """Retrieve all memberships for the given object except the system membership.
 
-        This function returns a list of tuples of memberships listed as follow:
-            - [(parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id)]
+        This function returns a list of tuples representing memberships, which can be filtered by
+        `parent_class` and `collection` if specified.
+
+        Parameters
+        ----------
+        object_names
+            Name of the objects to get their memberships
+        object_class
+            Class of the objects
+        parent_class, Optional
+            Class of the parent object. Used to filter memberships by `parent_class_id`
+        collection, Optional
+            Collection of the memberships. Used to filter memberships by `collection_id`
+
+        Returns
+        -------
+        list of tuple
+            A list of tuples representing memberships. Each tuple is structured as:
+            (parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id).
+
+        Raises
+        ------
+        KeyError
+            If any of the `object_names` do not exist or if the `object_class` is invalid.
+        sqlite3.OperationalError
+            If there is an error in executing the SQL query.
+
+        Examples
+        --------
+        >>> db = PlexosSQLite("2-bus_example.xml")
+        >>> memberships = db.get_memberships("SolarPV_01", "ThermalCC", object_class=ClassEnum.Generators)
+        >>> print(memberships)
+        [(parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id)]
         """
-        class_id = self.query("select class_id from t_class where name = ?", (object_class.name,))[0][0]
+        class_id = self.query("select class_id from t_class where name = ?", (object_class.name,))
 
-        object_ids = tuple(self.get_id(Schema.Objects, object_name, class_id=class_id) for object_name in object_names)
+        if not class_id:
+            msg = f"Object class {object_class=} not found on the database. Check that Class exists."
+            raise KeyError(msg)
+        class_id = class_id[0][0]  # Taking the first match
+
+        object_ids = tuple(
+            self.get_id(Schema.Objects, object_name, class_id=class_id) for object_name in object_names
+        )
         if not object_ids:
             raise KeyError(f"Objects {object_names=} not found on the database. Check that they exists.")
         query_string = """
@@ -571,16 +609,18 @@ class PlexosSQLite:
         """
         if len(object_ids) == 1:
             query_string += (
-                f"and (child_object.object_id = {object_ids[0]} or parent_object.object_id = {object_ids[0]})"
+                f"AND (child_object.object_id = {object_ids[0]} OR parent_object.object_id = {object_ids[0]})"
             )
         else:
             query_string += (
-                f"and (child_object.object_id in {object_ids} or parent_object.object_id in {object_ids})"
+                f"AND (child_object.object_id in {object_ids} OR parent_object.object_id in {object_ids})"
             )
         if not parent_class:
             parent_class = object_class
         if collection:
-            query_string += f"and parent_class.name = '{parent_class.value}' and collections.name = '{collection.value}'"
+            query_string += (
+                f"AND parent_class.name = '{parent_class.value}' AND collections.name = '{collection.value}'"
+            )
             # query_string += f"and mem.collection_id = {collection.value}"
         try:
             result = self.query(query_string)
