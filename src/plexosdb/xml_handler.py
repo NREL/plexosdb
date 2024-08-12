@@ -24,8 +24,8 @@ class XMLHandler:
         self.namespace = namespace
         self.model = model
         self.in_memory = in_memory
-        self._cache = {}
-        self._counts = {}
+        self._cache: dict = {}
+        self._counts: dict = {}
 
         # Parse the XML using bare ElementTree
         self.tree = ET.parse(fpath)
@@ -65,7 +65,7 @@ class XMLHandler:
         return list(
             map(
                 lambda element: {
-                    rename_dict.get(e.tag, e.tag): validate_string(e.text)
+                    rename_dict.get(e.tag, e.tag): validate_string(e.text)  # type: ignore
                     for e in element.iter()
                     if e.tag != element_enum.name
                 },
@@ -209,7 +209,7 @@ class XMLHandler:
         """
         xpath_query = xml_query(element_type, *elements, **tag_elements)
         logger.trace("{}", xpath_query)
-        elements = self.root.findall(xpath_query)
+        elements = self.root.findall(xpath_query)  # type: ignore
         yield from elements
 
     @lru_cache

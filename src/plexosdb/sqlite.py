@@ -271,7 +271,7 @@ class PlexosSQLite:
         if scenario:
             scenario_id = self.get_id(Schema.Objects, scenario, class_id=ClassEnum.Scenario)
             if scenario_id is None:
-                scenario_id = self.add_object(scenario, ClassEnum.Scenario, CollectionEnum.SystemScenarios)
+                scenario_id = self.add_object(scenario, ClassEnum.Scenario, CollectionEnum.Scenario)
 
             self.execute_query("INSERT into t_tag(object_id,data_id) values (?,?)", (scenario_id, data_id))
 
@@ -503,7 +503,7 @@ class PlexosSQLite:
         object_name,
         /,
         *,
-        class_id: ClassEnum | None = None,
+        class_id: ClassEnum | int | None = None,
         category_name: str | None = None,
         collection_id: CollectionEnum | None = None,
     ) -> int | None:
@@ -575,7 +575,7 @@ class PlexosSQLite:
         >>> print(memberships)
         [(parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id)]
         """
-        class_id = self.query("select class_id from t_class where name = ?", (object_class.name,))
+        class_id = self.get_id(Schema.Class, object_class.name)
 
         object_ids = tuple(
             self.get_id(Schema.Objects, object_name, class_id=class_id) for object_name in object_names
@@ -626,7 +626,7 @@ class PlexosSQLite:
         """Return scenario id for a given scenario name."""
         scenario_id = self.get_id(Schema.Objects, scenario_name, class_id=ClassEnum.Scenario)
         if scenario_id is None:
-            scenario_id = self.add_object(scenario_name, ClassEnum.Scenario, CollectionEnum.SystemScenarios)
+            scenario_id = self.add_object(scenario_name, ClassEnum.Scenario, CollectionEnum.Scenario)
         return scenario_id
 
     def get_valid_properties(self, collection: CollectionEnum) -> list[str]:
