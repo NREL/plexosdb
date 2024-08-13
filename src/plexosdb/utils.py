@@ -2,10 +2,10 @@
 
 import ast
 from itertools import islice
-from enum import Enum
 from typing import Any
 
 from loguru import logger
+
 
 def batched(iterable, n):
     """Implement batched iterator.
