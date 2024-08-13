@@ -24,6 +24,7 @@ def db(data_folder) -> "PlexosSQLite":
     return PlexosSQLite(xml_fname=data_folder.joinpath(DB_FILENAME))
 
 
+@pytest.mark.skip(reason="Requires master file")
 @pytest.mark.empty_database
 @pytest.mark.parametrize(
     "table_name",
