@@ -85,7 +85,11 @@ SELECT
     VAR_tag_obj_data.data_id,
     VAR_tag_obj_data_tag.object_id,
     COALESCE(tagged_object_text.value, VAR_TEXT.value) as tag_value,
-    action.action_symbol as action_symbol
+    action.action_symbol as action_symbol,
+    CASE 
+        WHEN VAR_tag_obj_class.name IN ('Data File', 'Variable') THEN 'Variable'
+        WHEN VAR_tag_obj_class.name IN ('Scenario') THEN 'Scenario'
+    END AS text_class_type
 FROM
     t_membership AS mem
 INNER JOIN t_object AS obj ON
@@ -129,7 +133,7 @@ LEFT JOIN t_text AS tagged_object_text ON -- Tagged object data text
     tagged_object_text.data_id = VAR_tag_obj_data.data_id
 LEFT JOIN t_class AS tagged_object_text_class ON -- Tagged object data text class
     tagged_object_text.class_id = tagged_object_text_class.class_id
-where var_tag_obj_class IN ('Data File', 'Variable')
+--where var_tag_obj_class IN ('Data File', 'Variable')
 )
 SELECT
     mem.membership_id,
@@ -153,7 +157,7 @@ SELECT
 	nested_object_df.tagged_object_name as data_file_tag,
 	nested_object_df.text_value as data_file,
 	nested_variable_object.tagged_object_name as varible_tag,
-	nested_variable_object.tag_value as variable,
+--	nested_variable_object.tag_value as variable,
 	nested_object_ts.tagged_object_name as timeslice_tag,
 	nested_object_ts.text_value as timeslice
 FROM
@@ -168,7 +172,7 @@ LEFT JOIN t_class AS class_child ON
     mem.child_class_id = class_child.class_id
 LEFT JOIN t_category AS cat ON  -- gen category
     child_obj.category_id = cat.category_id
----------- property data -----------------------
+-------- property data -----------------------
 LEFT JOIN t_data AS data ON 
     data.membership_id = mem.membership_id
 LEFT JOIN t_memo_data AS memo ON
@@ -191,6 +195,7 @@ LEFT JOIN text_cte AS nested_object_df ON
 	AND nested_object_df.text_class_type = 'Data File'
 LEFT JOIN tag_cte AS nested_variable_object ON
 	data.data_id = nested_variable_object.parent_object_data_id
+	AND nested_variable_object.text_class_type IN('Variable', 'Data File')
 LEFT JOIN text_cte AS nested_object_ts ON
     data.data_id = nested_object_ts.parent_object_data_id
 	AND nested_object_ts.text_class_type = 'Timeslice'
