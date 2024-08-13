@@ -38,7 +38,7 @@ text_cte AS (
     FROM
         t_membership AS mem
     INNER JOIN t_object AS obj ON
-        mem.child_object_id = obj.object_id -- for pulling names of gens
+        mem.child_object_id = obj.object_id
     LEFT JOIN t_data AS base_gen_data ON
         mem.membership_id = base_gen_data.membership_id
     LEFT JOIN t_property AS prop ON
@@ -77,33 +77,17 @@ SELECT
     obj.object_id,
     obj.name AS nested_object_name,
     prop.name AS nested_property_name,
-    memo.value AS memo,
     tagged_object.name as tagged_object_name,
-    tagged_object_class.name as tagged_obj_class ,
-    VAR_tag_obj.name as var_tag_obj_name,
-    VAR_tag_obj_class.name as var_tag_obj_class,
-    VAR_tag_obj_data.data_id,
-    VAR_tag_obj_data_tag.object_id,
-    COALESCE(tagged_object_text.value, VAR_TEXT.value) as tag_value,
-    action.action_symbol as action_symbol,
-    CASE 
-        WHEN VAR_tag_obj_class.name IN ('Data File', 'Variable') THEN 'Variable'
-        WHEN VAR_tag_obj_class.name IN ('Scenario') THEN 'Scenario'
-    END AS text_class_type
+    tagged_object_class.name AS tagged_obj_class_name,
+    action.action_symbol as action_symbol
 FROM
     t_membership AS mem
 INNER JOIN t_object AS obj ON
-    mem.child_object_id = obj.object_id -- for pulling names of gens
+    mem.child_object_id = obj.object_id
 LEFT JOIN t_data AS base_gen_data ON
     mem.membership_id = base_gen_data.membership_id
 LEFT JOIN t_property AS prop ON
     prop.property_id = base_gen_data.property_id
-LEFT JOIN t_memo_data AS memo ON
-    memo.data_id = base_gen_data.data_id
-LEFT JOIN t_date_from AS date_from ON
-    base_gen_data.data_id = date_from.data_id
-LEFT JOIN t_date_to AS date_to ON
-    base_gen_data.data_id = date_to.data_id
 INNER JOIN t_tag AS tag ON
     tag.data_id = base_gen_data.data_id
 LEFT JOIN t_object AS tagged_object ON
@@ -112,28 +96,7 @@ LEFT JOIN t_class AS tagged_object_class ON
     tagged_object.class_id = tagged_object_class.class_id
 LEFT JOIN t_action AS action ON
     action.action_id = tag.action_id
--- backtrack to bring in the variable object 
-INNER JOIN t_membership AS VAR_tag_obj_mem ON
-    VAR_tag_obj_mem.child_object_id = tagged_object.object_id
-INNER JOIN t_data AS VAR_tag_obj_data ON
-    VAR_tag_obj_mem.membership_id = VAR_tag_obj_data.membership_id
-LEFT JOIN t_tag AS VAR_tag_obj_data_tag ON
-    VAR_tag_obj_data.data_id = VAR_tag_obj_data_tag.data_id
-LEFT JOIN t_object AS VAR_tag_obj ON
-    VAR_tag_obj_data_tag.object_id = VAR_tag_obj.object_id
-LEFT JOIN t_class AS VAR_tag_obj_class on
-	VAR_tag_obj.class_id = VAR_tag_obj_class.class_id
-LEFT JOIN t_membership AS VAR_MEM_BASE ON
-    VAR_tag_obj_data_tag.object_id = VAR_MEM_BASE.child_object_id
-LEFT JOIN t_data AS VAR_BASE ON
-    VAR_MEM_BASE.membership_id = VAR_BASE.membership_id
-LEFT JOIN t_text AS VAR_TEXT ON -- Variable text
-    VAR_BASE.data_id = VAR_TEXT.data_id
-LEFT JOIN t_text AS tagged_object_text ON -- Tagged object data text
-    tagged_object_text.data_id = VAR_tag_obj_data.data_id
-LEFT JOIN t_class AS tagged_object_text_class ON -- Tagged object data text class
-    tagged_object_text.class_id = tagged_object_text_class.class_id
---where var_tag_obj_class IN ('Data File', 'Variable')
+WHERE tagged_obj_class_name == "Variable"
 )
 SELECT
     mem.membership_id,
@@ -157,7 +120,6 @@ SELECT
 	nested_object_df.tagged_object_name as data_file_tag,
 	nested_object_df.text_value as data_file,
 	nested_variable_object.tagged_object_name as varible_tag,
---	nested_variable_object.tag_value as variable,
 	nested_object_ts.tagged_object_name as timeslice_tag,
 	nested_object_ts.text_value as timeslice
 FROM
@@ -166,11 +128,11 @@ LEFT JOIN t_class AS class_parent ON
     mem.parent_class_id = class_parent.class_id
 LEFT JOIN t_object AS parent_object ON
 	mem.parent_object_id = parent_object.object_id
-LEFT JOIN t_object AS child_obj ON -- generator objects
+LEFT JOIN t_object AS child_obj ON
     child_obj.object_id = mem.child_object_id
 LEFT JOIN t_class AS class_child ON
     mem.child_class_id = class_child.class_id
-LEFT JOIN t_category AS cat ON  -- gen category
+LEFT JOIN t_category AS cat ON 
     child_obj.category_id = cat.category_id
 -------- property data -----------------------
 LEFT JOIN t_data AS data ON 
@@ -193,9 +155,8 @@ LEFT JOIN scenario_cte AS scenario ON
 LEFT JOIN text_cte AS nested_object_df ON
     data.data_id = nested_object_df.parent_object_data_id
 	AND nested_object_df.text_class_type = 'Data File'
-LEFT JOIN tag_cte AS nested_variable_object ON
-	data.data_id = nested_variable_object.parent_object_data_id
-	AND nested_variable_object.text_class_type IN('Variable', 'Data File')
 LEFT JOIN text_cte AS nested_object_ts ON
     data.data_id = nested_object_ts.parent_object_data_id
 	AND nested_object_ts.text_class_type = 'Timeslice'
+LEFT JOIN tag_cte AS nested_variable_object ON
+	data.data_id = nested_variable_object.parent_object_data_id
