@@ -117,3 +117,8 @@ docstring-code-line-length = "dynamic"
 pythonpath = [
   "src"
 ]
+markers = [
+    "get_functions: Functions that get data",
+    "add_functions: Functions that add data",
+    "empty_database: Functions for test empty database"
+]

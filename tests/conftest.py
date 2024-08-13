@@ -2,6 +2,13 @@ import pytest
 from loguru import logger
 from _pytest.logging import LogCaptureFixture
 
+DATA_FOLDER = "tests/data"
+
+
+@pytest.fixture
+def data_folder(pytestconfig):
+    return pytestconfig.rootpath.joinpath(DATA_FOLDER)
+
 
 @pytest.fixture
 def caplog(caplog: LogCaptureFixture):

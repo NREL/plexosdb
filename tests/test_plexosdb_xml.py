@@ -41,32 +41,33 @@ def test_in_memory_initialization(in_memory):
     assert handler.fpath == XML_FPATH
     assert handler.namespace == NAMESPACE
     elements = list(handler.iter(Schema.Objects))
-    assert len(elements) == 2
+    assert len(elements) == 3
 
 
 def test_cache_construction():
     handler = XMLHandler.parse(fpath=XML_FPATH, in_memory=True)
     assert handler._cache is not None
-    assert len(handler._cache) == 7  # Total number of elements parsed
+    assert len(handler._cache) == 9  # Total number of elements parsed
 
 
 @pytest.mark.parametrize(
-    "class_name,name,expected_id", [(Schema.Class, "System", "1"), (Schema.Objects, "SolarPV01", "2")]
+    "class_name,category,name,expected_id",
+    [(Schema.Class, None, "System", "1"), (Schema.Objects, 2, "SolarPV01", "2")],
 )
-def test_xml_get_id(xml_handler, class_name, name, expected_id):
-    element_id = xml_handler.get_id(class_name, name=name)
+def test_xml_get_id(xml_handler, class_name, category, name, expected_id):
+    element_id = xml_handler.get_id(class_name, name=name, category_id=category)
     assert element_id is not None
     assert element_id == expected_id
 
 
 def test_iter(xml_handler):
     elements = list(xml_handler.iter(Schema.Objects))
-    assert len(elements) == 2
+    assert len(elements) == 3
 
 
 def test_get_records(xml_handler):
     elements = list(xml_handler.get_records(Schema.Objects))
-    assert len(elements) == 2
+    assert len(elements) == 3
     assert elements[0]["class_id"] == 1
     assert elements[0]["name"] == "System"
     assert elements[1]["class_id"] == 2
@@ -98,7 +99,7 @@ def test_get_element_id_returns(xml_handler):
 
 def test_get_max_id(xml_handler):
     max_id = xml_handler.get_max_id(Schema.Objects)
-    assert max_id == 2
+    assert max_id == 3
 
 
 @pytest.mark.parametrize(
