@@ -15,6 +15,7 @@ from .enums import ClassEnum, CollectionEnum, Schema, str2enum
 from .xml_handler import XMLHandler
 
 SYSTEM_CLASS_NAME = "System"
+MASTER_FILE = files("plexosdb").joinpath("master.xml")
 
 
 class PlexosSQLite:
@@ -116,10 +117,6 @@ class PlexosSQLite:
             If the database could not return the category_id from the connection.
         """
         class_id = self._get_id(Schema.Class, class_name.name)
-        if not class_id:
-            msg = f"Class {class_name.name} not found on the database. Check spelling of the class."
-            raise KeyError(msg)
-
         rank_query = f"""
         SELECT
             max(rank)
@@ -286,7 +283,11 @@ class PlexosSQLite:
         parent_class = parent_class or ClassEnum.System
 
         membership_id = self.get_membership_id(
-            object_name, object_class=object_class, parent_class=parent_class, collection=collection
+            child_name=object_name,
+            parent_name=parent_object_name,
+            child_class=object_class,
+            parent_class=parent_class,
+            collection=collection,
         )
 
         sqlite_data = (membership_id, property_id, property_value)
@@ -448,9 +449,6 @@ class PlexosSQLite:
             category_id = self.get_category_id(category_name, class_name=class_name)
 
         class_id = self._get_id(Schema.Class, class_name.name)
-        if not class_id:
-            msg = f"Class {class_name.name} not found on the database. Check spelling of the class."
-            raise KeyError(msg)
 
         params = (object_name, class_id, category_id, str(uuid.uuid4()), description)
         placeholders = ", ".join("?" * len(params))
@@ -766,20 +764,6 @@ class PlexosSQLite:
             query_id += " and child_class_id = :child_class_id"
             params["child_class_id"] = child_class_id
 
-        if collection_name:
-            if not parent_class_name and not class_name:
-                parent_class_name = ClassEnum.System
-            if not child_class_name and class_name:
-                child_class_name = class_name
-            collection_id = self._get_id(
-                Schema.Collection,
-                collection_name.name,
-                parent_class_name=parent_class_name,
-                child_class_name=child_class_name,
-            )
-            query_id += " and collection_id = :collection_id"
-            params["collection_id"] = collection_id
-
         if category_name and class_name:
             category_id = self.get_category_id(category_name, class_name)
             query_id += " and category_id = :category_id"
@@ -792,26 +776,34 @@ class PlexosSQLite:
             raise KeyError(msg)
 
         if len(result) > 1:
-            raise ValueError(
-                f"Multiple ids returned for {object_name} and {class_name}. Try passing addtional filters"
-            )
+            msg = f"Multiple ids returned for {object_name} and {class_name}. Try passing addtional filters"
+            raise ValueError(msg)
         return result[0][0]  # Get first element of tuple
 
     def get_membership_id(
-        self, object_name: str, object_class: ClassEnum, parent_class: ClassEnum, collection: CollectionEnum
+        self,
+        /,
+        *,
+        child_name: str,
+        parent_name: str,
+        child_class: ClassEnum,
+        parent_class: ClassEnum,
+        collection: CollectionEnum,
     ):
         """Return the ID for a given membership.
 
         Parameters
         ----------
-        object_name
-            Name of the object to find.
-        object_class
-            ClassEnum of the class of the category. Used to filter memberships by `class_id`
-        collection
-            The enum collection from which to retrieve the ID.
+        child_name
+            Name of the child to find. Used to filter `child_object_name`.
+        parent_name
+            Name of the parent to find. Used to filter `parent_object_name`.
+        child_class
+            ClassEnum of the parent object. Used to filter memberships by `parent_class_id`.
         parent_class
-            ClassEnum of the parent object. Used to filter memberships by `parent_class_id`
+            ClassEnum of the class of the category. Used to filter memberships by `class_id`.
+        collection
+            The enum collection from which to retrieve the ID. Used to filter by `collection_id`.
 
         Returns
         -------
@@ -825,12 +817,13 @@ class PlexosSQLite:
         ValueError
             If multiple IDs are returned for the given parent/child class provided.
         """
-        child_class_id = self._get_id(Schema.Class, object_class.name)
+        # Get all the ids
+        child_class_id = self._get_id(Schema.Class, child_class.name)
         parent_class_id = self._get_id(Schema.Class, parent_class.name)
-        child_object_id = self.get_object_id(object_name, class_name=object_class)
-        collection_id = self.get_collection_id(
-            collection, child_class=object_class, parent_class=parent_class
-        )
+        child_object_id = self.get_object_id(child_name, class_name=child_class)
+        parent_object_id = self.get_object_id(parent_name, class_name=parent_class)
+        collection_id = self.get_collection_id(collection, child_class=child_class, parent_class=parent_class)
+
         query_id = """
         SELECT
             membership_id
@@ -838,6 +831,8 @@ class PlexosSQLite:
             t_membership
         WHERE
             child_object_id = :child_object_id
+        AND
+            parent_object_id = :parent_object_id
         AND
             parent_class_id = :parent_class_id
         AND
@@ -847,6 +842,7 @@ class PlexosSQLite:
         """
         params = {
             "child_object_id": child_object_id,
+            "parent_object_id": parent_object_id,
             "collection_id": collection_id,
             "child_class_id": child_class_id,
             "parent_class_id": parent_class_id,
@@ -859,7 +855,7 @@ class PlexosSQLite:
 
         if len(result) > 1:
             raise ValueError(
-                f"Multiple ids returned for {object_name} and {object_class}. Try passing addtional filters"
+                f"Multiple ids returned for {parent_name}.{child_name}. Try passing addtional filters"
             )
         return result[0][0]
 
@@ -911,6 +907,7 @@ class PlexosSQLite:
         )
         if not object_ids:
             raise KeyError(f"Objects {object_names=} not found on the database. Check that they exists.")
+
         query_string = """
         SELECT
             mem.parent_class_id,
@@ -922,13 +919,18 @@ class PlexosSQLite:
             collections.name AS collection_name
         FROM
             t_membership as mem
-            INNER JOIN t_object AS parent_object ON mem.parent_object_id = parent_object.object_id
-            INNER JOIN t_object AS child_object ON mem.child_object_id = child_object.object_id
-            LEFT JOIN t_class AS parent_class ON mem.parent_class_id = parent_class.class_id
-            LEFT JOIN t_collection AS collections ON mem.collection_id = collections.collection_id
+        INNER JOIN
+            t_object AS parent_object ON mem.parent_object_id = parent_object.object_id
+        INNER JOIN
+            t_object AS child_object ON mem.child_object_id = child_object.object_id
+        LEFT JOIN
+            t_class AS parent_class ON mem.parent_class_id = parent_class.class_id
+        LEFT JOIN
+            t_collection AS collections ON mem.collection_id = collections.collection_id
         WHERE
             mem.parent_class_id <> 1
         """
+
         if len(object_ids) == 1:
             query_string += (
                 f"AND (child_object.object_id = {object_ids[0]} OR parent_object.object_id = {object_ids[0]})"
@@ -943,13 +945,7 @@ class PlexosSQLite:
             query_string += (
                 f"and parent_class.name = '{parent_class.value}' and collections.name = '{collection.value}'"
             )
-            # query_string += f"and mem.collection_id = {collection.value}"
-        try:
-            result = self.query(query_string)
-        except sqlite3.OperationalError:
-            print(query_string)
-            raise
-        return result
+        return self.query(query_string)
 
     def get_scenario_id(self, scenario_name: str) -> int:
         """Return scenario id for a given scenario name."""
@@ -1143,7 +1139,7 @@ class PlexosSQLite:
     def _populate_database(self, xml_fname: str | None, xml_handler: XMLHandler | None = None):
         fpath = xml_fname
         if fpath is None and not xml_handler:
-            fpath = files("plexosdb").joinpath("master_9.2r6_btu.xml")  # type: ignore
+            fpath = MASTER_FILE  # type: ignore
             logger.debug("Using {} as default file", fpath)
 
         if not xml_handler:

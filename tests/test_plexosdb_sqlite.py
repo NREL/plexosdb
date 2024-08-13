@@ -99,16 +99,55 @@ def test_get_id(db):
     with pytest.raises(KeyError):
         _ = db._get_id(Schema.Class, "NotexistingObject")
 
+    # Test using collection id
+    # collection_id = db._get_id(Schema.Collection, "Generators", collection_name=CollectionEnum.Generators)
+
 
 @pytest.mark.get_functions
 def test_get_collection_id(db):
-    collection_id = db.get_collection_id(CollectionEnum.Generators, parent_class=ClassEnum.System)
-    assert collection_id == 1
+    collection_name = CollectionEnum.Generators
+    parent_class = ClassEnum.System
+    collection_id = db.get_collection_id(collection_name, parent_class=parent_class)
 
-    collection_id = db.get_collection_id(
-        CollectionEnum.Generators, parent_class=ClassEnum.Emission, child_class=ClassEnum.Generator
-    )
-    assert collection_id == 109
+    collection_query = f"""
+    SELECT
+        collection_id
+    FROM
+        t_collection as collection
+    LEFT JOIN
+        t_class AS parent_class ON parent_class.class_id = collection.parent_class_id
+    WHERE
+        collection.name = '{collection_name}'
+    AND
+        parent_class.name = '{parent_class}'
+    """
+
+    collection_id_query = db.query(collection_query)[0][0]
+    assert collection_id == collection_id_query
+
+    collection_name = CollectionEnum.Generators
+    parent_class = ClassEnum.Emission
+    child_class = ClassEnum.Generator
+    collection_id = db.get_collection_id(collection_name, parent_class=parent_class, child_class=child_class)
+
+    collection_query = f"""
+    SELECT
+        collection_id
+    FROM
+        t_collection as collection
+    LEFT JOIN
+        t_class AS parent_class ON parent_class.class_id = collection.parent_class_id
+    LEFT JOIN
+        t_class AS child_class ON child_class.class_id = collection.child_class_id
+    WHERE
+        collection.name = '{collection_name}'
+    AND
+        parent_class.name = '{parent_class}'
+    AND
+        child_class.name = '{child_class}'
+    """
+    collection_id_query = db.query(collection_query)[0][0]
+    assert collection_id == collection_id_query
 
     # Assert that return of multiple collections
     with pytest.raises(ValueError):
@@ -183,13 +222,23 @@ def test_get_memberships(db):
     gen_id = db.add_object(
         gen_02_name, ClassEnum.Generator, CollectionEnum.Generators, description="Test Gen2"
     )
-    db.add_membership(
+    membership_id = db.add_membership(
         gen_02_name,
         node_name,
         parent_class=ClassEnum.Generator,
         child_class=ClassEnum.Node,
         collection=CollectionEnum.Nodes,
     )
+
+    membership_id_check = db.get_membership_id(
+        child_name=node_name,
+        parent_name=gen_02_name,
+        child_class=ClassEnum.Node,
+        parent_class=ClassEnum.Generator,
+        collection=CollectionEnum.Nodes,
+    )
+
+    assert membership_id_check == membership_id
 
     # Get membership for both generators
     memberships = db.get_memberships(gen_01_name, gen_02_name, object_class=ClassEnum.Generator)
@@ -200,6 +249,35 @@ def test_get_memberships(db):
     assert memberships[0][3] == node_name
     assert memberships[1][2] == gen_02_name
     assert memberships[1][3] == node_name
+
+    # Test KeyError from get_membership_id w/o membership
+    gen_03_name = "gen3"
+    gen_id = db.add_object(
+        gen_03_name, ClassEnum.Generator, CollectionEnum.Generators, description="Test Gen3"
+    )
+    with pytest.raises(KeyError):
+        _ = db.get_membership_id(
+            child_name=node_name,
+            parent_name=gen_03_name,
+            child_class=ClassEnum.Node,
+            parent_class=ClassEnum.Generator,
+            collection=CollectionEnum.Nodes,
+        )
+
+
+@pytest.mark.get_functions
+def test_get_property_id(db):
+    property = "F Price"
+    collection = CollectionEnum.Generators
+    collection = CollectionEnum.Generators
+    parent_class = ClassEnum.System
+    child_class = ClassEnum.Generator
+
+    # Test wrong property on get_property
+    with pytest.raises(KeyError):
+        _ = db.get_property_id(
+            property, collection=collection, parent_class=parent_class, child_class=child_class
+        )
 
 
 @pytest.mark.add_functions
@@ -236,6 +314,8 @@ def test_add_category(db):
     result_tuple_1 = result[0]
     result_tuple_2 = result[1]
     assert result_tuple_1[3] != result_tuple_2[3]
+
+    # Test add categorry on wrong
 
 
 @pytest.mark.add_functions
@@ -421,15 +501,22 @@ def test_add_property(db):
     )
     assert data_id
 
-    # Test wrong property
+    # Test wrong property on add_property
     property = "F Price"
     collection = CollectionEnum.Generators
     collection = CollectionEnum.Generators
     parent_class = ClassEnum.System
     child_class = ClassEnum.Generator
     with pytest.raises(KeyError):
-        _ = db.get_property_id(
-            property, collection=collection, parent_class=parent_class, child_class=child_class
+        _ = db.add_property(
+            object_name,
+            property,
+            value,
+            object_class=ClassEnum.Generator,
+            parent_class=ClassEnum.System,
+            collection=collection,
+            text={"Data File": "test.csv"},
+            scenario=scenario,
         )
 
 
@@ -521,4 +608,11 @@ def test_to_xml(db, tmp_path):
     fname = "testing"
     fpath = tmp_path / fname
     db.to_xml(fpath=fpath)
+    assert fpath.exists()
+
+
+def test_save(db, tmp_path):
+    fname = "testing"
+    fpath = tmp_path / fname
+    db.save(fpath=fpath)
     assert fpath.exists()

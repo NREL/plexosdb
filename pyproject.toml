@@ -122,3 +122,8 @@ markers = [
     "add_functions: Functions that add data",
     "empty_database: Functions for test empty database"
 ]
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    ]
