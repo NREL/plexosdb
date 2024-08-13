@@ -4,7 +4,7 @@ WITH scenario_cte AS (
         obj.object_id,
         tag.data_id,
         mem.collection_id,
-        cat.name as category_name
+        cat.name AS category_name
     FROM
         t_membership AS mem
     INNER JOIN t_tag AS tag ON
@@ -19,7 +19,7 @@ WITH scenario_cte AS (
 ),
 text_cte AS (
     SELECT
-        base_gen_data.data_id as parent_object_data_id,
+        base_gen_data.data_id AS parent_object_data_id,
         obj.object_id,
         obj.name AS nested_object_name,
         prop.name AS nested_property_name,
@@ -30,7 +30,7 @@ text_cte AS (
         date_to.date AS date_to,
         text.action_id,        
         tagged_object.name AS tagged_object_name,
-        scenario.name as scenario,
+        scenario.name AS scenario,
         CASE 
             WHEN text_class.name IN ('Data File') THEN 'Data File'
             WHEN text_class.name IN ('Timeslice') THEN 'Timeslice'
@@ -63,9 +63,9 @@ text_cte AS (
         text_tag_obj_mem.child_object_id = tagged_object.object_id
     INNER JOIN t_data AS text_tag_obj_data ON
         text_tag_obj_mem.membership_id = text_tag_obj_data.membership_id
-    INNER JOIN t_text as text ON
+    INNER JOIN t_text AS text ON
         text.data_id = text_tag_obj_data.data_id 
-    LEFT JOIN t_class as text_class on
+    LEFT JOIN t_class AS text_class on
         text.class_id = text_class.class_id
     LEFT JOIN scenario_cte AS scenario ON
         base_gen_data.data_id = scenario.data_id
@@ -73,13 +73,13 @@ text_cte AS (
 ),
 tag_cte AS (
 SELECT
-    base_gen_data.data_id as parent_object_data_id,
+    base_gen_data.data_id AS parent_object_data_id,
     obj.object_id,
     obj.name AS nested_object_name,
     prop.name AS nested_property_name,
-    tagged_object.name as tagged_object_name,
+    tagged_object.name AS tagged_object_name,
     tagged_object_class.name AS tagged_obj_class_name,
-    action.action_symbol as action_symbol
+    action.action_symbol AS action_symbol
 FROM
     t_membership AS mem
 INNER JOIN t_object AS obj ON
@@ -114,14 +114,14 @@ SELECT
     COALESCE(date_from.date, nested_object_df.date_from) AS date_from,
     COALESCE(date_to.date, nested_object_df.date_to) AS date_to,
     COALESCE(memo.value, nested_object_df.memo) AS memo,
-    scenario.category_name as scenario_category,
+    scenario.category_name AS scenario_category,
     COALESCE(scenario.name, nested_object_df.scenario) AS scenario,
-    nested_variable_object.action_symbol as action_symbol,
-	nested_object_df.tagged_object_name as data_file_tag,
-	nested_object_df.text_value as data_file,
-	nested_variable_object.tagged_object_name as varible_tag,
-	nested_object_ts.tagged_object_name as timeslice_tag,
-	nested_object_ts.text_value as timeslice
+    nested_variable_object.action_symbol AS action_symbol,
+	nested_object_df.tagged_object_name AS data_file_tag,
+	nested_object_df.text_value AS data_file,
+	nested_variable_object.tagged_object_name AS varible_tag,
+	nested_object_ts.tagged_object_name AS timeslice_tag,
+	nested_object_ts.text_value AS timeslice
 FROM
     t_membership AS mem
 LEFT JOIN t_class AS class_parent ON
