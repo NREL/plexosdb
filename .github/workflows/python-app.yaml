@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  pytest:
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip" # caching pip dependencies
+
+      - name: Installing dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[dev]'
+      - name: Running package tests
+        run: |
+          python -m pytest -vvl
+
+      # - name: Coverage comment
+      #   id: coverage_comment
+      #   uses: py-cov-action/python-coverage-comment-action@v3
+      #   with:
+      #     GITHUB_TOKEN: ${{ github.token }}
+      #
+      # - name: Store Pull Request comment to be posted
+      #   uses: actions/upload-artifact@v4
+      #   if: steps.coverage_comment.outputs.COMMENT_FILE_WRITTEN == 'true'
+      #   with:
+      #     name: python-coverage-comment-action
+      #     path: python-coverage-comment-action.txt
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11" # We only run ruff on 3.11
+      - name: Installing dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[dev]'
+      - uses: pre-commit/action@v3.0.1
+
+  mypy:
+    runs-on: ubuntu-latest
+    name: "mypy"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11" # We only run mypy on 3.11
+          cache: "pip" # caching pip dependencies
+      - name: Installing dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[dev]'
+      - name: Run mypy
+        run: |
+          mypy --config-file=pyproject.toml src/
+
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11" # We only run mypy on 3.11
+          cache: "pip" # caching pip dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[dev]'
+      # Update output format to enable automatic inline annotations.
+      - name: Run Ruff
+        run: ruff check --output-format=github src/
