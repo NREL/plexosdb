@@ -31,4 +31,4 @@ repos:
         types: [python]
         args: [--config-file=pyproject.toml, ./src/plexosdb]
         pass_filenames: false
-        # language: system
+        language: system

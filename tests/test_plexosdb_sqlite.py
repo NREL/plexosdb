@@ -6,22 +6,20 @@ from plexosdb.sqlite import PlexosSQLite
 DB_FILENAME = "plexosdb.xml"
 
 
-@pytest.fixture(scope="module")
+@pytest.mark.skip(reason="Requires master file")
 def db_empty() -> "PlexosSQLite":
     return PlexosSQLite()
-
-
-def test_database_initialization():
-    db = PlexosSQLite()
-
-    assert isinstance(db, PlexosSQLite)
-    assert db.DB_FILENAME == "plexos.db"
-    assert db._conn
 
 
 @pytest.fixture
 def db(data_folder) -> "PlexosSQLite":
     return PlexosSQLite(xml_fname=data_folder.joinpath(DB_FILENAME))
+
+
+def test_database_initialization(db):
+    assert isinstance(db, PlexosSQLite)
+    assert db.DB_FILENAME == "plexos.db"
+    assert db._conn
 
 
 @pytest.mark.skip(reason="Requires master file")
