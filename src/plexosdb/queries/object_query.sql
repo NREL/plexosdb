@@ -28,10 +28,10 @@ text_cte AS (
         text_class.name ,
         date_from.date AS date_from,
         date_to.date AS date_to,
-        text.action_id,        
+        text.action_id,
         tagged_object.name AS tagged_object_name,
         scenario.name AS scenario,
-        CASE 
+        CASE
             WHEN text_class.name IN ('Data File') THEN 'Data File'
             WHEN text_class.name IN ('Timeslice') THEN 'Timeslice'
         END AS text_class_type
@@ -58,13 +58,13 @@ text_cte AS (
         tagged_object.class_id = tagged_object_class.class_id
     LEFT JOIN t_action AS action ON
         action.action_id = tag.action_id
-    -- bring in the text object 
+    -- bring in the text object
     INNER JOIN t_membership AS text_tag_obj_mem ON
         text_tag_obj_mem.child_object_id = tagged_object.object_id
     INNER JOIN t_data AS text_tag_obj_data ON
         text_tag_obj_mem.membership_id = text_tag_obj_data.membership_id
     INNER JOIN t_text AS text ON
-        text.data_id = text_tag_obj_data.data_id 
+        text.data_id = text_tag_obj_data.data_id
     LEFT JOIN t_class AS text_class on
         text.class_id = text_class.class_id
     LEFT JOIN scenario_cte AS scenario ON
@@ -132,10 +132,10 @@ LEFT JOIN t_object AS child_obj ON
     child_obj.object_id = mem.child_object_id
 LEFT JOIN t_class AS class_child ON
     mem.child_class_id = class_child.class_id
-LEFT JOIN t_category AS cat ON 
+LEFT JOIN t_category AS cat ON
     child_obj.category_id = cat.category_id
 -------- property data -----------------------
-LEFT JOIN t_data AS data ON 
+LEFT JOIN t_data AS data ON
     data.membership_id = mem.membership_id
 LEFT JOIN t_memo_data AS memo ON
     memo.data_id = data.data_id
