@@ -1,6 +1,7 @@
 name: changelog
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -16,4 +17,15 @@ jobs:
 
       - name: Run git-cliff
         uses: tj-actions/git-cliff@v1
-        output: CHANGELOG.md
+        with:
+          output: "CHANGELOG.md"
+
+      - name: Commit and Push Changelog
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          set +e
+          git add CHANGELOG.md
+          git commit -m "chore: update changelog"
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git "main"
