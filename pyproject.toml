@@ -13,7 +13,7 @@ authors = [
     { name = "Kodi Obika", email = "kodi.obika@nrel.gov" },
 ]
 maintainers = [
-  { name = "Pedro Andres Sanchez Perez", email = "psanchez@nrel.gov" },
+    { name = "Pedro Andres Sanchez Perez", email = "psanchez@nrel.gov" },
     { name = "Kodi Obika", email = "kodi.obika@nrel.gov" },
 ]
 description = "SQLite API for plexos XMLs"
@@ -27,6 +27,7 @@ requires-python = ">= 3.11"
 Documentation = "https://github.com/NREL/plexosdb#readme"
 Issues = "https://github.com/NREL/plexosdb/issues"
 Source = "https://github.com/NREL/plexosdb"
+Changelog = "https://github.com/NREL/plexosdb/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
 all = ["plexosdb[docs,dev]"]
