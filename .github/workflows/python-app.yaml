@@ -11,7 +11,7 @@ permissions:
 env:
   DEFAULT_PYTHON: "3.12"
   DEFAULT_OS: ubuntu-latest
-  
+
 jobs:
   pytest:
     strategy:
@@ -35,7 +35,7 @@ jobs:
       - name: Running package tests
         run: |
           python -m pytest -vvl
-          
+
       - name: codecov
         uses: codecov/codecov-action@v4.2.0
         if: ${{ matrix.os == env.DEFAULT_OS && matrix.python-version == env.DEFAULT_PYTHON  }}
@@ -44,13 +44,13 @@ jobs:
           name: plexosdb-test
           fail_ci_if_error: false
           verbose: true
-        
+
       - name: Coverage comment
         id: coverage_comment
         uses: py-cov-action/python-coverage-comment-action@v3
         with:
           GITHUB_TOKEN: ${{ github.token }}
-      
+
       - name: Store Pull Request comment to be posted
         uses: actions/upload-artifact@v4
         if: steps.coverage_comment.outputs.COMMENT_FILE_WRITTEN == 'true'
