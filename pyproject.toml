@@ -6,20 +6,28 @@ build-backend = "setuptools.build_meta"
 name = "plexosdb"
 version = "0.0.1"
 readme = "README.md"
+license = {file = "LICENSE"}
 keywords = []
 authors = [
     { name = "Pedro Andres Sanchez Perez", email = "psanchez@nrel.gov" },
     { name = "Kodi Obika", email = "kodi.obika@nrel.gov" },
 ]
-description = "Coming soon"
+maintainers = [
+    { name = "Pedro Andres Sanchez Perez", email = "psanchez@nrel.gov" },
+    { name = "Kodi Obika", email = "kodi.obika@nrel.gov" },
+]
+description = "SQLite API for plexos XMLs"
 dependencies = [
     "loguru~=0.7.2",
 ]
+requires-python = ">= 3.11"
+
 
 [project.urls]
 Documentation = "https://github.com/NREL/plexosdb#readme"
 Issues = "https://github.com/NREL/plexosdb/issues"
 Source = "https://github.com/NREL/plexosdb"
+Changelog = "https://github.com/NREL/plexosdb/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
 all = ["plexosdb[docs,dev]"]
