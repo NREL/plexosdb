@@ -16,11 +16,11 @@ maintainers = [
   { name = "Pedro Andres Sanchez Perez", email = "psanchez@nrel.gov" },
     { name = "Kodi Obika", email = "kodi.obika@nrel.gov" },
 ]
-description = "Coming soon"
+description = "SQLite API for plexos XMLs"
 dependencies = [
     "loguru~=0.7.2",
 ]
-requires-python = ">= 3.8"
+requires-python = ">= 3.11"
 
 
 [project.urls]
