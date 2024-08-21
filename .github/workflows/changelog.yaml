@@ -1,7 +1,7 @@
 name: changelog
 
 on:
-  merges:
+  push:
     branches:
       - main
 jobs:
