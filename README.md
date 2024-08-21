@@ -30,7 +30,7 @@ pre-commit install
 
 ## License
 
-plexosdb is released under a BSD 3-Clause
+plexosdb is released under a BSD-3-Clause
 [License](https://github.com/NREL/plexosdb/blob/main/LICENSE.txt).
 
 plexosdb was developed under software record SWR-24-90 at the National Renewable Energy Laboratory
