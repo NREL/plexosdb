@@ -6,15 +6,22 @@ build-backend = "setuptools.build_meta"
 name = "plexosdb"
 version = "0.0.1"
 readme = "README.md"
+license = {file = "LICENSE"}
 keywords = []
 authors = [
     { name = "Pedro Andres Sanchez Perez", email = "psanchez@nrel.gov" },
+    { name = "Kodi Obika", email = "kodi.obika@nrel.gov" },
+]
+maintainers = [
+  { name = "Pedro Andres Sanchez Perez", email = "psanchez@nrel.gov" },
     { name = "Kodi Obika", email = "kodi.obika@nrel.gov" },
 ]
 description = "Coming soon"
 dependencies = [
     "loguru~=0.7.2",
 ]
+requires-python = ">= 3.8"
+
 
 [project.urls]
 Documentation = "https://github.com/NREL/plexosdb#readme"
