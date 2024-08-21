@@ -34,7 +34,7 @@ jobs:
           python -m pip install '.[dev]'
       - name: Running package tests
         run: |
-          python -m pytest -vvl
+          python -m pytest -vvl --cov --cov-report=xml
 
       - name: codecov
         uses: codecov/codecov-action@v4.2.0
