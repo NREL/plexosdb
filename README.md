@@ -1,8 +1,7 @@
 ### plexosdb
 > SQLite interface for Plexos XML
 
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)[![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)]
-
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) ![PyPI - License](https://img.shields.io/pypi/l/plexosdb) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/plexosdb)
 
 <br/>
 <br/>
