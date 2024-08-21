@@ -16,5 +16,4 @@ jobs:
 
       - name: Run git-cliff
         uses: tj-actions/git-cliff@v1
-        inputs:
-          output: CHANGELOG.md
+        output: CHANGELOG.md
