@@ -1,6 +1,6 @@
 ### plexosdb
 > SQLite interface for Plexos XML
-> 
+>
 [![image](https://img.shields.io/pypi/v/plexosdb.svg)](https://pypi.python.org/pypi/plexosdb)
 [![image](https://img.shields.io/pypi/l/plexosdb.svg)](https://pypi.python.org/pypi/plexosdb)
 [![image](https://img.shields.io/pypi/pyversions/plexosdb.svg)](https://pypi.python.org/pypi/plexosdb)
