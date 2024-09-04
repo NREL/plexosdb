@@ -1,6 +1,4 @@
-<img width="1271" alt="image" src="https://github.com/user-attachments/assets/7626bf12-5144-4c99-8fa4-23a48650be53">### plexosdb
-> Database Manager for use with PLEXOS XML files
->
+### Database Manager for use with PLEXOS XML files
 [![image](https://img.shields.io/pypi/v/plexosdb.svg)](https://pypi.python.org/pypi/plexosdb)
 [![image](https://img.shields.io/pypi/l/plexosdb.svg)](https://pypi.python.org/pypi/plexosdb)
 [![image](https://img.shields.io/pypi/pyversions/plexosdb.svg)](https://pypi.python.org/pypi/plexosdb)
@@ -29,10 +27,10 @@ pre-commit install
 
 ## License
 
-plexosdb is released under a BSD-3-Clause
+This software is released under a BSD-3-Clause
 [License](https://github.com/NREL/plexosdb/blob/main/LICENSE.txt).
 
-plexosdb was developed under software record SWR-24-90 at the National Renewable Energy Laboratory
+This software was developed under software record SWR-24-90 at the National Renewable Energy Laboratory
 ([NREL](https://www.nrel.gov)).
 
 
