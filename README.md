@@ -1,5 +1,5 @@
-### plexosdb
-> SQLite interface for Plexos XML
+<img width="1271" alt="image" src="https://github.com/user-attachments/assets/7626bf12-5144-4c99-8fa4-23a48650be53">### plexosdb
+> Database Manager for use with PLEXOS XML files
 >
 [![image](https://img.shields.io/pypi/v/plexosdb.svg)](https://pypi.python.org/pypi/plexosdb)
 [![image](https://img.shields.io/pypi/l/plexosdb.svg)](https://pypi.python.org/pypi/plexosdb)
@@ -34,3 +34,8 @@ plexosdb is released under a BSD-3-Clause
 
 plexosdb was developed under software record SWR-24-90 at the National Renewable Energy Laboratory
 ([NREL](https://www.nrel.gov)).
+
+
+## Disclaimer
+
+PLEXOS® is a registered trademark of Energy Exemplar Pty Ltd ("Owner"). Owner has no affiliation to or participation in this software. Reference herein to any specific commercial products, process, or service by trade name, trademark, manufacturer, or otherwise, does not necessarily constitute or imply its endorsement, recommendation, or favoring by the United States Government or Alliance for Sustainable Energy, LLC ("Alliance"). The views and opinions of authors expressed in the available or referenced documents do not necessarily state or reflect those of the United States Government or Alliance. 
