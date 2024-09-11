@@ -161,4 +161,4 @@ LEFT JOIN text_cte AS nested_object_ts ON
     data.data_id = nested_object_ts.parent_object_data_id
 	AND nested_object_ts.text_class_type = 'Timeslice'
 LEFT JOIN tag_cte AS nested_variable_object ON
-	data.data_id = nested_variable_object.parent_object_data_id 
+	data.data_id = nested_variable_object.parent_object_data_id
