@@ -31,6 +31,7 @@ text_cte AS (
         text.action_id,
         tagged_object.name AS tagged_object_name,
         scenario.name AS scenario,
+        text_tag_obj_data.value AS base_value,
         CASE
             WHEN text_class.name IN ('Data File') THEN 'Data File'
             WHEN text_class.name IN ('Timeslice') THEN 'Timeslice'
@@ -121,7 +122,8 @@ SELECT
 	nested_object_df.text_value AS data_file,
 	nested_variable_object.tagged_object_name AS varible_tag,
 	nested_object_ts.tagged_object_name AS timeslice_tag,
-	nested_object_ts.text_value AS timeslice
+	nested_object_ts.text_value AS timeslice,
+	nested_object_ts.base_value AS timeslice_base_value
 FROM
     t_membership AS mem
 LEFT JOIN t_class AS class_parent ON
