@@ -57,7 +57,7 @@ class ClassEnum(StrEnum):
     Line = "Line"
     Transformer = "Transformer"
     Interface = "Interface"
-    DataFile = "DataFile"
+    DataFile = "Data File"
     Timeslice = "Timeslice"
     Scenario = "Scenario"
     Model = "Model"

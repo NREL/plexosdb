@@ -123,7 +123,8 @@ SELECT
 	nested_variable_object.tagged_object_name AS varible_tag,
 	nested_object_ts.tagged_object_name AS timeslice_tag,
 	nested_object_ts.text_value AS timeslice,
-	nested_object_ts.base_value AS timeslice_base_value
+	nested_object_ts.base_value AS timeslice_base_value,
+	data_text.value AS data_text
 FROM
     t_membership AS mem
 LEFT JOIN t_class AS class_parent ON
@@ -139,6 +140,8 @@ LEFT JOIN t_category AS cat ON
 -------- property data -----------------------
 LEFT JOIN t_data AS data ON
     data.membership_id = mem.membership_id
+LEFT JOIN t_text AS data_text ON
+    data_text.data_id = data.data_id
 LEFT JOIN t_memo_data AS memo ON
     memo.data_id = data.data_id
 LEFT JOIN t_date_from AS date_from ON
