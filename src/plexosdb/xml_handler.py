@@ -1,16 +1,13 @@
 """Plexos Input XML API."""
 
-from collections import defaultdict
 import xml.etree.ElementTree as ET  # noqa: N817
+from collections import defaultdict
 from collections.abc import Iterable, Iterator
-from enum import Enum
-from functools import lru_cache
 from os import PathLike
 
 from loguru import logger
 
-from .exceptions import MultlipleElementsError
-from .enums import CollectionEnum, Schema
+from .enums import Schema
 from .utils import validate_string
 
 
@@ -72,58 +69,6 @@ class XMLHandler:
                 element_list,
             )
         )
-
-    def get_id(self, element_enum: Schema, *, label: str | None = None, **tag_elements) -> str:
-        """Return element ID matching name, tags and values.
-
-        This function should return the element_id for a a single element. If
-        the query returns more than one element, it will raise an error.
-
-        Returns
-        -------
-        str
-            Element type id
-
-        Raises
-        ------
-        KeyError
-            If combination of element_name and tags do not exists
-        MultipleElementsError
-            If more than one element found
-        """
-        element = list(self.iter(element_enum, **tag_elements))
-
-        if not element:
-            msg = f"{element_enum=} with {tag_elements=} not found"
-            raise KeyError(msg)
-
-        if len(element) > 1:
-            msg = (
-                f"Multiple elements returned for {element_enum=}.{tag_elements}. "
-                "Use `iter` too see all the returned elements or provide additional filters."
-            )
-            raise MultlipleElementsError(msg)
-
-        if label is None:
-            return element[0].findtext(element_enum.label)  # type: ignore
-
-        return element[0].findtext(label)  # type: ignore
-
-    def get_max_id(self, element_type: Schema):
-        """Return max id for a given child class.
-
-        Paramters
-        ---------
-        element_type
-            XML parent tag to iterate over.
-        """
-        # element = list(self.iter(element_type.name))
-        return max(0, self._counts.get(element_type.name, 0))
-
-    def _get_xml_element(self, element_type: Schema, label: str | None = None, **kwargs) -> ET.Element:
-        element_id = self.get_id(element_enum=element_type, label=label, **kwargs)
-        element = list(self.iter(element_type, element_id, label=label))[0]  # noqa: RUF015
-        return element
 
     def iter(
         self, element_type: Schema, *elements: Iterable[str | int], label: str | None = None, **tags
@@ -188,8 +133,6 @@ class XMLHandler:
     def _cache_iter(self, element_type: Schema, **tag_elements) -> Iterator | list:
         if not tag_elements:
             return iter(self._cache[element_type.name])
-        if element_type.label not in tag_elements:
-            return filter(construct_condition_lambda(**tag_elements), self._cache[element_type.name])
         index = int(tag_elements[element_type.label]) - 1
         return iter([self._cache[element_type.name][index]])
 
@@ -212,24 +155,6 @@ class XMLHandler:
         elements = self.root.findall(xpath_query)  # type: ignore
         yield from elements
 
-    @lru_cache
-    def get_valid_properties_list(self, collection_enum: CollectionEnum | None = None):
-        """Return list of valid properties for the given Collection."""
-        return list(
-            map(
-                lambda x: x.findtext("name"),
-                self.iter(Schema.Property, collection_id=collection_enum),
-            )
-        )
-
-    @lru_cache
-    def get_valid_properties_dict(self, collection_enum: CollectionEnum | None = None):
-        """Return list of valid properties for the given Collection."""
-        return {
-            x.findtext("property_id"): x.findtext("name")
-            for x in self.iter(Schema.Property, collection_id=collection_enum)
-        }
-
     def _remove_namespace(self, namespace: str) -> None:
         """Remove namespace in the passed document in place.
 
@@ -243,22 +168,6 @@ class XMLHandler:
         for elem in self.root.iter():
             if elem.tag.startswith(ns):
                 elem.tag = elem.tag[nsl:]
-
-
-def construct_condition_lambda(**kwargs):  # noqa: D103
-    # Precompute the values of findtext calls
-    findtext_values = {key: str(value) for key, value in kwargs.items() if value}
-
-    # Construct the lambda function
-    def condition(x):
-        for key, value in findtext_values.items():
-            if isinstance(value, Enum):
-                value = value.value
-            if x.findtext(key) != value:
-                return False
-        return True
-
-    return condition
 
 
 def xml_query(element_name: str, *tags, **tag_elements) -> str:

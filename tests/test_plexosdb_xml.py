@@ -1,11 +1,10 @@
-import pytest
 import os
-from pathlib import Path
 import xml.etree.ElementTree as ET  # noqa: N817
-from plexosdb.exceptions import MultlipleElementsError
+from pathlib import Path
+
+import pytest
 from plexosdb.enums import Schema
-from plexosdb.xml_handler import XMLHandler
-from plexosdb.xml_handler import xml_query
+from plexosdb.xml_handler import XMLHandler, xml_query
 
 XML_FPATH = Path("tests").joinpath("data/plexosdb.xml")
 NAMESPACE = "http://tempuri.org/MasterDataSet.xsd"
@@ -50,16 +49,6 @@ def test_cache_construction():
     assert len(handler._cache) == 9  # Total number of elements parsed
 
 
-@pytest.mark.parametrize(
-    "class_name,category,name,expected_id",
-    [(Schema.Class, None, "System", "1"), (Schema.Objects, 2, "SolarPV01", "2")],
-)
-def test_xml_get_id(xml_handler, class_name, category, name, expected_id):
-    element_id = xml_handler.get_id(class_name, name=name, category_id=category)
-    assert element_id is not None
-    assert element_id == expected_id
-
-
 def test_iter(xml_handler):
     elements = list(xml_handler.iter(Schema.Objects))
     assert len(elements) == 3
@@ -81,25 +70,6 @@ def test_save_xml(tmp_path):
     assert os.path.exists(tmp_path / ".xml")
     assert getattr(handler, "_cache", False) is False
     assert getattr(handler, "_counts", False) is False
-
-
-# TODO(pesap): Add test to round-trip serialization of plexos model.
-# https://github.nrel.gov/PCM/R2X/issues/361
-
-
-def test_get_element_id_returns(xml_handler):
-    # Assert that we raise and error if element combination is not found
-    with pytest.raises(KeyError):
-        xml_handler.get_id(Schema.Class, name="test")
-
-    # Assert that raises error if multiple matches found
-    with pytest.raises(MultlipleElementsError, match="Multiple elements returned"):
-        xml_handler.get_id(Schema.Class)
-
-
-def test_get_max_id(xml_handler):
-    max_id = xml_handler.get_max_id(Schema.Objects)
-    assert max_id == 3
 
 
 @pytest.mark.parametrize(

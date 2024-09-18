@@ -12,7 +12,7 @@ def db_empty() -> "PlexosSQLite":
 
 
 @pytest.fixture
-def db(data_folder) -> "PlexosSQLite":
+def db(data_folder) -> PlexosSQLite:
     return PlexosSQLite(xml_fname=data_folder.joinpath(DB_FILENAME))
 
 
@@ -177,6 +177,9 @@ def test_get_object_id(db):
     )
     with pytest.raises(ValueError):
         _ = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator)
+
+    max_rank = db.get_category_max_id(ClassEnum.Generator)
+    assert max_rank == 2  # Data has ranks 0, 1. 2 is with the new category
 
     # Now actually filter by category
     object_id = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator, category_name=category_name)
@@ -602,6 +605,22 @@ def test_create_table_element(db):
                         assert column_element.text == "false"
                 else:
                     assert column_element.text == str(column_value)
+
+
+def test_populate_database(db):
+    with pytest.raises(FileNotFoundError):
+        _ = db._populate_database(xml_fname=None, xml_handler=None)
+
+
+def test_coalesce_columns(db):
+    # Database can find some columns specified with Collate specified
+    collection_id = db.query("SELECT collection_id from t_collection where name = 'Gas Nodes'")[0][0]
+    assert collection_id
+    collection_id_nospace = db.query("SELECT collection_id from t_collection where name = 'GasNodes'")[0][0]
+    assert collection_id_nospace
+
+    # Both should be equal
+    assert collection_id_nospace == collection_id
 
 
 def test_to_xml(db, tmp_path):

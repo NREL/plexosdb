@@ -71,6 +71,7 @@ class ClassEnum(StrEnum):
     Production = "Production"
     Performance = "Performance"
     Variable = "Variable"
+    Constraint = "Constraint"
 
 
 plexos_class_mapping = {enum_member.name: enum_member.value for enum_member in ClassEnum}
@@ -84,8 +85,7 @@ class CollectionEnum(StrEnum):
     HeadStorage = "HeadStorage"
     TailStorage = "TailStorage"
     Nodes = "Nodes"
-    Battery = "Battery"
-    Storage = "Storage"
+    Storages = "Storages"
     Emissions = "Emissions"
     Reserves = "Reserves"
     Batteries = "Batteries"
@@ -98,10 +98,12 @@ class CollectionEnum(StrEnum):
     NodeTo = "NodeTo"
     Transformers = "Transformers"
     Interfaces = "Interfaces"
-    Scenarios = "Scenarios"
     Models = "Models"
     Scenario = "Scenario"
+    Scenarios = "Scenarios"
     Horizon = "Horizon"
+    Horizons = "Horizons"
+    Report = "Report"
     Reports = "Reports"
     PASA = "PASA"
     MTSchedule = "MTSchedule"
@@ -109,8 +111,11 @@ class CollectionEnum(StrEnum):
     Transmission = "Transmission"
     Production = "Production"
     Diagnostic = "Diagnostic"
+    Diagnostics = "Diagnostics"
     Performance = "Performance"
     DataFiles = "DataFiles"
+    Constraint = "Constraint"
+    Constraints = "Constraints"
 
 
 def str2enum(string, schema_enum=Schema) -> Schema | None:
