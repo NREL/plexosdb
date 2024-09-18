@@ -89,7 +89,7 @@ CREATE TABLE `t_custom_rule`
 CREATE TABLE `t_class`
 (
     `class_id` INT NOT NULL,
-    `name` VARCHAR(255) NULL,
+    `name` VARCHAR(255) NULL COLLATE NOSPACE,
     `class_group_id` INT NULL,
     `is_enabled` BIT NULL,
     `lang_id` INT NULL,
@@ -105,7 +105,7 @@ CREATE TABLE `t_collection`
     `collection_id` INT NOT NULL,
     `parent_class_id` INT NULL,
     `child_class_id` INT NULL,
-    `name` VARCHAR(255) NULL,
+    `name` VARCHAR(255) NULL COLLATE NOSPACE,
     `min_count` INT NULL,
     `max_count` INT NULL,
     `complement_name` VARCHAR(255) NULL,
