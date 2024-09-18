@@ -12,7 +12,7 @@ def db_empty() -> "PlexosSQLite":
 
 
 @pytest.fixture
-def db(data_folder) -> "PlexosSQLite":
+def db(data_folder) -> PlexosSQLite:
     return PlexosSQLite(xml_fname=data_folder.joinpath(DB_FILENAME))
 
 
@@ -177,6 +177,9 @@ def test_get_object_id(db):
     )
     with pytest.raises(ValueError):
         _ = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator)
+
+    max_rank = db.get_category_max_id(ClassEnum.Generator)
+    assert max_rank == 2  # Data has ranks 0, 1. 2 is with the new category
 
     # Now actually filter by category
     object_id = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator, category_name=category_name)
@@ -602,6 +605,31 @@ def test_create_table_element(db):
                         assert column_element.text == "false"
                 else:
                     assert column_element.text == str(column_value)
+
+
+def test_populate_database(db):
+    with pytest.raises(FileNotFoundError):
+        _ = db._populate_database(xml_fname=None, xml_handler=None)
+
+    # def _populate_database(self, xml_fname: str | None, xml_handler: XMLHandler | None = None):
+    #     fpath = xml_fname
+    #     if fpath is None and not xml_handler:
+    #         msg = (
+    #             "Base XML file was not provided. "
+    #             "Make sure that you are passing either `xml_fname` or xml_handler`."
+    #         )
+    #         raise FileNotFoundError(msg)
+    #
+    #     if not xml_handler:
+    #         xml_handler = XMLHandler.parse(fpath=fpath)  # type: ignore
+    #
+    #     # Start data ingestion to the datbase
+    #     xml_tags = set([e.tag for e in xml_handler.root])  # Extract set of valid tags from xml
+    #     for tag in xml_tags:
+    #         schema = str2enum(tag)
+    #         if schema:
+    #             record_dict = xml_handler.get_records(schema)
+    #             self.ingest_from_records(tag, record_dict)
 
 
 def test_to_xml(db, tmp_path):

@@ -305,10 +305,9 @@ class PlexosSQLite:
 
         # Add scenario tag if passed
         if scenario:
-            scenario_id = self.check_id_exists(Schema.Objects, scenario, class_name=ClassEnum.Scenario)
+            scenario_id = self.get_scenario_id(scenario)
             if scenario_id is None:
                 scenario_id = self.add_object(scenario, ClassEnum.Scenario, CollectionEnum.Scenario)
-
             self.execute_query("INSERT into t_tag(object_id,data_id) values (?,?)", (scenario_id, data_id))
 
         # Add text if passed

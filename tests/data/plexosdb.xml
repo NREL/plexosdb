@@ -216,6 +216,18 @@
 		<lang_id>87</lang_id>
 		<description>Report objects</description>
 	</t_collection>
+	<t_collection>
+		<collection_id>700</collection_id>
+		<parent_class_id>1</parent_class_id>
+		<child_class_id>78</child_class_id>
+		<name>Scenarios</name>
+		<min_count>0</min_count>
+		<max_count>-1</max_count>
+		<is_enabled>true</is_enabled>
+		<is_one_to_many>true</is_one_to_many>
+		<lang_id>90</lang_id>
+		<description>Scenario objects</description>
+	</t_collection>
 	<t_property>
 		<property_id>47</property_id>
 		<collection_id>1</collection_id>
