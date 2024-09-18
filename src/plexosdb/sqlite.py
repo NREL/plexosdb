@@ -10,12 +10,11 @@ from typing import Any
 
 from loguru import logger
 
-from .utils import batched
+from .utils import batched, no_space
 from .enums import ClassEnum, CollectionEnum, Schema, str2enum
 from .xml_handler import XMLHandler
 
 SYSTEM_CLASS_NAME = "System"
-MASTER_FILE = files("plexosdb").joinpath("master.xml")
 
 
 class PlexosSQLite:
@@ -33,6 +32,7 @@ class PlexosSQLite:
         super().__init__()
         self._conn = sqlite3.connect(":memory:")
         self._sqlite_config()
+        self._create_collations()
         self._create_table_schema()
         self._populate_database(xml_fname=xml_fname, xml_handler=xml_handler)
 
@@ -262,11 +262,11 @@ class PlexosSQLite:
         KeyError
             When the property is not a valid string for the collection.
         """
+        parent_class = parent_class or ClassEnum.System
         object_id = self.get_object_id(object_name, class_name=object_class)
-        collection_id = self.get_collection_id(
+        valid_properties = self.get_valid_properties(
             collection, child_class=object_class, parent_class=parent_class
         )
-        valid_properties = self.get_valid_properties(collection_id)
         if property_name not in valid_properties:
             msg = (
                 f"Property {property_name} does not exist for collection: {collection}. "
@@ -280,7 +280,6 @@ class PlexosSQLite:
 
         # Add system membership
         parent_object_name = parent_object_name or SYSTEM_CLASS_NAME  # Default to system class
-        parent_class = parent_class or ClassEnum.System
 
         membership_id = self.get_membership_id(
             child_name=object_name,
@@ -344,15 +343,16 @@ class PlexosSQLite:
         property_ids = {key: value for key, value in collection_properties}
         component_names = tuple(d["name"] for d in records)
         component_memberships_query = f"""
-            SELECT
-              t_object.name as name,
-              membership_id
-            FROM
-              t_membership
-              inner join t_object on t_membership.child_object_id = t_object.object_id
-            WHERE
-              t_membership.parent_object_id = {parent_object_id} and
-              t_object.name in ({", ".join(["?" for _ in range(len(component_names))])})
+        SELECT
+          t_object.name as name,
+          membership_id
+        FROM
+          t_membership
+        INNER JOIN
+            t_object on t_membership.child_object_id = t_object.object_id
+        WHERE
+          t_membership.parent_object_id = {parent_object_id} AND
+          t_object.name in ({", ".join(["?" for _ in range(len(component_names))])})
         """
         component_memberships = self.query(component_memberships_query, params=component_names)
         component_memberships_dict: dict = {key: value for key, value in component_memberships}
@@ -430,8 +430,10 @@ class PlexosSQLite:
             Name to be added to the object
         class_id
             ClassEnum from the object to be added. E.g., for generators class_id=ClassEnum.Generators
-        collection_id
+        collection_name
             Collection for system membership. E.g., for generators class_enum=CollectionEnum.SystemGenerators
+        parent_class_name
+            Name of the parent class if different from System.
 
         Notes
         -----
@@ -584,6 +586,43 @@ class PlexosSQLite:
             Schema.Collection, collection.name, parent_class_name=parent_class, child_class_name=child_class
         )
 
+    def get_category_max_id(self, class_enum: ClassEnum) -> int:
+        """Return the current max rank for a given category."""
+        class_id = self._get_id(Schema.Class, class_enum.name)
+        query = """
+        SELECT
+            max(rank)
+        FROM
+            t_category
+        LEFT JOIN
+            t_class ON t_class.class_id = t_category.class_id
+        WHERE
+            t_class.class_id = :class_id
+        """
+        return self.query(query, params={"class_id": class_id})[0][0]
+
+    def get_class_id(self, class_enum: ClassEnum) -> int:
+        """Return the ID for a given class.
+
+        Parameters
+        ----------
+        class_name : ClassEnum
+            The enum collection from which to retrieve the ID.
+
+        Returns
+        -------
+        int
+            The ID corresponding to the object, or None if not found.
+
+        Raises
+        ------
+        KeyError
+            If ID does not exists on the database.
+        ValueError
+            If multiple IDs are returned for the given class.
+        """
+        return self._get_id(Schema.Class, class_enum.name)
+
     def get_property_id(
         self,
         property_name: str,
@@ -616,9 +655,9 @@ class PlexosSQLite:
         ValueError
             If multiple IDs are returned for the given parent/child class provided.
         """
-        collection_id = self.get_collection_id(collection, parent_class=parent_class, child_class=child_class)
-        valid_properties = self.get_valid_properties(collection_id)
-
+        valid_properties = self.get_valid_properties(
+            collection, parent_class=parent_class, child_class=child_class
+        )
         if property_name not in valid_properties:
             msg = (
                 f"Property {property_name} does not exist for collection: {collection}. "
@@ -626,13 +665,16 @@ class PlexosSQLite:
             )
             raise KeyError(msg)
 
+        collection_id = self.get_collection_id(collection, parent_class=parent_class, child_class=child_class)
+
         query_id = """
         SELECT
             property_id
         FROM `t_property`
         WHERE
             name = :property_name
-        AND collection_id = :collection_id
+        AND
+            collection_id = :collection_id
         """
         params = {"property_name": property_name, "collection_id": collection_id}
         result = self.query(query_id, params)
@@ -744,32 +786,54 @@ class PlexosSQLite:
         """
         table_name = table.name
         column_name = table.label
-
-        query_id = f"SELECT {column_name} FROM `{table_name}` WHERE name = :object_name"
         params = {
             "object_name": object_name,
         }
-        if class_name:
+
+        query = f"SELECT {column_name} FROM `{table_name}`"
+        conditions = []
+        join_clauses = []
+
+        if class_name is not None:
+            assert isinstance(class_name, ClassEnum)
             class_id = self._get_id(Schema.Class, class_name)
-            query_id += " and class_id = :class_id"
+            conditions.append("class_id = :class_id")
             params["class_id"] = class_id
 
-        if parent_class_name:
+        if parent_class_name is not None:
+            assert isinstance(parent_class_name, ClassEnum)
             parent_class_id = self._get_id(Schema.Class, parent_class_name.name)
-            query_id += " and parent_class_id = :parent_class_id"
+            join_clauses.append(
+                f" LEFT JOIN t_class as parent_class ON {table_name}.parent_class_id = parent_class.class_id"
+            )
+            conditions.append("parent_class_id = :parent_class_id")
             params["parent_class_id"] = parent_class_id
 
-        if child_class_name:
+        if child_class_name is not None:
+            assert isinstance(child_class_name, ClassEnum)
             child_class_id = self._get_id(Schema.Class, child_class_name.name)
-            query_id += " and child_class_id = :child_class_id"
+            join_clauses.append(
+                f" LEFT JOIN t_class AS child_class ON {table_name}.child_class_id = child_class.class_id"
+            )
+            conditions.append("child_class_id = :child_class_id")
             params["child_class_id"] = child_class_id
 
         if category_name and class_name:
             category_id = self.get_category_id(category_name, class_name)
-            query_id += " and category_id = :category_id"
+            conditions.append("category_id = :category_id")
             params["category_id"] = category_id
 
-        result = self.query(query_id, params)
+        # Build final query
+        query += " ".join(join_clauses)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += (
+            f" AND {table_name}.name = :object_name"
+            if conditions
+            else f" WHERE {table_name}.name = :object_name"
+        )
+
+        result = self.query(query, params)
 
         if not result:
             msg = f"No object found with the requested {params=}"
@@ -950,12 +1014,18 @@ class PlexosSQLite:
     def get_scenario_id(self, scenario_name: str) -> int:
         """Return scenario id for a given scenario name."""
         scenario_id = self.check_id_exists(Schema.Objects, scenario_name, class_name=ClassEnum.Scenario)
-        if scenario_id is None:
-            scenario_id = self.add_object(scenario_name, ClassEnum.Scenario, CollectionEnum.Scenario)
+        if not scenario_id:
+            scenario_id = self.add_object(scenario_name, ClassEnum.Scenario, CollectionEnum.Scenarios)
         return scenario_id
 
-    def get_valid_properties(self, collection_id: int) -> list[str]:
+    def get_valid_properties(
+        self,
+        collection: CollectionEnum,
+        parent_class: ClassEnum | None = None,
+        child_class: ClassEnum | None = None,
+    ) -> list[str]:
         """Return list of valid property names per collection."""
+        collection_id = self.get_collection_id(collection, parent_class=parent_class, child_class=child_class)
         query_string = "SELECT name from t_property where collection_id = ?"
         result = self.query(query_string, (collection_id,))
         return [d[0] for d in result]
@@ -1139,8 +1209,11 @@ class PlexosSQLite:
     def _populate_database(self, xml_fname: str | None, xml_handler: XMLHandler | None = None):
         fpath = xml_fname
         if fpath is None and not xml_handler:
-            fpath = MASTER_FILE  # type: ignore
-            logger.debug("Using {} as default file", fpath)
+            msg = (
+                "Base XML file was not provided. "
+                "Make sure that you are passing either `xml_fname` or xml_handler`."
+            )
+            raise FileNotFoundError(msg)
 
         if not xml_handler:
             xml_handler = XMLHandler.parse(fpath=fpath)  # type: ignore
@@ -1152,3 +1225,8 @@ class PlexosSQLite:
             if schema:
                 record_dict = xml_handler.get_records(schema)
                 self.ingest_from_records(tag, record_dict)
+
+    def _create_collations(self) -> None:
+        """Add collate function for helping search enums."""
+        self._conn.create_collation("NOSPACE", no_space)
+        return
