@@ -57,6 +57,6 @@ def no_space(a: str, b: str) -> int:
     """Collate function for catching strings with spaces."""
     if a.replace(" ", "") == b.replace(" ", ""):
         return 0
-    if a.replace(" ", "") == b.replace(" ", ""):
+    if a.replace(" ", "") < b.replace(" ", ""):
         return -1
     return 1

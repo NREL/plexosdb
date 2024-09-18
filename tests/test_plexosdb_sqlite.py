@@ -611,25 +611,16 @@ def test_populate_database(db):
     with pytest.raises(FileNotFoundError):
         _ = db._populate_database(xml_fname=None, xml_handler=None)
 
-    # def _populate_database(self, xml_fname: str | None, xml_handler: XMLHandler | None = None):
-    #     fpath = xml_fname
-    #     if fpath is None and not xml_handler:
-    #         msg = (
-    #             "Base XML file was not provided. "
-    #             "Make sure that you are passing either `xml_fname` or xml_handler`."
-    #         )
-    #         raise FileNotFoundError(msg)
-    #
-    #     if not xml_handler:
-    #         xml_handler = XMLHandler.parse(fpath=fpath)  # type: ignore
-    #
-    #     # Start data ingestion to the datbase
-    #     xml_tags = set([e.tag for e in xml_handler.root])  # Extract set of valid tags from xml
-    #     for tag in xml_tags:
-    #         schema = str2enum(tag)
-    #         if schema:
-    #             record_dict = xml_handler.get_records(schema)
-    #             self.ingest_from_records(tag, record_dict)
+
+def test_coalesce_columns(db):
+    # Database can find some columns specified with Collate specified
+    collection_id = db.query("SELECT collection_id from t_collection where name = 'Gas Nodes'")[0][0]
+    assert collection_id
+    collection_id_nospace = db.query("SELECT collection_id from t_collection where name = 'GasNodes'")[0][0]
+    assert collection_id_nospace
+
+    # Both should be equal
+    assert collection_id_nospace == collection_id
 
 
 def test_to_xml(db, tmp_path):
