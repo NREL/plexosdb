@@ -1178,7 +1178,7 @@ class PlexosSQLite:
         """Call all sqlite configuration prior schema creation."""
         with self._conn as conn:
             conn.execute("PRAGMA synchronous = OFF")  # Make it asynchronous
-            # conn.execute("PRAGMA journal_mode = OFF")  # Make it asynchronous
+            conn.execute("PRAGMA journal_mode = OFF")  # Make it asynchronous
 
     def _properties_to_sql_ingest(
         self, component_properties: list[dict], memberships: dict, property_ids: dict
