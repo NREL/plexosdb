@@ -43,15 +43,14 @@ SELECT
 	date_to.date AS date_to,
 	text.value AS text,
 	text_class.name AS text_class_name,
-	tag.data_id AS tag_data_id,
-	tag_object.name AS tag_object,
-	tag.object_id AS tag_object_id,
-	tag_class.name AS tag_class_name,
+	MAX(CASE WHEN tag_class.name == 'Timeslice' THEN tag_object.name END) AS tag_timeslice,
+	MAX(CASE WHEN tag_class.name == 'Timeslice' THEN tag_object.object_id END) AS tag_timeslice_objet_id,
+	MAX(CASE WHEN tag_class.name == 'Data File' THEN tag_object.name END) AS tag_datafile,
+	MAX(CASE WHEN tag_class.name == 'Data File' THEN tag_object.object_id END) AS tag_datafile_objet_id,
+	MAX(CASE WHEN tag_class.name == 'Variable' THEN tag_object.name END) AS tag_variable,
+	MAX(CASE WHEN tag_class.name == 'Variable' THEN tag_object.object_id END) AS tag_variable_objet_id,
 	action.action_symbol as action,
 	scenario.name AS scenario
-	-- scenario.object_id AS scenario_obj_id,
-	-- scenario.data_id AS scenario_data_id,
-	-- scenario.collection_id AS scenario_collection_id
 FROM
 	t_membership membership
 LEFT JOIN t_object AS object ON
@@ -67,7 +66,7 @@ LEFT JOIN t_class AS parent_class ON
 LEFT JOIN t_data AS data ON
 	membership.membership_id = data.membership_id
 LEFT JOIN t_band AS band on
-	data.data_id = band.band_id
+	data.data_id = band.data_id
 LEFT JOIN t_property AS property ON
 	data.property_id = property.property_id
 LEFT JOIN t_unit AS unit ON
@@ -91,6 +90,6 @@ LEFT JOIN t_object AS tag_object ON
 	tag_object.object_id = tag.object_id
 LEFT JOIN t_class AS tag_class ON
 	tag_class.class_id = tag_object.class_id
-WHERE
-	(tag_class.name ISNULL
-		or tag_class.name <> 'Scenario')
+GROUP BY
+	membership.membership_id,
+	data.data_id

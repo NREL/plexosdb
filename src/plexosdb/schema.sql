@@ -233,7 +233,7 @@ CREATE TABLE `t_object`
 (
     `object_id` INTEGER,
     `class_id` INT NULL,
-    `name` VARCHAR(512) NULL,
+    `name` VARCHAR(512) NULL COLLATE NOCASE,
     `category_id` INT NULL,
     `description` VARCHAR(255) NULL,
     `GUID` CHAR(36) NOT NULL,
@@ -244,6 +244,8 @@ CREATE TABLE `t_object`
     CONSTRAINT PK_t_object
                PRIMARY KEY (`object_id`)
 );
+
+
 
 CREATE TABLE `t_memo_object`
 (
