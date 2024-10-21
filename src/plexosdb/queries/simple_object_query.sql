@@ -6,7 +6,7 @@ SELECT
 	object.object_id,
 	tag.data_id,
 	mem.collection_id,
-	  cat.name AS category_name
+	cat.name AS category_name
 FROM
 	t_membership AS mem
 LEFT JOIN t_tag AS tag ON
