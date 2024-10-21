@@ -28,11 +28,17 @@ class PlexosSQLite:
     DB_FILENAME = "plexos.db"
     _conn: sqlite3.Connection
 
-    def __init__(self, xml_fname: str | None = None, xml_handler: XMLHandler | None = None) -> None:
+    def __init__(
+        self,
+        xml_fname: str | None = None,
+        xml_handler: XMLHandler | None = None,
+        create_collations: bool = True,
+    ) -> None:
         super().__init__()
         self._conn = sqlite3.connect(":memory:")
         self._sqlite_config()
-        self._create_collations()
+        if create_collations:
+            self._create_collations()
         self._create_table_schema()
         self._populate_database(xml_fname=xml_fname, xml_handler=xml_handler)
 
@@ -1178,7 +1184,7 @@ class PlexosSQLite:
         """Call all sqlite configuration prior schema creation."""
         with self._conn as conn:
             conn.execute("PRAGMA synchronous = OFF")  # Make it asynchronous
-            # conn.execute("PRAGMA journal_mode = OFF")  # Make it asynchronous
+            conn.execute("PRAGMA journal_mode = OFF")  # Make it asynchronous
 
     def _properties_to_sql_ingest(
         self, component_properties: list[dict], memberships: dict, property_ids: dict
