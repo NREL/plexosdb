@@ -24,7 +24,7 @@ WHERE
 		collection_id
 	FROM
 		t_collection
-	LEFT JOIN t_class ON
+	INNER JOIN t_class ON
 		t_class.class_id = t_collection.parent_class_id
         )
     and class.name = 'Scenario'
