@@ -15,6 +15,8 @@ LEFT JOIN t_object AS object ON
 	mem.child_object_id = object.object_id
 LEFT JOIN t_category AS cat ON
 	object.category_id = cat.category_id
+LEFT JOIN t_class ON
+	t_class.class_id = object.class_id
 WHERE
 	mem.collection_id in
         (
@@ -24,9 +26,8 @@ WHERE
 		t_collection
 	LEFT JOIN t_class ON
 		t_class.class_id = t_collection.parent_class_id
-	where
-		t_class.name <> 'System'
         )
+	and t_class.name = 'Scenario'
  )
 SELECT
 	parent_class.name AS parent_class_name,
