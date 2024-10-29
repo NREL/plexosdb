@@ -15,6 +15,8 @@ LEFT JOIN t_object AS object ON
 	mem.child_object_id = object.object_id
 LEFT JOIN t_category AS cat ON
 	object.category_id = cat.category_id
+LEFT JOIN t_class AS class ON
+	class.class_id = object.class_id
 WHERE
 	mem.collection_id in
         (
@@ -24,9 +26,8 @@ WHERE
 		t_collection
 	LEFT JOIN t_class ON
 		t_class.class_id = t_collection.parent_class_id
-	where
-		t_class.name <> 'System'
         )
+    and class.name = 'Scenario'
  )
 SELECT
 	parent_class.name AS parent_class_name,
@@ -44,11 +45,11 @@ SELECT
 	text.value AS text,
 	text_class.name AS text_class_name,
 	MAX(CASE WHEN tag_class.name == 'Timeslice' THEN tag_object.name END) AS tag_timeslice,
-	MAX(CASE WHEN tag_class.name == 'Timeslice' THEN tag_object.object_id END) AS tag_timeslice_objet_id,
+	MAX(CASE WHEN tag_class.name == 'Timeslice' THEN tag_object.object_id END) AS tag_timeslice_object_id,
 	MAX(CASE WHEN tag_class.name == 'Data File' THEN tag_object.name END) AS tag_datafile,
-	MAX(CASE WHEN tag_class.name == 'Data File' THEN tag_object.object_id END) AS tag_datafile_objet_id,
+	MAX(CASE WHEN tag_class.name == 'Data File' THEN tag_object.object_id END) AS tag_datafile_object_id,
 	MAX(CASE WHEN tag_class.name == 'Variable' THEN tag_object.name END) AS tag_variable,
-	MAX(CASE WHEN tag_class.name == 'Variable' THEN tag_object.object_id END) AS tag_variable_objet_id,
+	MAX(CASE WHEN tag_class.name == 'Variable' THEN tag_object.object_id END) AS tag_variable_object_id,
 	action.action_symbol as action,
 	scenario.name AS scenario
 FROM
@@ -79,9 +80,6 @@ LEFT JOIN t_tag AS tag ON
 	data.data_id = tag.data_id
 LEFT JOIN t_action AS action ON
 	tag.action_id = action.action_id
-LEFT JOIN scenario_cte AS scenario ON
-	scenario.data_id = data.data_id
-	and tag.data_id = scenario.data_id
 LEFT JOIN t_text AS text on
 	text.data_id = data.data_id
 LEFT JOIN t_class AS text_class on
@@ -90,6 +88,9 @@ LEFT JOIN t_object AS tag_object ON
 	tag_object.object_id = tag.object_id
 LEFT JOIN t_class AS tag_class ON
 	tag_class.class_id = tag_object.class_id
+LEFT JOIN scenario_cte AS scenario ON
+	scenario.data_id = data.data_id
+	and tag.data_id = scenario.data_id
 GROUP BY
 	membership.membership_id,
 	data.data_id
