@@ -27,7 +27,6 @@ class PlexosSQLite:
 
     DB_FILENAME = "plexos.db"
     _conn: sqlite3.Connection
-    _QUERY_CACHE: dict[int, list[tuple]] = {}
 
     def __init__(
         self,
@@ -38,6 +37,7 @@ class PlexosSQLite:
         super().__init__()
         self._conn = sqlite3.connect(":memory:")
         self._sqlite_config()
+        self._QUERY_CACHE: dict[int, int] = {}
         if create_collations:
             self._create_collations()
         self._create_table_schema()
@@ -757,6 +757,7 @@ class PlexosSQLite:
         parent_class_name: ClassEnum | None = None,
         child_class_name: ClassEnum | None = None,
         category_name: str | None = None,
+        use_cache: bool = True,
     ) -> int:
         """Return the ID for a given table and object name combination.
 
@@ -838,6 +839,9 @@ class PlexosSQLite:
             if conditions
             else f" WHERE {table_name}.name = :object_name"
         )
+        query_key = self._query_hash(query, params)
+        if query_key in self._QUERY_CACHE and use_cache:
+            return self._QUERY_CACHE[query_key]
 
         result = self.query(query, params)
 
@@ -848,7 +852,12 @@ class PlexosSQLite:
         if len(result) > 1:
             msg = f"Multiple ids returned for {object_name} and {class_name}. Try passing addtional filters"
             raise ValueError(msg)
-        return result[0][0]  # Get first element of tuple
+
+        ret: int = result[0][0]  # Get first element of tuple
+
+        self._QUERY_CACHE[query_key] = ret
+
+        return ret
 
     def get_membership_id(
         self,
@@ -1042,32 +1051,6 @@ class PlexosSQLite:
             _ = conn.execute(query, params) if params else conn.execute(query)
         return
 
-    @staticmethod
-    def _query_hash(query_string: str, params: tuple|dict|None = None) -> int:
-        """
-        Create a hash int for a query string and params dictionary
-        Parameters
-        ----------
-        query_str
-            String to get passed to the database connector.
-        params
-            Tuple or dict for passing
-
-        Returns
-        -------
-        Int
-            likely unique integer for given query_string and params object
-        """
-
-        if params is None:
-            return hash(query_string)
-        if isinstance(params, dict):
-            return hash((query_string, str(params)))
-        if isinstance(params, list):
-            return hash((query_string, *params))
-        return hash((query_string, params))
-
-
     def query(self, query_string: str, params=None) -> list[tuple]:
         """Execute of query to the database.
 
@@ -1088,16 +1071,9 @@ class PlexosSQLite:
 
             This function could be slow depending the complexity of the query passed.
         """
-        query_key = self._query_hash(query_string, params)
-        if query_key in self._QUERY_CACHE:
-            return self._QUERY_CACHE[query_key]
-
         with self._conn as conn:
             res = conn.execute(query_string, params) if params else conn.execute(query_string)
         ret = res.fetchall()
-
-        if ret:
-            self._QUERY_CACHE[query_key] = ret
 
         return ret
 
@@ -1269,3 +1245,32 @@ class PlexosSQLite:
         """Add collate function for helping search enums."""
         self._conn.create_collation("NOSPACE", no_space)
         return
+
+    @staticmethod
+    def _query_hash(query_string: str, params: tuple | dict | None = None) -> int:
+        """
+        Create a hash int for a query string and params dictionary.
+
+        Parameters
+        ----------
+        query_str
+            String to get passed to the database connector.
+        params
+            Tuple or dict for passing
+
+        Returns
+        -------
+        Int
+            likely unique integer for given query_string and params object
+        """
+        if params is None:
+            return hash(query_string)
+        if isinstance(params, dict):
+            return hash((query_string, str(params)))
+        if isinstance(params, list):
+            return hash((query_string, *params))
+        return hash((query_string, params))
+
+    def clear_id_cache(self):
+        """Clear the cache of id's returned by _get_id."""
+        self._QUERY_CACHE.clear()
