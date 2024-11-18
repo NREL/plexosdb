@@ -27,6 +27,7 @@ class PlexosSQLite:
 
     DB_FILENAME = "plexos.db"
     _conn: sqlite3.Connection
+    _QUERY_CACHE: dict[int, list[tuple]] = {}
 
     def __init__(
         self,
@@ -1041,6 +1042,32 @@ class PlexosSQLite:
             _ = conn.execute(query, params) if params else conn.execute(query)
         return
 
+    @staticmethod
+    def _query_hash(query_string: str, params: tuple|dict|None = None) -> int:
+        """
+        Create a hash int for a query string and params dictionary
+        Parameters
+        ----------
+        query_str
+            String to get passed to the database connector.
+        params
+            Tuple or dict for passing
+
+        Returns
+        -------
+        Int
+            likely unique integer for given query_string and params object
+        """
+
+        if params is None:
+            return hash(query_string)
+        if isinstance(params, dict):
+            return hash((query_string, str(params)))
+        if isinstance(params, list):
+            return hash((query_string, *params))
+        return hash((query_string, params))
+
+
     def query(self, query_string: str, params=None) -> list[tuple]:
         """Execute of query to the database.
 
@@ -1063,9 +1090,18 @@ class PlexosSQLite:
 
             This function could be slow depending the complexity of the query passed.
         """
+        query_key = self._query_hash(query_string, params)
+        if query_key in self._QUERY_CACHE:
+            return self._QUERY_CACHE[query_key]
+
         with self._conn as conn:
             res = conn.execute(query_string, params) if params else conn.execute(query_string)
-        return res.fetchall()
+        ret = res.fetchall()
+
+        if ret:
+            self._QUERY_CACHE[query_key] = ret
+
+        return ret
 
     def ingest_from_records(self, tag: str, record_data: Sequence):
         """Insert elements from xml to database."""
