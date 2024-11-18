@@ -1081,8 +1081,6 @@ class PlexosSQLite:
             String to get passed to the database connector.
         params
             Tuple or dict for passing
-        fetchone
-            Return firstrow
 
         Note
         ----
