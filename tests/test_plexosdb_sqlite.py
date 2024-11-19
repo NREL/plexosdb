@@ -156,6 +156,7 @@ def test_get_collection_id(db):
 
 @pytest.mark.get_functions
 def test_get_object_id(db):
+    db.clear_id_cache()
     gen_01_name = "gen1"
     gen_id = db.add_object(
         gen_01_name, ClassEnum.Generator, CollectionEnum.Generators, description="Test Gen"
@@ -189,6 +190,7 @@ def test_get_object_id(db):
 
 @pytest.mark.get_functions
 def test_get_memberships(db):
+    db.clear_id_cache()
     # Test Node
     node_name = "Node 1"
     node_id = db.add_object(node_name, ClassEnum.Node, CollectionEnum.Nodes, description="Test Node")
