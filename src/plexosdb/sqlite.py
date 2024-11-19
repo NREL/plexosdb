@@ -38,6 +38,7 @@ class PlexosSQLite:
         self._conn = sqlite3.connect(":memory:")
         self._sqlite_config()
         self._QUERY_CACHE: dict[int, int] = {}
+
         if create_collations:
             self._create_collations()
         self._create_table_schema()
@@ -757,7 +758,6 @@ class PlexosSQLite:
         parent_class_name: ClassEnum | None = None,
         child_class_name: ClassEnum | None = None,
         category_name: str | None = None,
-        use_cache: bool = True,
     ) -> int:
         """Return the ID for a given table and object name combination.
 
@@ -840,7 +840,7 @@ class PlexosSQLite:
             else f" WHERE {table_name}.name = :object_name"
         )
         query_key = self._query_hash(query, params)
-        if query_key in self._QUERY_CACHE and use_cache:
+        if query_key in self._QUERY_CACHE:
             return self._QUERY_CACHE[query_key]
 
         result = self.query(query, params)
@@ -1272,5 +1272,5 @@ class PlexosSQLite:
         return hash((query_string, params))
 
     def clear_id_cache(self):
-        """Clear the cache of id's returned by _get_id."""
+        """Clear the cache for the _get_id method."""
         self._QUERY_CACHE.clear()
