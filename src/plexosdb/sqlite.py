@@ -1102,8 +1102,6 @@ class PlexosSQLite:
             try:
                 with self._conn as conn:
                     conn.execute(ingestion_sql, record)
-            except sqlite3.IntegrityError as err:
-                raise ValueError(err)
             except sqlite3.Error as err:
                 raise err
 
