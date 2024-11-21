@@ -1,7 +1,9 @@
 import pytest
+import shutil
 import xml.etree.ElementTree as ET  # noqa: N817
 from plexosdb.enums import ClassEnum, CollectionEnum, Schema
 from plexosdb.sqlite import PlexosSQLite
+from collections.abc import Generator
 
 DB_FILENAME = "plexosdb.xml"
 
@@ -12,8 +14,13 @@ def db_empty() -> "PlexosSQLite":
 
 
 @pytest.fixture
-def db(data_folder) -> PlexosSQLite:
-    return PlexosSQLite(xml_fname=data_folder.joinpath(DB_FILENAME))
+def db(data_folder) -> Generator[PlexosSQLite, None, None]:
+    xml_fname = data_folder.joinpath(DB_FILENAME)
+    xml_copy = data_folder.joinpath(f"copy_{DB_FILENAME}")
+    shutil.copy(xml_fname, xml_copy)
+    db = PlexosSQLite(xml_fname=xml_copy)
+    yield db
+    xml_copy.unlink()
 
 
 def test_database_initialization(db):
@@ -186,7 +193,6 @@ def test_get_object_id(db):
 
 @pytest.mark.get_functions
 def test_get_memberships(db):
-    db.clear_id_cache()
     # Test Node
     node_name = "Node 1"
     node_id = db.add_object(node_name, ClassEnum.Node, CollectionEnum.Nodes, description="Test Node")
