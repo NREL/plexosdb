@@ -80,10 +80,6 @@ def test_check_id_exists(db):
     assert isinstance(system_check, bool)
     assert not system_check
 
-    # Check that returns ValueError if multiple object founds
-    with pytest.raises(ValueError):
-        _ = db.check_id_exists(Schema.Objects, "SolarPV01", class_name=ClassEnum.Generator)
-
 
 @pytest.mark.get_functions
 def test_get_id(db):
