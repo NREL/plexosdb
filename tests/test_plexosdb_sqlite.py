@@ -4,6 +4,8 @@ import xml.etree.ElementTree as ET  # noqa: N817
 from plexosdb.enums import ClassEnum, CollectionEnum, Schema
 from plexosdb.sqlite import PlexosSQLite
 from collections.abc import Generator
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 DB_FILENAME = "plexosdb.xml"
 
@@ -14,11 +16,12 @@ def db_empty() -> "PlexosSQLite":
 
 
 @pytest.fixture
-def db(data_folder) -> Generator[PlexosSQLite, None, None]:
-    xml_fname = data_folder.joinpath(DB_FILENAME)
-    xml_copy = data_folder.joinpath(f"copy_{DB_FILENAME}")
+def db(data_folder: Path) -> Generator[PlexosSQLite, None, None]:
+    tmp_dir = TemporaryDirectory()  # dir=data_folder.parent)
+    xml_fname = data_folder / DB_FILENAME
+    xml_copy = Path(tmp_dir.name) / f"copy_{DB_FILENAME}"
     shutil.copy(xml_fname, xml_copy)
-    db = PlexosSQLite(xml_fname=xml_copy)
+    db = PlexosSQLite(xml_fname=str(xml_copy))
     yield db
     xml_copy.unlink()
 
