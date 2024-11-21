@@ -461,14 +461,17 @@ class PlexosSQLite:
 
         params = (object_name, class_id, category_id, str(uuid.uuid4()), description)
         placeholders = ", ".join("?" * len(params))
-        with self._conn as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                f"INSERT INTO {Schema.Objects.name}(name, class_id, category_id, GUID, description) "
-                f"VALUES({placeholders})",
-                params,
-            )
-            object_id = cursor.lastrowid
+        try:
+            with self._conn as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"INSERT INTO {Schema.Objects.name}(name, class_id, category_id, GUID, description) "
+                    f"VALUES({placeholders})",
+                    params,
+                )
+                object_id = cursor.lastrowid
+        except sqlite3.IntegrityError as err:
+            raise ValueError(err)
 
         if object_id is None:
             raise TypeError("Could not fetch the last row of the insert. Check query format.")
@@ -1096,8 +1099,11 @@ class PlexosSQLite:
             try:
                 with self._conn as conn:
                     conn.execute(ingestion_sql, record)
+            except sqlite3.IntegrityError as err:
+                raise ValueError(err)
             except sqlite3.Error as err:
                 raise err
+
             logger.trace("Finished ingesting {}", tag)
         return
 

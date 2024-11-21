@@ -231,7 +231,7 @@ CREATE TABLE `t_category`
 
 CREATE TABLE `t_object`
 (
-    `object_id` INTEGER,
+    `object_id` INTEGER UNIQUE,
     `class_id` INT NULL,
     `name` VARCHAR(512) NULL COLLATE NOCASE,
     `category_id` INT NULL,
@@ -241,6 +241,7 @@ CREATE TABLE `t_object`
     `X` INT NULL,
     `Y` INT NULL,
     `Z` INT NULL,
+    UNIQUE (`class_id`, `name`)
     CONSTRAINT PK_t_object
                PRIMARY KEY (`object_id`)
 );
