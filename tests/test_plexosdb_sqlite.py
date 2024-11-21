@@ -159,19 +159,9 @@ def test_get_collection_id(db):
 
 @pytest.mark.get_functions
 def test_get_object_id(db):
-    db.clear_id_cache()
-    gen_01_name = "gen1"
-    gen_id = db.add_object(
-        gen_01_name, ClassEnum.Generator, CollectionEnum.Generators, description="Test Gen"
-    )
-    assert gen_id
-
-    gen_id_get = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator)
-    assert gen_id == gen_id_get
-
-    # Add generator with same name different category
     gen_01_name = "gen1"
     category_name = "PV Gens"
+
     gen_id = db.add_object(
         gen_01_name,
         ClassEnum.Generator,
@@ -179,8 +169,22 @@ def test_get_object_id(db):
         description="Test Gen",
         category_name=category_name,
     )
+    assert gen_id
+
+    gen_id_get = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator)
+    assert gen_id == gen_id_get
+
+    # Add generator with same name different category
     with pytest.raises(ValueError):
-        _ = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator)
+        gen_01_name = "gen1"
+        gen_id = db.add_object(
+            gen_01_name,
+            ClassEnum.Generator,
+            CollectionEnum.Generators,
+            description="Test Gen",
+        )
+    # for a given class, all names should be unique
+    _ = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator)
 
     max_rank = db.get_category_max_id(ClassEnum.Generator)
     assert max_rank == 2  # Data has ranks 0, 1. 2 is with the new category
