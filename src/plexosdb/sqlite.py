@@ -446,6 +446,11 @@ class PlexosSQLite:
         -----
         By default, we add all objects to the system membership.
 
+        Raises
+        ------
+        sqlite.IntegrityError
+            if an object is inserted without a unique name/class pair
+
         Returns
         -------
         int
@@ -461,17 +466,14 @@ class PlexosSQLite:
 
         params = (object_name, class_id, category_id, str(uuid.uuid4()), description)
         placeholders = ", ".join("?" * len(params))
-        try:
-            with self._conn as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    f"INSERT INTO {Schema.Objects.name}(name, class_id, category_id, GUID, description) "
-                    f"VALUES({placeholders})",
-                    params,
-                )
-                object_id = cursor.lastrowid
-        except sqlite3.IntegrityError as err:
-            raise ValueError(err)
+        with self._conn as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"INSERT INTO {Schema.Objects.name}(name, class_id, category_id, GUID, description) "
+                f"VALUES({placeholders})",
+                params,
+            )
+            object_id = cursor.lastrowid
 
         if object_id is None:
             raise TypeError("Could not fetch the last row of the insert. Check query format.")
