@@ -3,6 +3,7 @@ import shutil
 import xml.etree.ElementTree as ET  # noqa: N817
 from plexosdb.enums import ClassEnum, CollectionEnum, Schema
 from plexosdb.sqlite import PlexosSQLite
+from sqlite3 import IntegrityError
 from collections.abc import Generator
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -178,7 +179,7 @@ def test_get_object_id(db):
     assert gen_id == gen_id_get
 
     # Add generator with same name and no category
-    with pytest.raises(ValueError):
+    with pytest.raises(IntegrityError):
         gen_id = db.add_object(
             gen_01_name,
             ClassEnum.Generator,
