@@ -37,7 +37,7 @@ class PlexosSQLite:
         super().__init__()
         self._conn = sqlite3.connect(":memory:")
         self._sqlite_config()
-        self._QUERY_CACHE: dict[int, int] = {}
+        self._QUERY_CACHE: dict[tuple, int] = {}
 
         if create_collations:
             self._create_collations()
@@ -802,6 +802,11 @@ class PlexosSQLite:
             "object_name": object_name,
         }
 
+        # tuple that should be unique for any id returned
+        query_key = (table.name, object_name, class_name, parent_class_name, child_class_name)
+        if query_key in self._QUERY_CACHE:
+            return self._QUERY_CACHE[query_key]
+
         query = f"SELECT {column_name} FROM `{table_name}`"
         conditions = []
         join_clauses = []
@@ -844,10 +849,6 @@ class PlexosSQLite:
             if conditions
             else f" WHERE {table_name}.name = :object_name"
         )
-        query_key = self._query_hash(query, params)
-        if query_key in self._QUERY_CACHE:
-            return self._QUERY_CACHE[query_key]
-
         result = self.query(query, params)
 
         if not result:
@@ -1253,32 +1254,3 @@ class PlexosSQLite:
         """Add collate function for helping search enums."""
         self._conn.create_collation("NOSPACE", no_space)
         return
-
-    @staticmethod
-    def _query_hash(query_string: str, params: tuple | dict | None = None) -> int:
-        """
-        Create a hash int for a query string and params dictionary.
-
-        Parameters
-        ----------
-        query_str
-            String to get passed to the database connector.
-        params
-            Tuple or dict for passing
-
-        Returns
-        -------
-        Int
-            likely unique integer for given query_string and params object
-        """
-        if params is None:
-            return hash(query_string)
-        if isinstance(params, dict):
-            return hash((query_string, str(params)))
-        if isinstance(params, list):
-            return hash((query_string, *params))
-        return hash((query_string, params))
-
-    def clear_id_cache(self):
-        """Clear the cache for the _get_id method."""
-        self._QUERY_CACHE.clear()
