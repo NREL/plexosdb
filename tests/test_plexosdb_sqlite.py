@@ -1,7 +1,11 @@
 import pytest
+import shutil
 import xml.etree.ElementTree as ET  # noqa: N817
 from plexosdb.enums import ClassEnum, CollectionEnum, Schema
 from plexosdb.sqlite import PlexosSQLite
+from sqlite3 import IntegrityError
+from collections.abc import Generator
+from pathlib import Path
 
 DB_FILENAME = "plexosdb.xml"
 
@@ -12,8 +16,13 @@ def db_empty() -> "PlexosSQLite":
 
 
 @pytest.fixture
-def db(data_folder) -> PlexosSQLite:
-    return PlexosSQLite(xml_fname=data_folder.joinpath(DB_FILENAME))
+def db(data_folder: Path, tmp_path: Path) -> Generator[PlexosSQLite, None, None]:
+    xml_fname = data_folder / DB_FILENAME
+    xml_copy = tmp_path / f"copy_{DB_FILENAME}"
+    shutil.copy(xml_fname, xml_copy)
+    db = PlexosSQLite(xml_fname=str(xml_copy))
+    yield db
+    xml_copy.unlink()
 
 
 def test_database_initialization(db):
@@ -79,10 +88,6 @@ def test_check_id_exists(db):
     system_check = db.check_id_exists(Schema.Class, "NotExistingObject", class_name=ClassEnum.System)
     assert isinstance(system_check, bool)
     assert not system_check
-
-    # Check that returns ValueError if multiple object founds
-    with pytest.raises(ValueError):
-        _ = db.check_id_exists(Schema.Objects, "SolarPV01", class_name=ClassEnum.Generator)
 
 
 @pytest.mark.get_functions
@@ -157,17 +162,8 @@ def test_get_collection_id(db):
 @pytest.mark.get_functions
 def test_get_object_id(db):
     gen_01_name = "gen1"
-    gen_id = db.add_object(
-        gen_01_name, ClassEnum.Generator, CollectionEnum.Generators, description="Test Gen"
-    )
-    assert gen_id
-
-    gen_id_get = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator)
-    assert gen_id == gen_id_get
-
-    # Add generator with same name different category
-    gen_01_name = "gen1"
     category_name = "PV Gens"
+
     gen_id = db.add_object(
         gen_01_name,
         ClassEnum.Generator,
@@ -175,8 +171,19 @@ def test_get_object_id(db):
         description="Test Gen",
         category_name=category_name,
     )
-    with pytest.raises(ValueError):
-        _ = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator)
+    assert gen_id
+
+    gen_id_get = db.get_object_id(gen_01_name, class_name=ClassEnum.Generator)
+    assert gen_id == gen_id_get
+
+    # Add generator with same name and no category
+    with pytest.raises(IntegrityError):
+        gen_id = db.add_object(
+            gen_01_name,
+            ClassEnum.Generator,
+            CollectionEnum.Generators,
+            description="Test Gen",
+        )
 
     max_rank = db.get_category_max_id(ClassEnum.Generator)
     assert max_rank == 2  # Data has ranks 0, 1. 2 is with the new category

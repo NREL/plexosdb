@@ -37,6 +37,8 @@ class PlexosSQLite:
         super().__init__()
         self._conn = sqlite3.connect(":memory:")
         self._sqlite_config()
+        self._QUERY_CACHE: dict[tuple, int] = {}
+
         if create_collations:
             self._create_collations()
         self._create_table_schema()
@@ -444,6 +446,11 @@ class PlexosSQLite:
         -----
         By default, we add all objects to the system membership.
 
+        Raises
+        ------
+        sqlite.IntegrityError
+            if an object is inserted without a unique name/class pair
+
         Returns
         -------
         int
@@ -795,6 +802,11 @@ class PlexosSQLite:
             "object_name": object_name,
         }
 
+        # tuple that should be unique for any id returned
+        query_key = (table.name, object_name, class_name, parent_class_name, child_class_name)
+        if query_key in self._QUERY_CACHE:
+            return self._QUERY_CACHE[query_key]
+
         query = f"SELECT {column_name} FROM `{table_name}`"
         conditions = []
         join_clauses = []
@@ -837,7 +849,6 @@ class PlexosSQLite:
             if conditions
             else f" WHERE {table_name}.name = :object_name"
         )
-
         result = self.query(query, params)
 
         if not result:
@@ -847,7 +858,12 @@ class PlexosSQLite:
         if len(result) > 1:
             msg = f"Multiple ids returned for {object_name} and {class_name}. Try passing addtional filters"
             raise ValueError(msg)
-        return result[0][0]  # Get first element of tuple
+
+        ret: int = result[0][0]  # Get first element of tuple
+
+        self._QUERY_CACHE[query_key] = ret
+
+        return ret
 
     def get_membership_id(
         self,
@@ -1054,8 +1070,6 @@ class PlexosSQLite:
             String to get passed to the database connector.
         params
             Tuple or dict for passing
-        fetchone
-            Return firstrow
 
         Note
         ----
@@ -1065,7 +1079,9 @@ class PlexosSQLite:
         """
         with self._conn as conn:
             res = conn.execute(query_string, params) if params else conn.execute(query_string)
-        return res.fetchall()
+        ret = res.fetchall()
+
+        return ret
 
     def ingest_from_records(self, tag: str, record_data: Sequence):
         """Insert elements from xml to database."""
@@ -1088,6 +1104,7 @@ class PlexosSQLite:
                     conn.execute(ingestion_sql, record)
             except sqlite3.Error as err:
                 raise err
+
             logger.trace("Finished ingesting {}", tag)
         return
 
