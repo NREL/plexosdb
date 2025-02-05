@@ -1034,8 +1034,10 @@ class PlexosSQLite:
 
     def get_scenario_id(self, scenario_name: str) -> int:
         """Return scenario id for a given scenario name."""
-        scenario_id = self.check_id_exists(Schema.Objects, scenario_name, class_name=ClassEnum.Scenario)
-        if not scenario_id:
+        id_exists = self.check_id_exists(Schema.Objects, scenario_name, class_name=ClassEnum.Scenario)
+        if id_exists:
+            scenario_id = self.get_object_id(scenario_name, class_name=ClassEnum.Scenario)
+        else:
             scenario_id = self.add_object(scenario_name, ClassEnum.Scenario, CollectionEnum.Scenarios)
         return scenario_id
 
