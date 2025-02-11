@@ -251,3 +251,25 @@ def test_bulk_modify_properties_exception(api: PlexosAPI, monkeypatch):
     ]
     with pytest.raises(Exception, match="Test Exception"):
         api.bulk_modify_properties(updates)
+
+
+def test_copy_object_memberships(api: PlexosAPI):
+    object_type = ClassEnum.Generator
+    original_memberships = api.db.get_memberships(
+        "SolarPV01", object_class=object_type, include_system_membership=True
+    )
+    new_obj_id = api.copy_object("SolarPV01", "SolarPV01_copy", object_type)
+    assert new_obj_id is not None, "copy_object did not return a valid new object id."
+
+    copy_memberships = api.db.get_memberships(
+        "SolarPV01_copy", object_class=object_type, include_system_membership=True
+    )
+
+    assert len(copy_memberships) == 1, f"Expected 1 membership for the copy, got {len(copy_memberships)}"
+
+    parent_name = copy_memberships[0][2]
+    assert parent_name == "System", f"Expected membership parent 'System', got '{parent_name}'"
+
+    assert len(original_memberships) == len(
+        copy_memberships
+    ), "Membership count for original and copy do not match."

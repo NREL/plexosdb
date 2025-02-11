@@ -958,64 +958,62 @@ class PlexosSQLite:
 
     def get_memberships(
         self,
-        *object_names: list[str],
+        *object_names: str | list[str],
         object_class: ClassEnum,
         parent_class: ClassEnum | None = None,
         collection: CollectionEnum | None = None,
+        include_system_membership: bool = False,
     ) -> list[tuple]:
-        """Retrieve all memberships for the given object except the system membership.
-
-        This function returns a list of tuples representing memberships, which can be filtered by
-        `parent_class` and `collection` if specified.
+        """Retrieve all memberships for the given object(s).
 
         Parameters
         ----------
-        object_names
-            Name of the objects to get their memberships
-        object_class
-            Class of the objects
-        parent_class, Optional
-            Class of the parent object. Used to filter memberships by `parent_class_id`
-        collection, Optional
-            Collection of the memberships. Used to filter memberships by `collection_id`
+        object_names : str or list[str]
+            Name or list of names of the objects to get their memberships.
+            You can pass multiple string arguments or a single list of strings.
+        object_class : ClassEnum
+            Class of the objects.
+        parent_class : ClassEnum | None, optional
+            Class of the parent object. Defaults to object_class if not provided.
+        collection : CollectionEnum | None, optional
+            Collection to filter memberships.
+        include_system_membership : bool, optional
+            If False (default), exclude system memberships (where parent_class is System).
+            If True, include them.
 
         Returns
         -------
-        list of tuple
+        list[tuple]
             A list of tuples representing memberships. Each tuple is structured as:
-            (parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id).
+            (parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id,
+            parent_class_name, collection_name).
 
         Raises
         ------
         KeyError
-            If any of the `object_names` do not exist or if the `object_class` is invalid.
-        sqlite3.OperationalError
-            If there is an error in executing the SQL query.
-
-        Examples
-        --------
-        >>> db = PlexosSQLite("2-bus_example.xml")
-        >>> memberships = db.get_memberships("SolarPV_01", "ThermalCC", object_class=ClassEnum.Generators)
-        >>> print(memberships)
-        [(parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id)]
+            If any of the object_names do not exist.
         """
+        # Handle the case where a single list is provided as the only positional argument
+        if len(object_names) == 1 and isinstance(object_names[0], list):
+            object_names = tuple(object_names[0])
+
         object_ids = tuple(
             self._get_id(Schema.Objects, object_name, class_name=object_class) for object_name in object_names
         )
         if not object_ids:
-            raise KeyError(f"Objects {object_names=} not found on the database. Check that they exists.")
+            raise KeyError(f"Objects {object_names=} not found on the database. Check that they exist.")
 
         query_string = """
         SELECT
             mem.parent_class_id,
             mem.child_class_id,
-            parent_object.name parent,
-            child_object.name child,
+            parent_object.name AS parent,
+            child_object.name AS child,
             mem.collection_id,
             parent_class.name AS parent_class_name,
             collections.name AS collection_name
         FROM
-            t_membership as mem
+            t_membership AS mem
         INNER JOIN
             t_object AS parent_object ON mem.parent_object_id = parent_object.object_id
         INNER JOIN
@@ -1024,24 +1022,26 @@ class PlexosSQLite:
             t_class AS parent_class ON mem.parent_class_id = parent_class.class_id
         LEFT JOIN
             t_collection AS collections ON mem.collection_id = collections.collection_id
-        WHERE
-            mem.parent_class_id <> 1
         """
-
+        conditions = []
+        if not include_system_membership:
+            conditions.append(f"parent_class.name <> '{ClassEnum.System.name}'")
         if len(object_ids) == 1:
-            query_string += (
-                f"AND (child_object.object_id = {object_ids[0]} OR parent_object.object_id = {object_ids[0]})"
+            conditions.append(
+                f"(child_object.object_id = {object_ids[0]} OR parent_object.object_id = {object_ids[0]})"
             )
         else:
-            query_string += (
-                f"AND (child_object.object_id in {object_ids} OR parent_object.object_id in {object_ids})"
+            conditions.append(
+                f"(child_object.object_id in {object_ids} OR parent_object.object_id in {object_ids})"
             )
         if not parent_class:
             parent_class = object_class
         if collection:
-            query_string += (
-                f"and parent_class.name = '{parent_class.value}' and collections.name = '{collection.value}'"
+            conditions.append(
+                f"parent_class.name = '{parent_class.value}' and collections.name = '{collection.value}'"
             )
+        if conditions:
+            query_string += " WHERE " + " AND ".join(conditions)
         return self.query(query_string)
 
     def get_scenario_id(self, scenario_name: str) -> int:

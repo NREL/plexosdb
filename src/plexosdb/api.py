@@ -617,3 +617,115 @@ class PlexosAPI:
             if self.db._conn.in_transaction:
                 self.db._conn.rollback()
             raise e
+
+    def copy_object(
+        self,
+        original_object_name: str,
+        new_object_name: str,
+        object_type: ClassEnum,
+    ) -> int:
+        """
+        Copy an object by creating a new one, duplicating both the memberships and any property entries.
+        This handles cases where the original object is either the child or the parent in a membership.
+
+        Parameters
+        ----------
+        original_object_name : str
+            The name of the existing object to copy.
+        new_object_name : str
+            The name for the newly created object.
+        object_type : ClassEnum
+            The type of object being copied.
+
+        Returns
+        -------
+        int
+            The new object's id.
+
+        Raises
+        ------
+        ValueError
+            When the original object is not found.
+        """
+        # Get the original object's id and class
+        query_obj = (
+            "SELECT object_id, class_id FROM t_object "
+            "WHERE name = ? AND class_id = (SELECT class_id FROM t_class WHERE name = ?)"
+        )
+        result = self.db.query(query_obj, (original_object_name, object_type.value))
+        if not result:
+            raise ValueError(f"Original object '{original_object_name}' not found.")
+        original_obj_id, _ = result[0]
+
+        new_object_id = self.db.add_object(new_object_name, object_type, CollectionEnum.Generators)
+        if new_object_id is None:
+            raise ValueError(f"Failed to add new object '{new_object_name}'.")
+
+        membership_mapping: dict[int, int] = {}
+
+        all_memberships = self.db.get_memberships(original_object_name, object_class=object_type)
+
+        # Process memberships where the original object appears as child.
+        for mem in all_memberships:
+            parent_name, child_name, _, parent_class_name, collection_name = (
+                mem[2],
+                mem[3],
+                mem[4],
+                mem[5],
+                mem[6],
+            )
+            if child_name == original_object_name:
+                new_mem_id = self.db.add_membership(
+                    parent_name,
+                    new_object_name,
+                    parent_class=ClassEnum[parent_class_name],
+                    child_class=object_type,
+                    collection=CollectionEnum[collection_name],
+                )
+                old_mem_id = self.db.get_membership_id(
+                    child_name=original_object_name,
+                    parent_name=parent_name,
+                    child_class=object_type,
+                    parent_class=ClassEnum[parent_class_name],
+                    collection=CollectionEnum[collection_name],
+                )
+                membership_mapping[old_mem_id] = new_mem_id
+
+        for mem in all_memberships:
+            parent_name, child_name, _, parent_class_name, collection_name = (
+                mem[2],
+                mem[3],
+                mem[4],
+                mem[5],
+                mem[6],
+            )
+            if parent_name == original_object_name:
+                new_mem_id = self.db.add_membership(
+                    new_object_name,
+                    child_name,
+                    parent_class=object_type,
+                    child_class=object_type,
+                    collection=CollectionEnum[collection_name],
+                )
+                old_mem_id = self.db.get_membership_id(
+                    child_name=child_name,
+                    parent_name=original_object_name,
+                    child_class=object_type,
+                    parent_class=object_type,
+                    collection=CollectionEnum[collection_name],
+                )
+                membership_mapping[old_mem_id] = new_mem_id
+
+        if membership_mapping:
+            placeholders = ", ".join("?" for _ in membership_mapping.keys())
+            query_data = (
+                f"SELECT membership_id, property_id, value FROM t_data "
+                f"WHERE membership_id IN ({placeholders})"
+            )
+            data_rows = self.db.query(query_data, list(membership_mapping.keys()))
+            for old_mem_id, property_id, value in data_rows:
+                mapped_mem_id: int | None = membership_mapping.get(old_mem_id)
+                if mapped_mem_id is not None:
+                    insert_data = "INSERT INTO t_data (membership_id, property_id, value) VALUES (?, ?, ?)"
+                    self.db.execute(insert_data, (mapped_mem_id, property_id, value))
+        return new_object_id
