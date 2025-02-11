@@ -114,7 +114,9 @@ def test_backup_database(api: PlexosAPI):
     with tempfile.TemporaryDirectory() as tmpdirname:
         backup_path = Path(tmpdirname) / "backup.db"
         api.backup_database(backup_path)
-        # Check the backup file exists and is non-empty.
+        # Ensure the file is closed before checking its existence and size
+        with open(backup_path, "rb"):
+            pass
         assert backup_path.exists()
         assert backup_path.stat().st_size > 0
 
