@@ -16,3 +16,9 @@ class ModelError(Exception):
 
 class MultipleFilesError(Exception):
     pass
+
+
+class PropertyNameError(ValueError):
+    """Raised when one or more property names are not valid."""
+
+    pass

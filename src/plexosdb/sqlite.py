@@ -41,8 +41,12 @@ class PlexosSQLite:
 
         if create_collations:
             self._create_collations()
+        # Always create table schema (even if no XML is loaded)
         self._create_table_schema()
-        self._populate_database(xml_fname=xml_fname, xml_handler=xml_handler)
+
+        # Only populate if user provided an XML filename or handler.
+        if xml_fname or xml_handler:
+            self._populate_database(xml_fname=xml_fname, xml_handler=xml_handler)
 
     def add_attribute(
         self,
@@ -749,7 +753,9 @@ class PlexosSQLite:
         except KeyError:
             return False
         except ValueError:
-            raise
+            raise ValueError(
+                f"Multiple IDs returned for {object_name} and {class_name}. Try passing addtional filters"
+            )
         return True
 
     def _get_id(
@@ -780,7 +786,7 @@ class PlexosSQLite:
             ClassEnum of the parent object. Used to filter memberships by `parent_class_id`
         child_class, Optional
             ClassEnum of the child object. Used to filter memberships by `child_class_id`
-        collection_id : CollectionEnum, optional
+        collection_name : CollectionEnum, optional
             The collection ID to filter by.
 
         Returns
@@ -834,6 +840,12 @@ class PlexosSQLite:
             )
             conditions.append("child_class_id = :child_class_id")
             params["child_class_id"] = child_class_id
+
+        if collection_name is not None:
+            assert isinstance(collection_name, CollectionEnum)
+            collection_id = self._get_id(Schema.Collection, collection_name.name)
+            conditions.append("collection_id = :collection_id")
+            params["collection_id"] = collection_id
 
         if category_name and class_name:
             category_id = self.get_category_id(category_name, class_name)
@@ -1254,3 +1266,31 @@ class PlexosSQLite:
         """Add collate function for helping search enums."""
         self._conn.create_collation("NOSPACE", no_space)
         return
+
+    def execute(self, query: str, params: tuple | dict | None = None) -> None:
+        """
+        Execute a SQL statement without returning any results.
+
+        Parameters
+        ----------
+        query : str
+            The SQL query to execute.
+        params : tuple or dict, optional
+            Parameters to pass with the query.
+        """
+        conn = self._conn
+        try:
+            if params:
+                conn.execute(query, params)
+            else:
+                conn.execute(query)
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise e
+
+    def last_insert_rowid(self) -> int:
+        """Return the last inserted row ID."""
+        with self._conn as conn:
+            cursor = conn.execute("SELECT last_insert_rowid();")
+            return cursor.fetchone()[0]

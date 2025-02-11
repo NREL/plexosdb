@@ -1,11 +1,13 @@
-import pytest
 import shutil
-import xml.etree.ElementTree as ET  # noqa: N817
-from plexosdb.enums import ClassEnum, CollectionEnum, Schema
-from plexosdb.sqlite import PlexosSQLite
-from sqlite3 import IntegrityError
+import xml.etree.ElementTree as ET
 from collections.abc import Generator
 from pathlib import Path
+from sqlite3 import IntegrityError
+
+import pytest
+
+from plexosdb.enums import ClassEnum, CollectionEnum, Schema
+from plexosdb.sqlite import PlexosSQLite
 
 DB_FILENAME = "plexosdb.xml"
 
@@ -88,6 +90,9 @@ def test_check_id_exists(db):
     system_check = db.check_id_exists(Schema.Class, "NotExistingObject", class_name=ClassEnum.System)
     assert isinstance(system_check, bool)
     assert not system_check
+
+    with pytest.raises(ValueError):
+        _ = db.check_id_exists(Schema.Objects, "SolarPV02", class_name=ClassEnum.Generator)
 
 
 @pytest.mark.get_functions
