@@ -10,8 +10,8 @@ from typing import Any
 
 from loguru import logger
 
-from .utils import batched, no_space
 from .enums import ClassEnum, CollectionEnum, Schema, str2enum
+from .utils import batched, no_space
 from .xml_handler import XMLHandler
 
 SYSTEM_CLASS_NAME = "System"
@@ -282,7 +282,7 @@ class PlexosSQLite:
         if property_name not in valid_properties:
             msg = (
                 f"Property {property_name} does not exist for collection: {collection}. "
-                f"Run `self.get_valid_properties({ collection }) to verify valid properties."
+                f"Run `self.get_valid_properties({collection}) to verify valid properties."
             )
             raise KeyError(msg)
         property_id = self.get_property_id(
@@ -677,7 +677,7 @@ class PlexosSQLite:
         if property_name not in valid_properties:
             msg = (
                 f"Property {property_name} does not exist for collection: {collection}. "
-                f"Run `self.get_valid_properties({ collection }) to verify valid properties."
+                f"Run `self.get_valid_properties({collection}) to verify valid properties."
             )
             raise KeyError(msg)
 
@@ -1127,6 +1127,7 @@ class PlexosSQLite:
         fpath = fpath if isinstance(fpath, Path) else Path(fpath)
         with sqlite3.connect(fpath) as conn:
             self._conn.backup(conn)
+        conn.close()
         logger.info("Backed up plexos database to {}", fpath)
 
     def to_xml(self, fpath: Path | str, namespace="http://tempuri.org/MasterDataSet.xsd") -> None:
