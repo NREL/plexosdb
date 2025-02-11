@@ -2,9 +2,12 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.version]
+path = "src/plexosdb/__version__.py"
+
 [project]
 name = "plexosdb"
-version = "0.0.7"
+dynamic = ["version"]
 readme = "README.md"
 license = {file = "LICENSE.txt"}
 keywords = []
