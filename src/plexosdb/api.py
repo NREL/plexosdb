@@ -747,9 +747,14 @@ class PlexosAPI:
         copy_properties: bool = True,
     ) -> int:
         """Copy an object and its properties, tags, and texts."""
-        _ = self.db.get_object_id(original_object_name, object_type)
-
-        new_object_id = self.db.add_object(new_object_name, object_type, CollectionEnum.Generators)
+        object_id = self.db.get_object_id(original_object_name, object_type)
+        category_id = self.db.query("SELECT category_id from t_object WHERE object_id = ?", (object_id,))
+        category_name = self.db.query(
+            "SELECT name from t_category WHERE category_id = ?", (category_id[0][0],)
+        )
+        new_object_id = self.db.add_object(
+            new_object_name, object_type, CollectionEnum.Generators, category_name=category_name[0][0]
+        )
         if new_object_id is None:
             raise ValueError(f"Failed to add new object '{new_object_name}'.")
 
@@ -766,29 +771,34 @@ class PlexosAPI:
         self, original_object_name: str, object_name: str, object_type: ClassEnum
     ) -> dict[int, int]:
         membership_mapping: dict[int, int] = {}
-        # Get all memberships for the original object.
         all_memberships = self.db.get_memberships(
             original_object_name, object_class=object_type, include_system_membership=True
         )
 
-        # Use case-insensitive comparison for object names.
-        orig_lower = original_object_name.lower()
-
-        # Loop for copying memberships when the original object is the child.
+        # When the original object is the child.
         for mem in all_memberships:
             parent_name = mem[2]
             child_name = mem[3]
             parent_class_name = mem[5]
             child_class_name = mem[6]
             collection_name = mem[7]
-            if child_name.lower() == orig_lower:
-                new_mem_id = self.db.add_membership(
-                    parent_name,
-                    object_name,
-                    parent_class=ClassEnum[parent_class_name],
-                    child_class=ClassEnum[child_class_name],
-                    collection=CollectionEnum[collection_name],
-                )
+            if child_name == original_object_name:
+                try:
+                    existing_membership_id = self.db.get_membership_id(
+                        child_name=object_name,
+                        parent_name=parent_name,
+                        child_class=ClassEnum[child_class_name],
+                        parent_class=ClassEnum[parent_class_name],
+                        collection=CollectionEnum[collection_name],
+                    )
+                except KeyError:
+                    existing_membership_id = self.db.add_membership(
+                        parent_name,
+                        object_name,
+                        parent_class=ClassEnum[parent_class_name],
+                        child_class=ClassEnum[child_class_name],
+                        collection=CollectionEnum[collection_name],
+                    )
                 old_mem_id = self.db.get_membership_id(
                     child_name=original_object_name,
                     parent_name=parent_name,
@@ -796,16 +806,16 @@ class PlexosAPI:
                     parent_class=ClassEnum[parent_class_name],
                     collection=CollectionEnum[collection_name],
                 )
-                membership_mapping[old_mem_id] = new_mem_id
+                membership_mapping[old_mem_id] = existing_membership_id
 
-        # Loop for copying memberships when the original object is the parent.
+        # When the original object is the parent.
         for mem in all_memberships:
             parent_name = mem[2]
             child_name = mem[3]
             parent_class_name = mem[5]
             child_class_name = mem[6]
             collection_name = mem[7]
-            if parent_name.lower() == orig_lower:
+            if parent_name == original_object_name:
                 new_mem_id = self.db.add_membership(
                     object_name,
                     child_name,
@@ -821,4 +831,5 @@ class PlexosAPI:
                     collection=CollectionEnum[collection_name],
                 )
                 membership_mapping[old_mem_id] = new_mem_id
+
         return membership_mapping
