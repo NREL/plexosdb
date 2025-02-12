@@ -3,7 +3,7 @@
 import sqlite3
 import uuid
 import xml.etree.ElementTree as ET  # noqa: N817
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -137,10 +137,13 @@ class PlexosSQLite:
         WHERE
             class_id = :class_id
         """
-        existing_rank = self.query(
-            rank_query,
-            {"class_id": class_id},
-        )[0][0]
+        existing_rank = (
+            self.query(
+                rank_query,
+                {"class_id": class_id},
+            )[0][0]
+            or 0
+        )
 
         params = (class_id, existing_rank + 1, category_name)
 
@@ -697,6 +700,48 @@ class PlexosSQLite:
 
         return result[0][0]  # Get first element of tuple
 
+    def get_properties(
+        self,
+        object_name: str,
+        class_name: ClassEnum,
+        /,
+        *,
+        properties: str | Iterable[str] | None = None,
+        parent_class: ClassEnum | None = None,
+        collection: CollectionEnum | None = None,
+        scenario: str | None = None,
+    ) -> list[tuple[Any, ...]]:
+        """Retrieve selected properties for the specified object.
+
+        If no collection is provided, all properties are returned. If a collection is passed then
+        the collection id is computed using the provided parent_class and the child class (class_name)
+        so that only properties for that membership are returned.
+        """
+        params: list = [object_name]
+        extra_filters = ""
+
+        if collection is not None:
+            if parent_class is None:
+                raise ValueError("When filtering by collection, parent_class must be provided.")
+            coll_id = self.get_collection_id(collection, parent_class, child_class=class_name)
+            extra_filters += " AND p.collection_id = ?"
+            params.append(coll_id)
+
+        if properties:
+            prop_placeholders = ", ".join("?" for _ in properties)
+            extra_filters += f" AND p.name IN ({prop_placeholders})"
+            params.extend(properties)
+
+        if scenario:
+            extra_filters += " AND scenario.scenario_name = ?"
+            params.append(scenario)
+
+        # Load the SQL query from the file and substitute the placeholders.
+        query_template = self._get_sql_query("property_query.sql")
+        query = query_template.format(class_name=class_name.name, extra_filters=extra_filters)
+        results = self.query(query, params)
+        return results
+
     def get_object_id(self, object_name: str, class_name: ClassEnum, category_name: str | None = None) -> int:
         """Return the ID for a given object.
 
@@ -1011,6 +1056,7 @@ class PlexosSQLite:
             child_object.name AS child,
             mem.collection_id,
             parent_class.name AS parent_class_name,
+            child_class.name AS child_class_name,
             collections.name AS collection_name
         FROM
             t_membership AS mem
@@ -1020,6 +1066,8 @@ class PlexosSQLite:
             t_object AS child_object ON mem.child_object_id = child_object.object_id
         LEFT JOIN
             t_class AS parent_class ON mem.parent_class_id = parent_class.class_id
+        LEFT JOIN
+            t_class AS child_class ON mem.child_class_id = child_class.class_id
         LEFT JOIN
             t_collection AS collections ON mem.collection_id = collections.collection_id
         """
@@ -1295,3 +1343,7 @@ class PlexosSQLite:
         with self._conn as conn:
             cursor = conn.execute("SELECT last_insert_rowid();")
             return cursor.fetchone()[0]
+
+    def _get_sql_query(self, query_name: str):
+        fpath = files("plexosdb.queries").joinpath(query_name)
+        return fpath.read_text(encoding="utf-8-sig")
