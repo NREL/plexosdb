@@ -663,28 +663,41 @@ class PlexosAPI:
                    d.value,
                    d.state
             FROM mapping m
-            JOIN t_data d ON d.membership_id = m.old_membership_id
+            JOIN t_data d ON d.membership_id = m.old_membership_id;
         """
         self._execute_with_mapping(membership_mapping, query_template)
 
     def _copy_tags_sql(self, membership_mapping: dict[int, int]) -> None:
         """
-        Copy all t_tag rows from the original t_data rows to the new ones.
-        For non-scenario tags (non-null action_id) the new membership must differ from the original;
-        scenario tags (with NULL action_id) are copied regardless.
-        Matching for new t_tag rows is done via the mapping CTE.
+        Copy all t_tag rows for the original object's t_data rows to new t_tag rows.
+        Retrieves the new data_id by matching the membership as well as property_id, value, and state.
         """
         query_template = """
-            WITH mapping(old_membership_id, new_membership_id) AS (
-                VALUES {mapping_values}
-            )
-            INSERT INTO t_tag (data_id, object_id, state, action_id)
-            SELECT new_d.data_id, t.object_id, t.state, t.action_id
-            FROM t_tag t
-            JOIN t_data orig ON orig.data_id = t.data_id
-            JOIN mapping m ON orig.membership_id = m.old_membership_id
-            JOIN t_data new_d ON new_d.membership_id = m.new_membership_id
-            WHERE (m.new_membership_id <> orig.membership_id OR t.action_id IS NULL)
+        WITH mapping (old_membership_id, new_membership_id) AS (
+            VALUES {mapping_values}
+        ),
+        old_data AS (
+            SELECT data_id, membership_id, property_id,
+                   ROW_NUMBER() OVER (PARTITION BY membership_id, property_id ORDER BY data_id) AS rn
+            FROM t_data
+            WHERE membership_id IN (SELECT old_membership_id FROM mapping)
+        ),
+        new_data AS (
+            SELECT data_id, membership_id, property_id,
+                   ROW_NUMBER() OVER (PARTITION BY membership_id, property_id ORDER BY data_id) AS rn
+            FROM t_data
+            WHERE membership_id IN (SELECT new_membership_id FROM mapping)
+        )
+        INSERT INTO t_tag (data_id, object_id, state, action_id)
+        SELECT new_d.data_id AS data_id, tag.object_id as object_id, tag.state, tag.action_id
+        FROM old_data old_d
+        JOIN new_data new_d
+          ON old_d.property_id = new_d.property_id
+         AND old_d.rn = new_d.rn
+        JOIN mapping m
+          ON old_d.membership_id = m.old_membership_id
+         AND new_d.membership_id = m.new_membership_id
+        JOIN t_tag tag on tag.data_id = old_d.data_id
         """
         self._execute_with_mapping(membership_mapping, query_template)
 
@@ -694,15 +707,35 @@ class PlexosAPI:
         Matching for new t_text rows is done via the mapping CTE.
         """
         query_template = """
-            WITH mapping(old_membership_id, new_membership_id) AS (
-                VALUES {mapping_values}
-            )
-            INSERT INTO t_text (data_id, class_id, value, state, action_id)
-            SELECT new_d.data_id, txt.class_id, txt.value, txt.state, txt.action_id
-            FROM t_text txt
-            JOIN t_data orig ON orig.data_id = txt.data_id
-            JOIN mapping m ON orig.membership_id = m.old_membership_id
-            JOIN t_data new_d ON new_d.membership_id = m.new_membership_id
+        WITH mapping (old_membership_id, new_membership_id) AS (
+            VALUES {mapping_values}
+        ),
+        old_data AS (
+            SELECT data_id, membership_id, property_id,
+                   ROW_NUMBER() OVER (PARTITION BY membership_id, property_id ORDER BY data_id) AS rn
+            FROM t_data
+            WHERE membership_id IN (SELECT old_membership_id FROM mapping)
+        ),
+        new_data AS (
+            SELECT data_id, membership_id, property_id,
+                   ROW_NUMBER() OVER (PARTITION BY membership_id, property_id ORDER BY data_id) AS rn
+            FROM t_data
+            WHERE membership_id IN (SELECT new_membership_id FROM mapping)
+        )
+        INSERT INTO t_text (data_id, class_id, value, state, action_id)
+        SELECT new_d.data_id AS data_id,
+            text.class_id as class_id,
+            text.value as value,
+            text.state as state,
+            text.action_id as action_id
+        FROM old_data old_d
+        JOIN new_data new_d
+          ON old_d.property_id = new_d.property_id
+         AND old_d.rn = new_d.rn
+        JOIN mapping m
+          ON old_d.membership_id = m.old_membership_id
+         AND new_d.membership_id = m.new_membership_id
+        JOIN t_text text on text.data_id = old_d.data_id
         """
         self._execute_with_mapping(membership_mapping, query_template)
 
@@ -713,7 +746,7 @@ class PlexosAPI:
         object_type: ClassEnum,
         copy_properties: bool = True,
     ) -> int:
-        """Copy object."""
+        """Copy an object and its properties, tags, and texts."""
         _ = self.db.get_object_id(original_object_name, object_type)
 
         new_object_id = self.db.add_object(new_object_name, object_type, CollectionEnum.Generators)
@@ -724,11 +757,8 @@ class PlexosAPI:
         membership_mapping = self._copy_object_memberships(original_object_name, new_object_name, object_type)
 
         if copy_properties:
-            # Copy t_data rows.
             self._copy_properties_sql(original_object_name, membership_mapping)
-            # Copy associated t_tag rows.
             self._copy_tags_sql(membership_mapping)
-            # Copy associated t_text rows.
             self._copy_texts_sql(membership_mapping)
         return new_object_id
 

@@ -42,13 +42,14 @@ def setup_database(data_folder):
         1,
         object_class=ClassEnum.Generator,
         collection=CollectionEnum.Generators,
+        scenario="TestScenario",
         text={"DataFile": "TestText"},
     )
 
     # Attach a scenario to the "Units" property.
     # Assume that add_property stores the last inserted property data row id in last_insert_rowid.
-    units_data_id = api.db.last_insert_rowid()
-    api._update_scenario_for_data(units_data_id, "test scenario")
+    # units_data_id = api.db.last_insert_rowid()``
+    # api._update_scenario_for_data(units_data_id, "test scenario")
 
     # 3. Create an emission object "CO2" for the emission generators collection.
     _ = api.db.add_object("CO2", ClassEnum.Emission, CollectionEnum.Emissions)
