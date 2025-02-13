@@ -9,9 +9,9 @@ DB_FILENAME = "plexosdb.xml"
 @pytest.fixture
 def db(data_folder):
     db = PlexosDB(xml_fname=data_folder.joinpath(DB_FILENAME))
-    _ = db._db.add_object("Node1", ClassEnum.Node, CollectionEnum.Nodes)
-    _ = db._db.add_object("GenOriginal", ClassEnum.Generator, CollectionEnum.Generators)
-    _ = db._db.add_object("CO2", ClassEnum.Emission, CollectionEnum.Emissions)
+    _ = db.add_object("Node1", ClassEnum.Node, CollectionEnum.Nodes)
+    _ = db.add_object("GenOriginal", ClassEnum.Generator, CollectionEnum.Generators)
+    _ = db.add_object("CO2", ClassEnum.Emission, CollectionEnum.Emissions)
     db._db.add_membership(
         "GenOriginal",
         "Node1",
@@ -63,6 +63,12 @@ def db(data_folder):
         collection=CollectionEnum.Generators,
     )
     return db
+
+
+def test_get_properties_defined(db):
+    properties = db.get_generator_properties("GenOriginal", ["Max Capacity", "Fuel Price"])
+    assert properties is not None
+    assert len(properties) == 4
 
 
 def test_copy_object(db):

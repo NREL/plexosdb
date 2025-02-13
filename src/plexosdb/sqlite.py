@@ -1764,7 +1764,7 @@ class PlexosSQLite:
         if invalid:
             msg = (
                 f"Invalid properties for {ClassEnum.Generator.value} "
-                "objects in collection {collection.value}"
+                f"objects in collection {collection.value}"
             )
             raise PropertyNameError(msg)
         return property_names
