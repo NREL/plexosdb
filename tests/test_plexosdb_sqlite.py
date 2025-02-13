@@ -1,11 +1,13 @@
-import pytest
 import shutil
 import xml.etree.ElementTree as ET  # noqa: N817
-from plexosdb.enums import ClassEnum, CollectionEnum, Schema
-from plexosdb.sqlite import PlexosSQLite
-from sqlite3 import IntegrityError
 from collections.abc import Generator
 from pathlib import Path
+from sqlite3 import IntegrityError
+
+import pytest
+
+from plexosdb.enums import ClassEnum, CollectionEnum, Schema
+from plexosdb.sqlite import PlexosSQLite
 
 DB_FILENAME = "plexosdb.xml"
 
@@ -642,3 +644,25 @@ def test_save(db, tmp_path):
     fpath = tmp_path / fname
     db.save(fpath=fpath)
     assert fpath.exists()
+
+
+def test_normalize_string(db):
+    result = db._normalize_names("test", "input")
+    assert result == ["test"]
+
+
+def test_normalize_iterable(db):
+    names = ["alpha", "beta", "alpha", "gamma"]
+    result = db._normalize_names(names, "names")
+    # Since the order of elements returned may vary, sort before assertion.
+    assert sorted(result) == sorted(["alpha", "beta", "gamma"])
+
+
+def test_normalize_empty(db):
+    with pytest.raises(ValueError, match="No input provided."):
+        db._normalize_names([], "input")
+
+
+def test_normalize_invalid_type(db):
+    with pytest.raises(ValueError, match="input must be a string or an iterable of strings."):
+        db._normalize_names(123, "input")

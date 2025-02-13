@@ -40,7 +40,7 @@ def test_in_memory_initialization(in_memory):
     assert handler.fpath == XML_FPATH
     assert handler.namespace == NAMESPACE
     elements = list(handler.iter(Schema.Objects))
-    assert len(elements) == 3
+    assert len(elements) == 4
 
 
 def test_cache_construction():
@@ -51,12 +51,12 @@ def test_cache_construction():
 
 def test_iter(xml_handler):
     elements = list(xml_handler.iter(Schema.Objects))
-    assert len(elements) == 3
+    assert len(elements) == 4
 
 
 def test_get_records(xml_handler):
     elements = list(xml_handler.get_records(Schema.Objects))
-    assert len(elements) == 3
+    assert len(elements) == 4
     assert elements[0]["class_id"] == 1
     assert elements[0]["name"] == "System"
     assert elements[1]["class_id"] == 2

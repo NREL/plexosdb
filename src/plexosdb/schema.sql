@@ -303,6 +303,7 @@ CREATE TABLE `t_membership`
     `child_class_id` INT NULL,
     `child_object_id` INT NULL,
     `state` INT NULL,
+    UNIQUE(`parent_object_id`, `collection_id`, `child_object_id`)
     CONSTRAINT PK_t_membership
                PRIMARY KEY (`membership_id`)
 );
