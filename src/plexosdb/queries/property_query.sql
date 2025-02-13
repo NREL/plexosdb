@@ -45,7 +45,6 @@ LEFT JOIN (
 ) AS scenario
     ON scenario.data_id = d.data_id
 WHERE c.name = '{class_name}'
-  AND o.name = ?
   {extra_filters}
 GROUP BY
     d.data_id, o.name, p.name, d.value,

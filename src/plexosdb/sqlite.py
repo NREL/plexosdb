@@ -10,6 +10,8 @@ from typing import Any
 
 from loguru import logger
 
+from plexosdb.exceptions import PropertyNameError
+
 from .enums import ClassEnum, CollectionEnum, Schema, str2enum
 from .utils import batched, no_space
 from .xml_handler import XMLHandler
@@ -34,7 +36,6 @@ class PlexosSQLite:
         xml_handler: XMLHandler | None = None,
         create_collations: bool = True,
     ) -> None:
-        super().__init__()
         self._conn = sqlite3.connect(":memory:")
         self._sqlite_config()
         self._QUERY_CACHE: dict[tuple, int] = {}
@@ -91,19 +92,12 @@ class PlexosSQLite:
         """
         object_id = self.get_object_id(object_name, class_name=object_class)
         attribute_id = self._get_id(Schema.Attributes, attribute_name, class_name=attribute_class)
-
         params = (object_id, attribute_id, attribute_value)
         placeholders = ", ".join("?" * len(params))
-        with self._conn as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                f"INSERT INTO {Schema.AttributeData.name}(object_id, attribute_id, value) "
-                f"VALUES({placeholders})",
-                params,
-            )
-            attribute_id = cursor.lastrowid  # type: ignore
-        if attribute_id is None:
-            raise TypeError("Could not fetch the last row of the insert. Check query format.")
+        query = (
+            f"INSERT INTO {Schema.AttributeData.name}(object_id, attribute_id, value) VALUES({placeholders})"
+        )
+        attribute_id = self._execute_insert(query, params)
         return attribute_id
 
     def add_category(self, category_name, /, *, class_name: ClassEnum) -> int:
@@ -548,6 +542,32 @@ class PlexosSQLite:
         )
         return
 
+    def copy_object(
+        self,
+        original_object_name: str,
+        new_object_name: str,
+        object_type: ClassEnum,
+        copy_properties: bool = True,
+    ) -> int:
+        """Copy an object and its properties, tags, and texts."""
+        object_id = self.get_object_id(original_object_name, object_type)
+        category_id = self.query("SELECT category_id from t_object WHERE object_id = ?", (object_id,))
+        category_name = self.query("SELECT name from t_category WHERE category_id = ?", (category_id[0][0],))
+        new_object_id = self.add_object(
+            new_object_name, object_type, CollectionEnum.Generators, category_name=category_name[0][0]
+        )
+        if new_object_id is None:
+            raise ValueError(f"Failed to add new object '{new_object_name}'.")
+
+        # Copy memberships and obtain a mapping.
+        membership_mapping = self._copy_object_memberships(original_object_name, new_object_name, object_type)
+
+        if copy_properties:
+            self._copy_properties_sql(membership_mapping)
+            self._copy_tags(membership_mapping)
+            self._copy_text(membership_mapping)
+        return new_object_id
+
     def get_category_id(self, category_name: str, class_name: ClassEnum) -> int:
         """Return the ID for a given category.
 
@@ -700,16 +720,17 @@ class PlexosSQLite:
 
         return result[0][0]  # Get first element of tuple
 
-    def get_properties(
+    def get_objects_properties(
         self,
-        object_name: str,
         class_name: ClassEnum,
+        collection: CollectionEnum,
         /,
+        objects: str | Iterable[str] | None = None,
         *,
         properties: str | Iterable[str] | None = None,
         parent_class: ClassEnum | None = None,
-        collection: CollectionEnum | None = None,
         scenario: str | None = None,
+        variable_tag: str | None = None,
     ) -> list[tuple[Any, ...]]:
         """Retrieve selected properties for the specified object.
 
@@ -717,8 +738,20 @@ class PlexosSQLite:
         the collection id is computed using the provided parent_class and the child class (class_name)
         so that only properties for that membership are returned.
         """
-        params: list = [object_name]
         extra_filters = ""
+        params: list[Any] = self._normalize_names(objects, "objects")
+
+        # Check if the passed properties exist on the collection, parent_class, child_class.
+        properties = self._check_properties_names(
+            properties,
+            parent_class=parent_class or ClassEnum.System,
+            child_class=class_name,
+            collection=collection,
+        )
+
+        if params:
+            placeholders = ", ".join("?" * len(params))
+            extra_filters += f" AND o.name in ({placeholders})"
 
         if collection is not None:
             if parent_class is None:
@@ -735,6 +768,10 @@ class PlexosSQLite:
         if scenario:
             extra_filters += " AND scenario.scenario_name = ?"
             params.append(scenario)
+
+        if variable_tag:
+            extra_filters += " AND p.tag = ?"
+            params.append(variable_tag)
 
         # Load the SQL query from the file and substitute the placeholders.
         query_template = self._get_sql_query("property_query.sql")
@@ -1031,6 +1068,7 @@ class PlexosSQLite:
         list[tuple]
             A list of tuples representing memberships. Each tuple is structured as:
             (parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id,
+            return self.query(query_string=query_string, params=params)
             parent_class_name, collection_name).
 
         Raises
@@ -1317,8 +1355,7 @@ class PlexosSQLite:
         return
 
     def execute(self, query: str, params: tuple | dict | None = None) -> None:
-        """
-        Execute a SQL statement without returning any results.
+        """Execute a SQL statement without returning any results.
 
         Parameters
         ----------
@@ -1347,3 +1384,443 @@ class PlexosSQLite:
     def _get_sql_query(self, query_name: str):
         fpath = files("plexosdb.queries").joinpath(query_name)
         return fpath.read_text(encoding="utf-8-sig")
+
+    def _execute_insert(self, query: str, params: tuple) -> int:
+        """Execute an insert query and return the last inserted row ID.
+
+        Parameters
+        ----------
+        query : str
+            The SQL insert query to execute.
+        params : tuple
+            Parameters to bind to the query.
+
+        Returns
+        -------
+        int
+            The last inserted row ID.
+
+        Raises
+        ------
+        TypeError
+            If the last row ID is None.
+        """
+        with self._conn as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            last_id = cursor.lastrowid
+        if last_id is None:
+            raise TypeError("Could not fetch the last row id. Check query format.")
+        return last_id
+
+    def _execute_with_mapping(self, membership_mapping: dict[int, int], query_template: str) -> None:
+        """Filter the membership_mapping and execute a formatted query."""
+        valid_mapping = {}
+        for old, new in membership_mapping.items():
+            data_rows = self.query("SELECT 1 FROM t_data WHERE membership_id = ? LIMIT 1", (old,))
+            if data_rows:
+                valid_mapping[old] = new
+
+        if not valid_mapping:
+            return
+
+        mapping_values = ", ".join(f"({old}, {new})" for old, new in valid_mapping.items())
+        query = query_template.format(mapping_values=mapping_values)
+        self.execute(query, {})
+
+    def _copy_object_memberships(
+        self, original_object_name: str, object_name: str, object_type: ClassEnum
+    ) -> dict[int, int]:
+        membership_mapping: dict[int, int] = {}
+        all_memberships = self.get_memberships(
+            original_object_name, object_class=object_type, include_system_membership=True
+        )
+        # Loop first where the object is the child
+        for mem in all_memberships:
+            parent_name = mem[2]
+            child_name = mem[3]
+            parent_class_name = mem[5]
+            child_class_name = mem[6]
+            collection_name = mem[7]
+            if child_name == original_object_name:
+                try:
+                    existing_membership_id = self.get_membership_id(
+                        child_name=object_name,
+                        parent_name=parent_name,
+                        child_class=ClassEnum[child_class_name],
+                        parent_class=ClassEnum[parent_class_name],
+                        collection=CollectionEnum[collection_name],
+                    )
+                except KeyError:
+                    existing_membership_id = self.add_membership(
+                        parent_name,
+                        object_name,
+                        parent_class=ClassEnum[parent_class_name],
+                        child_class=ClassEnum[child_class_name],
+                        collection=CollectionEnum[collection_name],
+                    )
+                old_mem_id = self.get_membership_id(
+                    child_name=original_object_name,
+                    parent_name=parent_name,
+                    child_class=ClassEnum[child_class_name],
+                    parent_class=ClassEnum[parent_class_name],
+                    collection=CollectionEnum[collection_name],
+                )
+                membership_mapping[old_mem_id] = existing_membership_id
+        # Now loop over when the object is the parent
+        for mem in all_memberships:
+            parent_name = mem[2]
+            child_name = mem[3]
+            parent_class_name = mem[5]
+            child_class_name = mem[6]
+            collection_name = mem[7]
+            if parent_name == original_object_name:
+                new_mem_id = self.add_membership(
+                    object_name,
+                    child_name,
+                    parent_class=ClassEnum[parent_class_name],
+                    child_class=ClassEnum[child_class_name],
+                    collection=CollectionEnum[collection_name],
+                )
+                old_mem_id = self.get_membership_id(
+                    child_name=child_name,
+                    parent_name=original_object_name,
+                    child_class=ClassEnum[child_class_name],
+                    parent_class=ClassEnum[parent_class_name],
+                    collection=CollectionEnum[collection_name],
+                )
+                membership_mapping[old_mem_id] = new_mem_id
+
+        return membership_mapping
+
+    def _copy_properties_sql(
+        self,
+        membership_mapping: dict[int, int],
+    ) -> None:
+        """
+        Copy all t_data rows corresponding to properties from the original object into new rows
+        for the new object.
+        """
+        query_template = """
+        WITH mapping(old_membership_id, new_membership_id) AS (
+            VALUES {mapping_values}
+        )
+        INSERT INTO t_data (membership_id, property_id, value, state)
+        SELECT m.new_membership_id,
+                d.property_id,
+                d.value,
+                d.state
+        FROM mapping m
+        JOIN t_data d ON d.membership_id = m.old_membership_id;
+        """
+        self._execute_with_mapping(membership_mapping, query_template)
+
+    def _copy_tags(self, membership_mapping: dict[int, int]) -> None:
+        """Copy all t_tag rows for the original object's t_data rows to new t_tag rows."""
+        query_template = """
+        WITH mapping (old_membership_id, new_membership_id) AS (
+            VALUES {mapping_values}
+        ),
+        old_data AS (
+            SELECT data_id, property_id,
+                ROW_NUMBER() OVER (PARTITION BY property_id ORDER BY data_id) AS rn
+            FROM t_data d
+            JOIN mapping m ON d.membership_id = m.old_membership_id
+        ),
+        new_data AS (
+            SELECT data_id, property_id,
+                ROW_NUMBER() OVER (PARTITION BY property_id ORDER BY data_id) AS rn
+            FROM t_data d
+            JOIN mapping m ON d.membership_id = m.new_membership_id
+        )
+        INSERT INTO t_tag (data_id, object_id, state, action_id)
+        SELECT new_d.data_id, t.object_id, t.state, t.action_id
+        FROM old_data old_d
+        JOIN new_data new_d USING (property_id, rn)
+        JOIN t_tag t ON t.data_id = old_d.data_id;
+        """
+        self._execute_with_mapping(membership_mapping, query_template)
+
+    def _copy_text(self, membership_mapping: dict[int, int]) -> None:
+        """Copy all t_text rows from the original t_data rows to the new ones."""
+        query_template = """
+        WITH mapping (old_membership_id, new_membership_id) AS (
+            VALUES {mapping_values}
+        ),
+        old_data AS (
+            SELECT data_id, property_id,
+                ROW_NUMBER() OVER (PARTITION BY property_id ORDER BY data_id) AS rn
+            FROM t_data d
+            JOIN mapping m ON d.membership_id = m.old_membership_id
+        ),
+        new_data AS (
+            SELECT data_id, property_id,
+                ROW_NUMBER() OVER (PARTITION BY property_id ORDER BY data_id) AS rn
+            FROM t_data d
+            JOIN mapping m ON d.membership_id = m.new_membership_id
+        )
+        INSERT INTO t_text (data_id, class_id, value, state, action_id)
+        SELECT new_d.data_id, t.class_id, t.value, t.state, t.action_id
+        FROM old_data old_d
+        JOIN new_data new_d USING (property_id, rn)
+        JOIN t_text t ON t.data_id = old_d.data_id;
+        """
+        self._execute_with_mapping(membership_mapping, query_template)
+
+    def _duplicate_data_row(self, data_id: int) -> int:
+        """Duplicate a row from t_data and return the new data_id."""
+        row = self.query(
+            "SELECT membership_id, property_id, value FROM t_data WHERE data_id = ?",
+            (data_id,),
+        )
+        if not row:
+            raise ValueError(f"Data row with id {data_id} not found.")
+        membership_id, property_id, value = row[0]
+        self.execute(
+            "INSERT INTO t_data (membership_id, property_id, value) VALUES (?, ?, ?)",
+            (membership_id, property_id, value),
+        )
+        return self.last_insert_rowid()
+
+    def _update_band_for_data(self, data_id: int, band: str | None, duplicate: bool = True) -> None:
+        """Update or insert a band record for the given data_id."""
+        if band is None:
+            upsert_query = (
+                "INSERT INTO t_band (data_id, band_id, state) VALUES (?, NULL, 1) "
+                "ON CONFLICT(data_id, band_id) DO UPDATE SET state = 1"
+            )
+            self.execute(upsert_query, (data_id,))
+        else:
+            existing = self.query(
+                "SELECT band_id FROM t_band WHERE data_id = ? AND band_id = ?",
+                (data_id, band),
+            )
+            if existing:
+                upsert_query = (
+                    "INSERT INTO t_band (data_id, band_id, state) VALUES (?, ?, 1) "
+                    "ON CONFLICT(data_id, band_id) DO UPDATE SET state = 1"
+                )
+                self.execute(upsert_query, (data_id, band))
+            else:
+                if duplicate:
+                    new_data_id = self._duplicate_data_row(data_id)
+                    value = self.query(
+                        "SELECT value FROM t_data WHERE data_id = ?",
+                        (data_id,),
+                    )[0][0]
+                    membership_id, property_id = self.query(
+                        "SELECT membership_id, property_id FROM t_data WHERE data_id = ?",
+                        (data_id,),
+                    )[0]
+                    self.execute(
+                        "INSERT INTO t_data (membership_id, property_id, value) VALUES (?, ?, ?)",
+                        (membership_id, property_id, value),
+                    )
+                    self.execute(
+                        "INSERT INTO t_band (data_id, band_id, state) VALUES (?, ?, 1)",
+                        (new_data_id, band),
+                    )
+                else:
+                    value = self.query(
+                        "SELECT value FROM t_data WHERE data_id = ?",
+                        (data_id,),
+                    )[0][0]
+                    membership_id, property_id = self.query(
+                        "SELECT membership_id, property_id FROM t_data WHERE data_id = ?",
+                        (data_id,),
+                    )[0]
+                    self.execute(
+                        "INSERT INTO t_data (membership_id, property_id, value) VALUES (?, ?, ?)",
+                        (membership_id, property_id, value),
+                    )
+                    self.execute(
+                        "INSERT INTO t_band (data_id, band_id, state) VALUES (?, ?, 1)",
+                        (data_id, band),
+                    )
+
+    def _update_scenario_for_data(self, data_id: int, scenario: str) -> None:
+        """Update or insert a scenario association for a given data_id."""
+        scenario_id = self.get_scenario_id(scenario)
+        self.execute_query(
+            "INSERT into t_tag(object_id, data_id) VALUES (?,?)",
+            (scenario_id, data_id),
+        )
+
+    def modify_property(
+        self,
+        object_type: ClassEnum,
+        object_name: str,
+        property_name: str,
+        new_value: str | None,
+        scenario: str | None = None,
+        band: str | None = None,
+        collection: CollectionEnum | None = None,
+        parent_class: ClassEnum | None = None,
+    ) -> None:
+        """Modify the property value for a given object.
+
+        Parameters
+        ----------
+        object_type : ClassEnum
+            The type of object (e.g., Generator).
+        object_name : str
+            The name of the object.
+        property_name : str
+            The property name to modify.
+        new_value : str | None
+            The new value to apply.
+        scenario : str | None, optional
+            Scenario for updating, by default None.
+        band : str | None, optional
+            Band for updating, by default None.
+        collection : CollectionEnum | None, optional
+            The collection, by default None.
+        parent_class : ClassEnum | None, optional
+            The parent class, by default None.
+        """
+        if not (object_name and property_name):
+            raise ValueError("Both object_name and property_name must be provided.")
+        collection = collection or CollectionEnum.Generators
+        parent_class = parent_class or ClassEnum.System
+        coll_id = self.get_collection_id(collection, parent_class, object_type)
+        valid_props = self.get_valid_properties(
+            collection=collection,
+            parent_class=parent_class,
+            child_class=object_type,
+        )
+        if property_name not in valid_props:
+            raise PropertyNameError(
+                f"Property '{property_name}' is not valid for {object_type.value} objects "
+                f"in collection {collection.value} with parent class {parent_class.value}."
+            )
+        select_query = (
+            "SELECT d.data_id "
+            "FROM t_object o "
+            "JOIN t_class c ON o.class_id = c.class_id "
+            "JOIN t_membership m ON m.child_object_id = o.object_id "
+            "JOIN t_data d ON d.membership_id = m.membership_id "
+            "JOIN t_property p ON d.property_id = p.property_id "
+            "WHERE c.name = ? AND o.name = ? AND p.name = ? AND p.collection_id = ?"
+        )
+        data_rows = self.query(select_query, (object_type.value, object_name, property_name, coll_id))
+        data_ids = [row[0] for row in data_rows]
+        if scenario is not None and band is not None:
+            for data_id in data_ids:
+                new_data_id = self._duplicate_data_row(data_id)
+                self.execute(
+                    "UPDATE t_data SET value = ? WHERE data_id = ?",
+                    (new_value, new_data_id),
+                )
+                self._update_band_for_data(new_data_id, band, duplicate=False)
+                self._update_scenario_for_data(new_data_id, scenario)
+        else:
+            for data_id in data_ids:
+                if scenario is not None:
+                    new_data_id = self._duplicate_data_row(data_id)
+                    self.execute(
+                        "UPDATE t_data SET value = ? WHERE data_id = ?",
+                        (new_value, new_data_id),
+                    )
+                    self._update_scenario_for_data(new_data_id, scenario)
+                    if band is not None:
+                        self._update_band_for_data(new_data_id, band, duplicate=False)
+                else:
+                    if new_value is not None:
+                        update_query = "UPDATE t_data SET value = ? WHERE data_id = ?"
+                        self.execute(update_query, (new_value, data_id))
+                    if band is not None:
+                        self._update_band_for_data(data_id, band)
+
+    def _normalize_names(self, value: str | Iterable[str] | None, var_name: str) -> list[str]:
+        """Normalize a name or list of names into a unique list of strings."""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            names = [value]
+        elif hasattr(value, "__iter__"):
+            names = list(set(value))
+        else:
+            raise ValueError(f"{var_name} must be a string or an iterable of strings.")
+        if not names:
+            raise ValueError(f"No {var_name} provided.")
+        return names
+
+    def _check_properties_names(
+        self,
+        property_names: str | Iterable | None,
+        parent_class: ClassEnum,
+        child_class: ClassEnum,
+        collection: CollectionEnum,
+    ):
+        if property_names is None:
+            return []
+        property_names = self._normalize_names(property_names, "property_names")
+        valid_props = self.get_valid_properties(
+            collection=collection,
+            parent_class=parent_class,
+            child_class=ClassEnum.Generator,
+        )
+        invalid = [prop for prop in property_names if prop not in valid_props]
+        if invalid:
+            msg = (
+                f"Invalid properties for {ClassEnum.Generator.value} "
+                "objects in collection {collection.value}"
+            )
+            raise PropertyNameError(msg)
+        return property_names
+
+    def _process_update_for_data_id(
+        self, data_id: int, new_value: str | None, scenario: str | None, band: str | None
+    ) -> None:
+        if scenario is not None:
+            new_id = self._duplicate_data_row(data_id)
+            self.execute(
+                "UPDATE t_data SET value = ? WHERE data_id = ?",
+                (new_value, new_id),
+            )
+            self._update_scenario_for_data(new_id, scenario)
+            if band is not None:
+                self._update_band_for_data(new_id, band, duplicate=False)
+        else:
+            if new_value is not None:
+                self.execute(
+                    "UPDATE t_data SET value = ? WHERE data_id = ?",
+                    (new_value, data_id),
+                )
+            if band is not None:
+                self._update_band_for_data(data_id, band)
+
+    def bulk_modify_properties(self, updates: list[dict]) -> None:
+        """Update multiple properties in a single transaction."""
+        try:
+            self._conn.execute("BEGIN")
+            for upd in updates:
+                object_type = upd["object_type"]
+                object_name = upd["object_name"]
+                property_name = upd["property_name"]
+                new_value = upd["new_value"]
+                scenario = upd.get("scenario")
+                band = upd.get("band")
+                collection = upd.get("collection", CollectionEnum.Generators)
+                parent_class = upd.get("parent_class", ClassEnum.System)
+
+                coll_id = self.get_collection_id(collection, parent_class, object_type)
+                select_query = """
+                SELECT d.data_id
+                FROM t_object o
+                JOIN t_class c ON o.class_id = c.class_id
+                JOIN t_membership m ON m.child_object_id = o.object_id
+                JOIN t_data d ON d.membership_id = m.membership_id
+                JOIN t_property p ON d.property_id = p.property_id
+                WHERE c.name = ? AND o.name = ? AND p.name = ? AND p.collection_id = ?
+                """
+                data_rows = self.query(select_query, (object_type.value, object_name, property_name, coll_id))
+                data_ids = [row[0] for row in data_rows]
+                for data_id in data_ids:
+                    self._process_update_for_data_id(data_id, new_value, scenario, band)
+            if self._conn.in_transaction:
+                self._conn.commit()
+        except Exception as e:
+            if self._conn.in_transaction:
+                self._conn.rollback()
+            raise e
