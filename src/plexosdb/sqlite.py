@@ -1758,14 +1758,11 @@ class PlexosSQLite:
         valid_props = self.get_valid_properties(
             collection=collection,
             parent_class=parent_class,
-            child_class=ClassEnum.Generator,
+            child_class=child_class,
         )
         invalid = [prop for prop in property_names if prop not in valid_props]
         if invalid:
-            msg = (
-                f"Invalid properties for {ClassEnum.Generator.value} "
-                f"objects in collection {collection.value}"
-            )
+            msg = f"Invalid properties for {child_class.value} objects in collection {collection.value}"
             raise PropertyNameError(msg)
         return property_names
 
