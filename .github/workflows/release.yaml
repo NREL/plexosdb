@@ -1,0 +1,176 @@
+name: Release
+permissions:
+  contents: write
+  id-token: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: Select release type
+        required: true
+        type: choice
+        options:
+          - alpha
+          - beta
+          - dev
+          - patch
+          - minor
+          - rc
+          - major
+      release_name:
+        description: "Optional: Release Name"
+        required: false
+        type: string
+      release_body:
+        description: "Optional: Release Body"
+        required: false
+        type: string
+
+jobs:
+  determine-version:
+    runs-on: ubuntu-latest
+    outputs:
+      RELEASE_TYPE: ${{ steps.release_type.outputs.RELEASE_TYPE  }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine version bump
+        if: github.event_name == 'workflow_dispatch'
+        id: release_type
+        run: |
+          echo "RELEASE_TYPE=${{ github.event.inputs.release_type }}" >> $GITHUB_OUTPUT
+
+  bumpversion:
+    needs: determine-version
+    runs-on: "ubuntu-latest"
+    outputs:
+      version: ${{ steps.version.outputs.version  }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BOT_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: Install the project
+        run: uv sync --all-extras --dev
+
+      - name: Bump version using hatch
+        id: version
+        run: |
+          uvx hatch version ${{ needs.determine-version.outputs.RELEASE_TYPE }}
+          echo "NEW_VERSION=$(uvx hatch version)" >> $GITHUB_ENV
+          echo "version=$(uvx hatch version)" >> $GITHUB_OUTPUT
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        id: import-gpg
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASS }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+          git_config_global: true
+
+      - name: Adding changes
+        run: git add src/r2x/__version__.py
+
+      - name: Commit new version
+        shell: bash
+        run: |
+          git config commit.gpgsign true
+          git config --global user.email "${{ steps.import-gpg.outputs.email }}"
+          git config --global user.name "${{ steps.import-gpg.outputs.name }}"
+          git commit -S -m "Bump version to v${{ env.NEW_VERSION}}"
+          git tag -s v${{ env.NEW_VERSION }} -m "Release version ${{ env.NEW_VERSION }}"
+          git push origin main --tags
+
+      - name: Build package
+        run: |
+          uv build
+
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish-testpypi:
+    needs:
+      - bumpversion
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/r2x
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish package to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    needs:
+      - bumpversion
+      - publish-testpypi
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/r2x
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish distribution 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: >-
+      Sign the Python 🐍 distribution 📦 with Sigstore
+      and upload them to GitHub Release
+    needs:
+      - bumpversion
+      - publish-pypi
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Sign the dists with Sigstore
+        uses: sigstore/gh-action-sigstore-python@v3.0.0
+        with:
+          inputs: >-
+            ./dist/*.tar.gz
+            ./dist/*.whl
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create
+          "v${{ needs.bumpversion.outputs.version }}"
+          --repo "$GITHUB_REPOSITORY"
+          --generate-notes
+      - name: Upload artifact signatures to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          gh release upload
+          "v${{ needs.bumpversion.outputs.version }}" dist/**
+          --repo "$GITHUB_REPOSITORY"
