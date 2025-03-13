@@ -80,7 +80,7 @@ jobs:
           git_config_global: true
 
       - name: Adding changes
-        run: git add src/r2x/__version__.py
+        run: git add src/plexosdb/__version__.py
 
       - name: Commit new version
         shell: bash
@@ -108,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/r2x
+      url: https://test.pypi.org/p/plexosdb
     steps:
       - name: Download all the dists
         uses: actions/download-artifact@v4
@@ -128,7 +128,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/r2x
+      url: https://pypi.org/p/plexosdb
     steps:
       - name: Download all the dists
         uses: actions/download-artifact@v4
