@@ -62,6 +62,11 @@ dev = [
     "ruff~=0.5.2",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest-benchmark>=5.1.0",
+]
+
 [tool.setuptools]
 include-package-data = true
 
@@ -131,6 +136,7 @@ docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "F401", "F403", "D104"]
+"__main__.py" = ["D100", "E402", "F401", "F403", "D104"]
 "**/{tests,docs,tools}/*" = ["D100", "D103", "E402"]
 
 [tool.pytest.ini_options]
