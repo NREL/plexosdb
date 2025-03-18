@@ -70,6 +70,7 @@ def db_instance_with_schema() -> PlexosDB:
             "INSERT INTO t_property(property_id, collection_id, unit_id, name) "
             "VALUES (3,1,1, 'Rating Factor')"
         )
+        db._db.execute("INSERT INTO t_config(element, value) VALUES ('Version', '9.2')")
     yield db
 
 
@@ -135,6 +136,11 @@ def test_schema_creation(db_instance_with_schema, table_name):
     tables = db_instance_with_schema.query("SELECT name FROM sqlite_master WHERE type='table'")
     table_names = [row["name"] for row in tables]
     assert table_name in table_names
+
+
+def test_get_plexos_version(db_instance_with_schema):
+    db = db_instance_with_schema
+    assert db.version == "9.2"
 
 
 def test_plexosdb_constructor_from_xml(db_instance_with_xml):

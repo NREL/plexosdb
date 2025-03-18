@@ -1,5 +1,6 @@
 """Main API for interacting with the Plexos database schema."""
 
+import sqlite3
 import sys
 import uuid
 from collections.abc import Iterable, Iterator
@@ -15,10 +16,10 @@ from .exceptions import PropertyNameError
 from .utils import get_sql_query, normalize_names
 from .xml_handler import XMLHandler
 
-if sys.version_info <= (3, 11):
-    from .utils import batched
-else:
+if sys.version_info >= (3, 12):
     from itertools import batched
+else:
+    from .utils import batched
 
 SQLITE_BACKEND_KWARGS = {"create_collations", "initialize", "in_memory", "use_named_tuples"}
 PLEXOS_DEFAULT_SCHEMA = fpath = files("plexosdb").joinpath("schema.sql").read_text(encoding="utf-8-sig")
@@ -52,18 +53,20 @@ class PlexosDB:
     @property
     def version(self) -> str:
         """Get the PLEXOS version of the loaded model."""
+        if not self._version:
+            self._version = self._initialize_version()
         return self._version
 
     def _initialize_version(self) -> str:
         """Initialize the PLEXOS version from the database."""
+        # Attempt to get version from database configuration
         try:
-            # Attempt to get version from database configuration
-            result = self._db.query("SELECT value FROM t_config WHERE element = 'Version'")
-            if result and result[0][0]:
-                return result[0][0]
-            return "Unknown"
-        except Exception:
-            return "Unknown"
+            result = self.query("SELECT value FROM t_config WHERE element = 'Version'")
+        except sqlite3.OperationalError:
+            return ""
+        if result and result[0][0]:
+            return result[0][0]
+        return ""
 
     @classmethod
     def from_xml(cls, xml_path: str | Path, **kwargs) -> "PlexosDB":
@@ -1968,7 +1971,7 @@ class PlexosDB:
             collection_enum, parent_class_enum=parent_class_enum, child_class_enum=child_class_enum
         )
         query = "SELECT name from t_property where collection_id = ?"
-        result = self._db.query(query, (collection_id,))
+        result = self.query(query, (collection_id,))
         assert result
         return [d[0] for d in result]
 
