@@ -61,10 +61,10 @@ class SQLiteManager:
         self,
         db_path: str | Path | None = None,
         conn: sqlite3.Connection | None = None,
-        use_named_tuples: bool = True,
         initialize: bool = True,
         create_collations: bool = True,
         in_memory: bool = True,
+        use_named_tuples: bool = False,
     ) -> None:
         """Initialize the database manager.
 
@@ -104,8 +104,7 @@ class SQLiteManager:
                 self._create_collations("NOSPACE", no_space)
 
         # Set row factory to namedtuple if requested for easier access to data.
-        if use_named_tuples:
-            self._conn.row_factory = create_namedtuple_factory
+        self._conn.row_factory = create_namedtuple_factory if use_named_tuples else sqlite3.Row
 
     @property
     def conn(self) -> sqlite3.Connection:
@@ -255,7 +254,7 @@ class SQLiteManager:
                 logger.error(f"Rollback error: {rb_error}")
             return False
 
-    def executemany(self, query: str, params_seq: list[tuple[Any, ...] | dict[str, Any]]) -> bool:
+    def executemany(self, query: str, params_seq: list[tuple[Any, ...]] | list[dict[str, Any]]) -> bool:
         """Execute a SQL statement with multiple parameter sets.
 
         Parameters
@@ -333,7 +332,7 @@ class SQLiteManager:
 
     def iter_query(
         self,
-        query_string: str,
+        query: str,
         params: tuple[Any, ...] | dict[str, Any] | None = None,
         batch_size: int = 1000,
     ) -> Iterator:
@@ -343,7 +342,7 @@ class SQLiteManager:
 
         Parameters
         ----------
-        query_string : str
+        query : str
             SQL query to execute (SELECT statements only)
         params : tuple or dict, optional
             Parameters to bind to the query
@@ -365,9 +364,9 @@ class SQLiteManager:
         try:
             # Execute query
             if params:
-                cursor.execute(query_string, params)
+                cursor.execute(query, params)
             else:
-                cursor.execute(query_string)
+                cursor.execute(query)
 
             # Fetch and yield rows in batches
             while True:
@@ -432,7 +431,7 @@ class SQLiteManager:
             logger.error("Database optimization failed: {}", error)
             return False
 
-    def query(self, query_string: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list:
+    def query(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list:
         """Execute a read-only query and return all results.
 
         Note: This method should ONLY be used for SELECT statements.
@@ -440,7 +439,7 @@ class SQLiteManager:
 
         Parameters
         ----------
-        query_string : str
+        query : str
             SQL query to execute (SELECT statements only)
         params : tuple or dict, optional
             Parameters to bind to the query
@@ -458,9 +457,9 @@ class SQLiteManager:
         cursor = self.conn.cursor()
         try:
             if params:
-                cursor.execute(query_string, params)
+                cursor.execute(query, params)
             else:
-                cursor.execute(query_string)
+                cursor.execute(query)
 
             return cursor.fetchall()
         except sqlite3.Error:
