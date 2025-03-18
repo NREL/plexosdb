@@ -1,9 +1,9 @@
 """Main API for interacting with the Plexos database schema."""
 
+import sys
 import uuid
 from collections.abc import Iterable, Iterator
 from importlib.resources import files
-from itertools import batched
 from pathlib import Path
 from typing import Any, Literal
 
@@ -14,6 +14,11 @@ from .enums import ClassEnum, CollectionEnum, Schema, get_default_collection, st
 from .exceptions import PropertyNameError
 from .utils import get_sql_query, normalize_names
 from .xml_handler import XMLHandler
+
+if sys.version_info <= (3, 11):
+    from .utils import batched
+else:
+    from itertools import batched
 
 SQLITE_BACKEND_KWARGS = {"create_collations", "initialize", "in_memory", "use_named_tuples"}
 PLEXOS_DEFAULT_SCHEMA = fpath = files("plexosdb").joinpath("schema.sql").read_text(encoding="utf-8-sig")

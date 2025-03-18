@@ -103,13 +103,13 @@ def test_create_collations():
     db.close()
 
 
-def test_sqlite_configuration():
+def test_sqlite_configuration(tmp_path):
     """Test SQLite configuration settings."""
     # Test in-memory database (default)
     db_mem = SQLiteManager(in_memory=True)
 
     # Test file-based database
-    temp_file = "file:memdb1?mode=memory&cache=shared"  # Special file URI for testing
+    temp_file = tmp_path / "test.sqlite"  # Special file URI for testing
     db_file = SQLiteManager(db_path=temp_file, in_memory=False)
 
     # Verify memory database has memory settings
