@@ -587,11 +587,9 @@ class PlexosDB:
 
         # Text could contain multiple keys, if so we add all of them with a execute many.
         if text is not None:
-            text_params: list[tuple[Any, ...]] = []
             for key, value in text.items():
-                text_class_id = self.get_class_id(key)
-                text_params.append((text_class_id, data_id, value))
-            self._db.executemany("INSERT into t_text(class_id,data_id,value) VALUES(?,?,?)", text_params)
+                text_result = self.add_text(key, value, data_id)
+                assert text_result
         return data_id
 
     def add_report(
@@ -615,15 +613,34 @@ class PlexosDB:
 
     def add_text(
         self,
-        data_id: int,
+        text_class: ClassEnum,
         text_value: str,
-        /,
-        *,
-        class_id: int,
-        action_id: int | None = None,
-    ) -> None:
-        """Add text data to a property data record."""
-        raise NotImplementedError
+        data_id: int,
+    ) -> int:
+        """Add text data to a property data record.
+
+        Parameters
+        ----------
+        text_class : ClassEnum
+            Name of the Text class to be added
+        text_value : str
+            Value of the text to be added
+        data_id : int
+            Data to be tagged with the Text object
+
+        Raises
+        ------
+        AssertionError
+            If the class does not exist
+
+        Returns
+        -------
+        bool
+            True if the query was succesfull
+        """
+        class_id = self.get_class_id(text_class)
+        query_string = "INSERT INTO t_text(class_id, value, data_id) VALUES(?,?,?)"
+        return self._db.execute(query_string, (class_id, text_value, data_id))
 
     def add_time_slice(
         self,
@@ -1821,9 +1838,34 @@ class PlexosDB:
         """List all child objects for a given parent object."""
         raise NotImplementedError
 
-    def list_classes(self) -> list[dict]:
-        """List all available classes in the database."""
-        raise NotImplementedError
+    def list_classes(self) -> list[str]:
+        """Return all classes names in the database.
+
+        Returns
+        -------
+        list[str]
+            List of valid classes names
+
+        Raises
+        ------
+        AssertionError
+            If the query fails
+
+        See Also
+        --------
+        query : Query the SQL database
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.list_classes()
+        ["System", "Generator", ...]
+        """
+        query_string = f"SELECT name from {Schema.Class.name}"
+        result = self.query(query_string)
+        assert result
+        return [d[0] for d in result]
 
     def list_collections(
         self,
@@ -1880,6 +1922,7 @@ class PlexosDB:
         --------
         get_class_id : Get the ID for a class
         add_object : Add an object to the database
+        query : Query the SQL database
 
         Examples
         --------
@@ -1912,13 +1955,56 @@ class PlexosDB:
         """List all defined reports in the database."""
         raise NotImplementedError
 
-    def list_scenarios(self) -> list[dict]:
-        """Return all scenarios in the database."""
-        raise NotImplementedError
+    def list_scenarios(self) -> list[str]:
+        """Return all scenarios in the database.
+
+        Returns
+        -------
+        list[str]
+            List of valid scenario names
+
+        Raises
+        ------
+        AssertionError
+            If the query fails
+
+        See Also
+        --------
+        query : Query the SQL database
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_object("Generator1", ClassEnum.Generator)
+        >>> db.add_property(
+        ...     "Generator1",
+        ...     "Max Capacity",
+        ...     100.0,
+        ...     object_class_enum=ClassEnum.Generator,
+        ...     scenario="Scenario",
+        ... )
+        >>> db.list_scenarios()
+        ["Scenario"]
+        """
+        query_string = """
+        SELECT
+            t_object.name
+        FROM t_object
+        LEFT JOIN t_class on t_class.class_id = t_object.class_id
+        WHERE
+            t_class.name = ?
+        """
+        result = self.query(query_string, (ClassEnum.Scenario,))
+        assert result
+        return [d[0] for d in result]
 
     def list_units(self) -> list[dict]:
         """List all available units in the database."""
-        raise NotImplementedError
+        query_string = "SELECT unit_id, value from t_unit"
+        result = self.query(query_string)
+        assert result
+        return [{d[0]: d[1]} for d in result]
 
     def list_valid_properties(
         self,

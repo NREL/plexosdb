@@ -141,6 +141,7 @@ def test_schema_creation(db_instance_with_schema, table_name):
 def test_get_plexos_version(db_instance_with_schema):
     db = db_instance_with_schema
     assert db.version == "9.2"
+    db.get_plexos_version() == "9.2"
 
 
 def test_plexosdb_constructor_from_xml(db_instance_with_xml):
@@ -312,3 +313,39 @@ def test_get_object_properties(db_instance_with_schema):
     assert object_properties[0]["name"] == test_object_name
     assert object_properties[0]["property"] == test_property_name
     assert object_properties[0]["value"] == test_property_value
+
+
+@pytest.mark.listing
+def test_list_scenarios(db_instance_with_schema):
+    db = db_instance_with_schema
+    test_object_name = "TestGen"
+    test_property_name = "Max Capacity"
+    test_property_value = 100.0
+    test_scenario = "Ramping"
+    _ = db.add_object(test_object_name, ClassEnum.Generator)
+    _ = db.add_property(
+        test_object_name,
+        test_property_name,
+        test_property_value,
+        object_class_enum=ClassEnum.Generator,
+        scenario=test_scenario,
+    )
+    scenarios = db.list_scenarios()
+    assert len(scenarios) == 1
+    assert scenarios[0] == test_scenario
+
+
+@pytest.mark.listing
+def test_list_units(db_instance_with_schema):
+    db = db_instance_with_schema
+    units = db.list_units()
+    assert len(units) == 3
+    assert units[0][1] == "MW"
+
+
+@pytest.mark.listing
+def test_list_classes(db_instance_with_schema):
+    db = db_instance_with_schema
+    classes = db.list_classes()
+    assert len(classes) == 4
+    assert classes[0] == ClassEnum.System
