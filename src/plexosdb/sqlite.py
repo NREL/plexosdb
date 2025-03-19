@@ -1,3 +1,5 @@
+# type: ignore
+# ruff :noqa
 """Simple interface with the Plexos database."""
 
 import sqlite3

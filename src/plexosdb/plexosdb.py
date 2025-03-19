@@ -992,14 +992,6 @@ class PlexosDB:
         """Delete text data from a property data record."""
         raise NotImplementedError
 
-    def export_to_csv(self, target_path: str | Path, /, *, tables: list[str] | None = None) -> None:
-        """Export selected tables or the entire database to CSV files."""
-        raise NotImplementedError
-
-    def export_to_xml(self, target_path: str | Path) -> None:
-        """Export the current database content to an XML file."""
-        raise NotImplementedError
-
     def get_attribute(
         self,
         attribute_name: str,
@@ -2116,6 +2108,67 @@ class PlexosDB:
     ) -> None:
         """Set the date range for a property data record."""
         raise NotImplementedError
+
+    def to_csv(self, target_path: str | Path, /, *, tables: list[str] | None = None) -> None:
+        """Export selected tables or the entire database to CSV files."""
+        raise NotImplementedError
+
+    def to_xml(self, target_path: str | Path) -> bool:
+        """Convert SQLite to XML format.
+
+
+        This method takes all the tables of th SQLite and creates the
+        appropiate tags based on the column name.
+
+        Parameters
+        ----------
+        target_path: str | Path
+            Path to serialize the database
+
+        Returns
+        -------
+        bool
+            True if the creation succeeded, False if it failed
+
+        See Also
+        --------
+        _db.executescript : Execute a SQL script in the database
+        PLEXOS_DEFAULT_SCHEMA : Default schema SQL content
+
+        Notes
+        -----
+        This is typically the first method called after initializing a new PlexosDB
+        instance, as it sets up all the required tables for the database.
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        """
+        xml_handler = XMLHandler(initialize=True)
+
+        # We remove the row factory for simpler digestion to XML as list of tuples instead of having to
+        # process them individually.
+        previous_row_factory = self._db.conn.row_factory
+        self._db.conn.row_factory = None
+
+        tables = [
+            table[0] for table in self._db.iter_query("SELECT name from sqlite_master WHERE type='table'")
+        ]
+        for table_name in tables:
+            rows = self.query(f"SELECT * FROM {table_name}")
+            if not rows:
+                continue
+            column_types_tuples = self.query(f"SELECT name, type FROM pragma_table_info('{table_name}')")
+            column_types: dict[str, str] = {key: value for key, value in column_types_tuples}
+            logger.trace("Adding {} to {}", table_name, target_path)
+            xml_handler.create_table_element(rows, column_types, table_name)
+
+        xml_handler.to_xml(target_path)
+
+        # Reset row factory
+        self._db.conn.row_factory = previous_row_factory
+        return True
 
     def update_attribute(
         self,

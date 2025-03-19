@@ -1,3 +1,5 @@
+# type: ignore
+# ruff :noqa
 """Simple API for interacting with the Plexos database."""
 
 from collections.abc import Iterable

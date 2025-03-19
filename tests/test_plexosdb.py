@@ -349,3 +349,28 @@ def test_list_classes(db_instance_with_schema):
     classes = db.list_classes()
     assert len(classes) == 4
     assert classes[0] == ClassEnum.System
+
+
+@pytest.mark.export
+def test_export_to_xml(db_instance_with_schema, tmp_path):
+    db = db_instance_with_schema
+    fpath = tmp_path / "test.xml"
+    db.to_xml(fpath)
+    assert fpath.exists()
+
+
+@pytest.mark.export
+def test_xml_round_trip(db_instance_with_schema, tmp_path):
+    original_db = db_instance_with_schema
+    fpath = tmp_path / "test.xml"
+    original_db.to_xml(fpath)
+    assert fpath.exists()
+
+    deserialized_db = PlexosDB.from_xml(fpath)
+    tables = [
+        table[0] for table in original_db._db.iter_query("SELECT name from sqlite_master WHERE type='table'")
+    ]
+    for table_name in tables:
+        assert len(original_db.query(f"SELECT * FROM {table_name}")) == len(
+            deserialized_db.query(f"SELECT * FROM {table_name}")
+        ), "Different number of rows encounter."
