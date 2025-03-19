@@ -1,6 +1,6 @@
 """Plexos Input XML API."""
 
-import xml.etree.ElementTree as ET  # noqa: N817
+import xml.etree.ElementTree as ET  # noqa
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from os import PathLike
@@ -43,13 +43,11 @@ class XMLHandler:
         if fpath and not initialize:
             self.tree = ET.parse(fpath)
             self.root = self.tree.getroot()
+            self._remove_namespace(namespace)
 
         # At this point both should be either define from a file or from initialize.
         assert self.root is not None
         assert self.tree is not None
-
-        # Clean the root for simplier queries
-        self._remove_namespace(namespace)
 
         # Create in-memory cache to speed up searching on the document
         if self.in_memory:
@@ -66,7 +64,6 @@ class XMLHandler:
 
     def create_table_element(self, rows: list[tuple], column_types: dict[str, str], table_name: str) -> bool:
         """Create XML elements for a given table."""
-        assert self.root
         for row in rows:
             table_element = ET.SubElement(self.root, table_name)
             for (column_name, column_type), column_value in zip(column_types.items(), row):
