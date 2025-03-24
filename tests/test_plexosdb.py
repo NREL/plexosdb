@@ -4,7 +4,7 @@ import uuid
 import pytest
 
 from plexosdb.enums import ClassEnum, CollectionEnum
-from plexosdb.exceptions import PropertyNameError
+from plexosdb.exceptions import MissingPropertyError, NameError
 from plexosdb.plexosdb import PlexosDB
 
 DB_FILENAME = "plexosdb.xml"
@@ -225,7 +225,7 @@ def test_object_operations(db_instance_with_schema):
     test_object_id = db.get_object_id(ClassEnum.Generator, test_object_name)
     assert object_id == test_object_id
 
-    with pytest.raises(ValueError):
+    with pytest.raises(MissingPropertyError):
         _ = db.get_object_properties(ClassEnum.Generator, test_object_name, category=test_object_category)
 
     assert len(db.list_objects_by_class(ClassEnum.Generator)) == 3
@@ -290,10 +290,10 @@ def test_invalid_property(db_instance_with_schema):
 
     test_property_name = "Wrong Property"
     test_property_value = 100.0
-    with pytest.raises(PropertyNameError):
+    with pytest.raises(NameError):
         _ = db.add_property(ClassEnum.Generator, test_object_name, test_property_name, test_property_value)
 
-    with pytest.raises(PropertyNameError):
+    with pytest.raises(NameError):
         _ = db.get_object_properties(ClassEnum.Generator, test_object_name, property_names=test_property_name)
 
 

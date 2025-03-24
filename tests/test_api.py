@@ -5,7 +5,7 @@ import pytest
 
 from plexosdb.api import PlexosDB
 from plexosdb.enums import ClassEnum
-from plexosdb.exceptions import PropertyNameError
+from plexosdb.exceptions import NameError
 
 DB_FILENAME = "plexosdb.xml"
 
@@ -129,7 +129,7 @@ def test_to_xml(db: PlexosDB):
 
 
 def test_modify_property_invalid_property(db: PlexosDB):
-    with pytest.raises(PropertyNameError):
+    with pytest.raises(NameError):
         db.modify_property(
             object_type=ClassEnum.Generator,
             object_name="SolarPV01",

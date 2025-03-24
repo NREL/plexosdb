@@ -12,7 +12,7 @@ from typing import Any
 
 from loguru import logger
 
-from plexosdb.exceptions import PropertyNameError
+from plexosdb.exceptions import NameError
 
 from .enums import ClassEnum, CollectionEnum, Schema, str2enum
 from .utils import batched, no_space
@@ -1691,7 +1691,7 @@ class PlexosSQLite:
             child_class=object_type,
         )
         if property_name not in valid_props:
-            raise PropertyNameError(
+            raise NameError(
                 f"Property '{property_name}' is not valid for {object_type.value} objects "
                 f"in collection {collection.value} with parent class {parent_class.value}."
             )
@@ -1765,7 +1765,7 @@ class PlexosSQLite:
         invalid = [prop for prop in property_names if prop not in valid_props]
         if invalid:
             msg = f"Invalid properties for {child_class.value} objects in collection {collection.value}"
-            raise PropertyNameError(msg)
+            raise NameError(msg)
         return property_names
 
     def _process_update_for_data_id(
