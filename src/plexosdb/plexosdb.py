@@ -13,7 +13,7 @@ from loguru import logger
 from .db_manager import SQLiteManager
 from .enums import ClassEnum, CollectionEnum, Schema, get_default_collection, str2enum
 from .exceptions import PropertyNameError
-from .utils import get_sql_query, normalize_names
+from .utils import normalize_names
 from .xml_handler import XMLHandler
 
 if sys.version_info >= (3, 12):
@@ -196,7 +196,7 @@ class PlexosDB:
         """
         raise NotImplementedError
 
-    def add_category(self, category_name: str, /, class_name: ClassEnum) -> int:
+    def add_category(self, class_enum: ClassEnum, /, name: str) -> int:
         """Add a new category for a given class.
 
         Creates a new category for the specified class. If the category already exists,
@@ -204,10 +204,10 @@ class PlexosDB:
 
         Parameters
         ----------
-        category_name : str
-            Name of the category to be added
         class_name : ClassEnum
             Class enumeration for the category, e.g., for generators use ClassEnum.Generator
+        name : str
+            Name of the category to be added
 
         Returns
         -------
@@ -234,12 +234,13 @@ class PlexosDB:
         >>> db.add_category("mycategory", ClassEnum.Generator)
         1
         """
-        if self.check_category_exists(category_name, class_enum=class_name):
-            logger.debug("Category {} for {} already exist. Returning id.", category_name, class_name)
-            return self.get_category_id(category_name, class_enum=class_name)
-        class_id = self.get_class_id(class_name)
-        rank = self.get_category_max_id(class_name) or 1
-        params = (class_id, category_name, rank)
+        if self.check_category_exists(class_enum, name):
+            logger.debug("Category `{}` for `{}` already exist. Returning id instead.", name, class_enum)
+            return self.get_category_id(class_enum, name)
+
+        class_id = self.get_class_id(class_enum)
+        rank = self.get_category_max_id(class_enum) or 1  # Default to max rank of 1 if no category exists
+        params = (class_id, name, rank)
         placeholders = ", ".join("?" * len(params))
         query = f"INSERT INTO {Schema.Categories.name}(class_id, name, rank) VALUES({placeholders})"
         result = self._db.execute(query, params)
@@ -270,11 +271,11 @@ class PlexosDB:
 
     def add_membership(
         self,
-        parent_object_name: str,
-        child_object_name: str,
-        /,
         parent_class_enum: ClassEnum,
         child_class_enum: ClassEnum,
+        /,
+        parent_object_name: str,
+        child_object_name: str,
         collection_enum: CollectionEnum,
     ) -> int:
         """Add a membership between two objects for a given collection.
@@ -283,14 +284,14 @@ class PlexosDB:
 
         Parameters
         ----------
-        parent_object_name : str
-            Name of the parent object
-        child_object_name : str
-            Name of the child object
         parent_class_enum : ClassEnum
             Class enumeration of the parent object
         child_class_enum : ClassEnum
             Class enumeration of the child object
+        parent_object_name : str
+            Name of the parent object
+        child_object_name : str
+            Name of the child object
         collection_enum : CollectionEnum
             Collection enumeration defining the relationship type
 
@@ -315,15 +316,15 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.add_object("Parent", ClassEnum.Region)
-        >>> db.add_object("Child", ClassEnum.Node)
-        >>> db.add_membership("Parent", "Child", ClassEnum.Region, ClassEnum.Node, CollectionEnum.RegionNode)
+        >>> db.add_object(ClassEnum.Region, "Parent")
+        >>> db.add_object(ClassEnum.Node, "Child")
+        >>> db.add_membership(ClassEnum.Region, ClassEnum.Node, "Parent", "Child")
         1
         """
         parent_class_id = self.get_class_id(parent_class_enum)
         child_class_id = self.get_class_id(child_class_enum)
-        parent_object_id = self.get_object_id(parent_object_name, parent_class_enum)
-        child_object_id = self.get_object_id(child_object_name, child_class_enum)
+        parent_object_id = self.get_object_id(parent_class_enum, parent_object_name)
+        child_object_id = self.get_object_id(child_class_enum, child_object_name)
         collection_id = self.get_collection_id(collection_enum, parent_class_enum, child_class_enum)
 
         # NOTE: Measure if this is faster than passing the ids
@@ -368,13 +369,13 @@ class PlexosDB:
 
     def add_object(
         self,
-        name: str,
         class_enum: ClassEnum,
         /,
+        name: str,
         *,
-        collection_enum: CollectionEnum | None = None,
-        category: str = "-",
         description: str | None = None,
+        category: str = "-",
+        collection_enum: CollectionEnum | None = None,
     ) -> int:
         """Add an object to the database and append a system membership.
 
@@ -387,13 +388,13 @@ class PlexosDB:
             Name of the object to be added
         class_enum : ClassEnum
             Class enumeration of the object, e.g., ClassEnum.Generator for a generator object
-        collection_enum : CollectionEnum | None, optional
-            Collection for the system membership. If None, a default collection is determined
-            based on the class, by default None
         category : str, optional
             Category of the object, by default "-"
         description : str | None, optional
             Description of the object, by default None
+        collection_enum : CollectionEnum | None, optional
+            Collection for the system membership. If None, a default collection is determined
+            based on the class, by default None
 
         Returns
         -------
@@ -427,10 +428,10 @@ class PlexosDB:
         1
         """
         category_id = None
-        if not self.check_category_exists(category, class_enum=class_enum):
-            category_id = self.add_category(category, class_name=class_enum)
+        if not self.check_category_exists(class_enum, category):
+            category_id = self.add_category(class_enum, category)
 
-        category_id = category_id or self.get_category_id(category, class_enum=class_enum)
+        category_id = category_id or self.get_category_id(class_enum, category)
         class_id = self.get_class_id(class_enum)
         params = (name, class_id, category_id, str(uuid.uuid4()), description)
         placeholders = ", ".join("?" * len(params))
@@ -444,7 +445,7 @@ class PlexosDB:
 
         if not collection_enum:
             collection_enum = get_default_collection(class_enum)
-        _ = self.add_membership("System", name, ClassEnum.System, class_enum, collection_enum)
+        _ = self.add_membership(ClassEnum.System, class_enum, "System", name, collection_enum)
         return object_id
 
     def add_properties_from_records(
@@ -463,20 +464,19 @@ class PlexosDB:
 
     def add_property(
         self,
-        object_name: str,
-        property_name: str,
-        property_value: str | int | float,
-        /,
         object_class_enum: ClassEnum,
+        /,
+        object_name: str,
+        name: str,
+        value: str | int | float,
         *,
-        collection_enum: CollectionEnum | None = None,
-        parent_class_enum: ClassEnum | None = None,
-        parent_object_name: str | None = None,
         scenario: str | None = None,
         band: str | int | None = None,
         date_from: str | None = None,
-        date_to: str | None = None,
         text: dict[ClassEnum, Any] | None = None,
+        collection_enum: CollectionEnum | None = None,
+        parent_class_enum: ClassEnum | None = None,
+        parent_object_name: str | None = None,
     ) -> int:
         """Add a property for a given object in the database.
 
@@ -485,22 +485,14 @@ class PlexosDB:
 
         Parameters
         ----------
-        object_name : str
-            Name of the object to add the property to
-        property_name : str
-            Name of the property to add
-        property_value : str | int | float
-            Value to assign to the property
         object_class_enum : ClassEnum
             Class enumeration of the object
-        collection_enum : CollectionEnum | None, optional
-            Collection enumeration for the property. If None, a default is determined
-            based on the object class, by default None
-        parent_class_enum : ClassEnum | None, optional
-            Class enumeration of the parent object. If None, defaults to ClassEnum.System,
-            by default None
-        parent_object_name : str | None, optional
-            Name of the parent object. If None, defaults to "System", by default None
+        object_name : str
+            Name of the object to add the property to
+        name : str
+            Name of the property to add
+        value : str | int | float
+            Value to assign to the property
         scenario : str | None, optional
             Name of the scenario to associate with this property, by default None
         band : str | int | None, optional
@@ -511,6 +503,14 @@ class PlexosDB:
             End date for this property, by default None
         text : dict[ClassEnum, Any] | None, optional
             Additional text data to associate with this property, by default None
+        collection_enum : CollectionEnum | None, optional
+            Collection enumeration for the property. If None, a default is determined
+            based on the object class, by default None
+        parent_class_enum : ClassEnum | None, optional
+            Class enumeration of the parent object. If None, defaults to ClassEnum.System,
+            by default None
+        parent_object_name : str | None, optional
+            Name of the parent object. If None, defaults to "System", by default None
 
         Returns
         -------
@@ -542,12 +542,16 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.add_object("Generator1", ClassEnum.Generator)
-        >>> db.add_property("Generator1", "Max Capacity", 100.0, ClassEnum.Generator)
+        >>> db.add_object(ClassEnum.Generator, "Generator1")
+        >>> db.add_property(ClassEnum.Generator, "Generator1", "Max Capacity", 100.0)
         1
         """
         # Ensure object exist
-        _ = self.get_object_id(object_name, class_enum=object_class_enum)
+        if not self.check_object_exists(object_class_enum, object_name):
+            msg = f"Object = `{name}` does not exist on the system. "
+            f"Check available objects for class `{object_class_enum}` using `list_objects_by_class`"
+            raise ValueError(msg)
+        _ = self.get_object_id(object_class_enum, object_name)
 
         if not collection_enum:
             collection_enum = get_default_collection(object_class_enum)
@@ -557,15 +561,15 @@ class PlexosDB:
         valid_properties = self.list_valid_properties(
             collection_enum, child_class_enum=object_class_enum, parent_class_enum=parent_class_enum
         )
-        if property_name not in valid_properties:
+        if name not in valid_properties:
             msg = (
-                f"Property {property_name} does not exist for collection: {collection_enum}. "
+                f"Property {name} does not exist for collection: {collection_enum}. "
                 f"Run `self.list_valid_properties({collection_enum}) to verify valid properties."
             )
             raise PropertyNameError(msg)
 
         property_id = self.get_property_id(
-            property_name,
+            name,
             parent_class_enum=parent_class_enum,
             child_class_enum=object_class_enum,
             collection_enum=collection_enum,
@@ -573,14 +577,14 @@ class PlexosDB:
         membership_id = self.get_membership_id(parent_object_name or "System", object_name, collection_enum)
 
         query = f"INSERT INTO {Schema.Data.name}(membership_id, property_id, value) values (?, ?, ?)"
-        result = self._db.execute(query, (membership_id, property_id, property_value))
+        result = self._db.execute(query, (membership_id, property_id, value))
         assert result
         data_id = self._db.last_insert_rowid()
 
         if scenario is not None:
             if not self.check_scenario_exists(scenario):
                 scenario_id = self.add_object(
-                    scenario, ClassEnum.Scenario, collection_enum=CollectionEnum.Scenario
+                    ClassEnum.Scenario, scenario, collection_enum=CollectionEnum.Scenario
                 )
             scenario_query = "INSERT INTO t_tag(object_id,data_id) VALUES (?,?)"
             result = self._db.execute(scenario_query, (scenario_id, data_id))
@@ -614,7 +618,7 @@ class PlexosDB:
     def add_text(
         self,
         text_class: ClassEnum,
-        text_value: str,
+        text_value: str | int | float,
         data_id: int,
     ) -> int:
         """Add text data to a property data record.
@@ -676,17 +680,17 @@ class PlexosDB:
         """Check if an attribute exists for a specific object."""
         raise NotImplementedError
 
-    def check_category_exists(self, category_name: str, class_enum: ClassEnum) -> bool:
+    def check_category_exists(self, class_enum: ClassEnum, name: str) -> bool:
         """Check if a category exists for a specific class.
 
         Determines whether a category with the given name exists for the specified class.
 
         Parameters
         ----------
-        category_name : str
-            Name of the category to check
         class_enum : ClassEnum
             Class enumeration to check the category for
+        category : str
+            Name of the category to check
 
         Returns
         -------
@@ -702,15 +706,15 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.add_category("my_category", ClassEnum.Generator)
-        >>> db.check_category_exists("my_category", ClassEnum.Generator)
+        >>> db.add_category(ClassEnum.Generator, "my_category")
+        >>> db.check_category_exists(ClassEnum.Generator, "my_category")
         True
-        >>> db.check_category_exists("nonexistent", ClassEnum.Generator)
+        >>> db.check_category_exists(ClassEnum.Generator, "nonexistent")
         False
         """
         query = f"SELECT 1 FROM {Schema.Categories.name} WHERE name = ? AND class_id = ?"
         class_id = self.get_class_id(class_enum)
-        return bool(self._db.query(query, (category_name, class_id)))
+        return bool(self._db.query(query, (name, class_id)))
 
     def check_membership_exists(
         self,
@@ -725,17 +729,17 @@ class PlexosDB:
         """Check if a membership exists between two objects."""
         raise NotImplementedError
 
-    def check_object_exists(self, object_name: str, class_enum: ClassEnum) -> bool:
+    def check_object_exists(self, class_enum: ClassEnum, name: str) -> bool:
         """Check if an object exists in the database.
 
         Determines whether an object with the given name and class exists.
 
         Parameters
         ----------
-        object_name : str
-            Name of the object to check
         class_enum : ClassEnum
             Class enumeration of the object
+        name : str
+            Name of the object to check
 
         Returns
         -------
@@ -752,23 +756,23 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.add_object("TestObject", ClassEnum.Generator)
-        >>> db.check_object_exists("TestObject", ClassEnum.Generator)
+        >>> db.add_object(ClassEnum.Generator, "TestObject")
+        >>> db.check_object_exists(ClassEnum.Generator, "TestObject")
         True
-        >>> db.check_object_exists("NonExistent", ClassEnum.Generator)
+        >>> db.check_object_exists(ClassEnum.Generator, "NonExistent")
         False
         """
         query = f"SELECT 1 FROM {Schema.Objects.name} WHERE name = ? AND class_id = ?"
         class_id = self.get_class_id(class_enum)
-        return bool(self._db.query(query, (object_name, class_id)))
+        return bool(self._db.query(query, (name, class_id)))
 
     def check_property_exists(
         self,
-        property_names: str | Iterable[str],
-        /,
         collection_enum: CollectionEnum,
-        *,
+        /,
         object_class: ClassEnum,
+        property_names: str | Iterable[str],
+        *,
         parent_class: ClassEnum | None = None,
     ) -> bool:
         """Check if properties exist for a specific collection and class.
@@ -777,12 +781,12 @@ class PlexosDB:
 
         Parameters
         ----------
-        property_names : str | Iterable[str]
-            Property name or names to check
         collection_enum : CollectionEnum
             Collection enumeration the properties should belong to
         object_class : ClassEnum
             Class enumeration of the object
+        property_names : str | Iterable[str]
+            Property name or names to check
         parent_class : ClassEnum | None, optional
             Class enumeration of the parent object, by default None
 
@@ -805,13 +809,9 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.check_property_exists(
-        ...     "Max Capacity", CollectionEnum.GeneratorProperties, object_class=ClassEnum.Generator
-        ... )
+        >>> db.check_property_exists(CollectionEnum.Generators, ClassEnum.Generator, "Max Capacity")
         True
-        >>> db.check_property_exists(
-        ...     ["Invalid Property"], CollectionEnum.GeneratorProperties, object_class=ClassEnum.Generator
-        ... )
+        >>> db.check_property_exists(CollectionEnum.Generators, ClassEnum.Generator, ["Invalid Property"])
         False
         """
         if property_names is None:
@@ -864,9 +864,9 @@ class PlexosDB:
 
     def copy_object(
         self,
+        object_class: ClassEnum,
         original_object_name: str,
         new_object_name: str,
-        object_class: ClassEnum,
         copy_properties: bool = True,
     ) -> int:
         """Copy an object and its properties, tags, and texts."""
@@ -937,7 +937,7 @@ class PlexosDB:
         """Delete an attribute from an object."""
         raise NotImplementedError
 
-    def delete_category(self, category_name: str, /, *, class_name: ClassEnum) -> None:
+    def delete_category(self, category: str, /, *, class_name: ClassEnum) -> None:
         """Delete a category from the database."""
         raise NotImplementedError
 
@@ -1014,14 +1014,14 @@ class PlexosDB:
         """Get all attributes for a specific object."""
         raise NotImplementedError
 
-    def get_category_id(self, category_name: str, /, class_enum: ClassEnum) -> int:
+    def get_category_id(self, class_enum: ClassEnum, /, name: str) -> int:
         """Return the ID for a given category.
 
         Retrieves the unique identifier for a category with the specified name and class.
 
         Parameters
         ----------
-        category_name : str
+        category : str
             Name of the category
         class_enum : ClassEnum
             Class enumeration the category belongs to
@@ -1045,8 +1045,8 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.add_category("my_category", ClassEnum.Generator)
-        >>> db.get_category_id("my_category", ClassEnum.Generator)
+        >>> db.add_category(ClassEnum.Generator, "my_category")
+        >>> db.get_category_id(ClasEnum.Generator, "my_category")
         1
         """
         query = """
@@ -1060,7 +1060,7 @@ class PlexosDB:
             t_category.name = ?
         AND t_class.name = ?
         """
-        result = self._db.query(query, (category_name, class_enum))
+        result = self._db.query(query, (name, class_enum))
         assert result
         return result[0]["category_id"]
 
@@ -1213,31 +1213,33 @@ class PlexosDB:
         """Get custom columns, optionally filtered by class."""
         raise NotImplementedError
 
-    def get_data_ids(
+    def get_object_data_ids(
         self,
-        object_name: str,
         class_enum: ClassEnum,
-        parent_class_enum: ClassEnum = ClassEnum.System,
+        /,
+        name: str,
         property_names: str | Iterable[str] | None = None,
+        *,
+        parent_class_enum: ClassEnum = ClassEnum.System,
         collection_enum: CollectionEnum | None = None,
         category: str | None = None,
     ):
         """Get all the `data_id` for a given object."""
-        params = [object_name]
+        params = [name]
         filters = "o.name = ?"
         if not collection_enum:
             collection_enum = get_default_collection(class_enum)
         if category:
-            if not self.check_category_exists(category, class_enum):
+            if not self.check_category_exists(class_enum, category):
                 raise KeyError
             filters += " AND cat.name = ?"
             params.append(category)
 
         if property_names:
             if not self.check_property_exists(
+                collection_enum,
+                class_enum,
                 property_names,
-                collection_enum=collection_enum,
-                object_class=class_enum,
                 parent_class=parent_class_enum,
             ):
                 msg = (
@@ -1306,8 +1308,8 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.add_object("System", ClassEnum.System)
-        >>> db.add_object("Generator1", ClassEnum.Generator)
+        >>> db.add_object(ClassEnum.System, "System")
+        >>> db.add_object(ClassEnum.Generator, "Generator1")
         >>> db.add_membership(
         ...     "System", "Generator1", ClassEnum.System, ClassEnum.Generator, CollectionEnum.SystemGenerators
         ... )
@@ -1353,11 +1355,13 @@ class PlexosDB:
         """Retrieve metadata for an entity."""
         raise NotImplementedError
 
-    def get_object_properties(
+    def get_object_properties(  # noqa: C901
         self,
-        object_name: str,
         class_enum: ClassEnum,
+        /,
+        name: str,
         property_names: str | Iterable[str] | None = None,
+        *,
         parent_class_enum: ClassEnum | None = None,
         collection_enum: CollectionEnum | None = None,
         category: str | None = None,
@@ -1370,10 +1374,10 @@ class PlexosDB:
 
         Parameters
         ----------
-        object_name : str
-            Name of the object to retrieve properties for
         class_enum : ClassEnum
             Class enumeration of the object
+        name : str
+            Name of the object to retrieve properties for
         property_names : str | Iterable[str] | None, optional
             Names of specific properties to retrieve. If None, gets all properties, by default None
         parent_class_enum : ClassEnum | None, optional
@@ -1418,15 +1422,20 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.add_object("Generator1", ClassEnum.Generator)
-        >>> db.add_property("Generator1", "Max Capacity", 100.0, ClassEnum.Generator)
-        >>> properties = db.get_object_properties("Generator1", ClassEnum.Generator)
+        >>> db.add_object(ClassEnum.Generator, "Generator1")
+        >>> db.add_property(ClassEnum.Generator, "Generator1", "Max Capacity", 100.0)
+        >>> properties = db.get_object_properties(ClassEnum.Generator, "Generator1")
         >>> properties[0]["property"]
         'Max Capacity'
         >>> properties[0]["value"]
         100.0
         """
         parent_class_enum = parent_class_enum or ClassEnum.System
+
+        if not self.has_properties(class_enum, name, collection_enum=collection_enum, category=category):
+            msg = f"Object = `{name}` does not have any properties attached to it."
+            raise ValueError(msg)
+
         query = """
         SELECT
             d.data_id,
@@ -1443,10 +1452,15 @@ class PlexosDB:
             d.data_id IN ({placeholders});
         """
 
-        data_ids = self.get_data_ids(
-            object_name, class_enum, parent_class_enum, property_names, collection_enum, category
+        data_ids = self.get_object_data_ids(
+            class_enum,
+            name,
+            property_names,
+            parent_class_enum=parent_class_enum,
+            collection_enum=collection_enum,
+            category=category,
         )
-        assert data_ids
+
         all_results: list[dict[str, Any]] = []
         for chunk_data_ids in batched(data_ids, chunk_size):
             placeholders = ",".join(["?"] * len(chunk_data_ids))
@@ -1530,57 +1544,7 @@ class PlexosDB:
 
         return all_results
 
-    def get_object_legacy(
-        self,
-        object_name: str,
-        /,
-        class_enum: ClassEnum,
-        *,
-        property_names: str | Iterable[str] | None = None,
-        collection_enum: CollectionEnum | None = None,
-        parent_class: ClassEnum | None = None,
-        scenario: str | None = None,
-        category: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """Get all details about a specific object including its properties."""
-        filters = " AND o.name = ?"
-        params = [object_name]
-        parent_class = parent_class or ClassEnum.System
-        if not collection_enum:
-            collection_enum = get_default_collection(class_enum)
-
-        if category:
-            if not self.check_category_exists(category, class_enum):
-                raise KeyError
-            filters += " AND cat.name = ?"
-            params.append(category)
-
-        if property_names:
-            if not self.check_property_exists(
-                property_names,
-                collection_enum=collection_enum,
-                object_class=class_enum,
-                parent_class=parent_class,
-            ):
-                msg = (
-                    f"Invalid property {property_names} for {collection_enum=}."
-                    " Use `list_valid_properties` to check property requested."
-                )
-                raise PropertyNameError(msg)
-            properties = normalize_names(property_names)
-            prop_placeholders = ", ".join("?" for _ in properties)
-            filters += f" AND p.name IN ({prop_placeholders})"
-            params.extend(properties)
-
-        query_template = get_sql_query("property_query.sql")
-        query = query_template.format(class_name=class_enum.name, extra_filters=filters)
-        result = self._db.query(query, tuple(params))
-        assert result
-        return [{key: row[key] for key in row.keys()} for row in result]
-
-    def get_object_id(
-        self, object_name: str, /, class_enum: ClassEnum, *, category_name: str | None = None
-    ) -> int:
+    def get_object_id(self, class_enum: ClassEnum, /, name: str, *, category: str | None = None) -> int:
         """Return the ID for a given object.
 
         Retrieves the unique identifier for an object with the specified name and class,
@@ -1592,7 +1556,7 @@ class PlexosDB:
             Name of the object
         class_enum : ClassEnum
             Class enumeration of the object
-        category_name : str | None, optional
+        category : str | None, optional
             Category name to filter by, by default None
 
         Returns
@@ -1617,7 +1581,7 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.add_object("Generator1", ClassEnum.Generator, category="Thermal")
+        >>> db.add_object(ClassEnum.Generator, "Generator1" category="Thermal")
         >>> db.get_object_id("Generator1", ClassEnum.Generator)
         1
         """
@@ -1633,9 +1597,9 @@ class PlexosDB:
         AND
             t_class.name = ?
         """
-        params: list[Any] = [object_name, class_enum]
-        if category_name:
-            category_id = self.get_category_id(category_name, class_enum)
+        params: list[Any] = [name, class_enum]
+        if category:
+            category_id = self.get_category_id(class_enum, category)
             params.append(category_id)
             query += "AND obj.category_id = ?"
         result = self._db.query(query, tuple(params))
@@ -1751,6 +1715,40 @@ class PlexosDB:
     def get_unit(self, unit_id: int) -> dict:
         """Get details for a specific unit."""
         raise NotImplementedError
+
+    def has_properties(
+        self,
+        class_enum: ClassEnum,
+        /,
+        name: str,
+        *,
+        collection_enum: CollectionEnum | None = None,
+        category: str | None = None,
+    ) -> bool:
+        """Check if the given object has any properties associated."""
+        params = [name]
+        filters = "o.name = ?"
+        if not collection_enum:
+            collection_enum = get_default_collection(class_enum)
+        if category:
+            if not self.check_category_exists(class_enum, category):
+                raise KeyError
+            filters += " AND cat.name = ?"
+            params.append(category)
+        query = f"""
+        SELECT
+            1
+        FROM t_object o
+            JOIN t_class c ON o.class_id = c.class_id
+            JOIN t_category cat ON o.category_id = cat.category_id
+            JOIN t_membership m ON m.child_object_id = o.object_id
+            JOIN t_data d ON d.membership_id = m.membership_id
+            JOIN t_property p ON d.property_id = p.property_id
+        WHERE
+            {filters}
+        LIMIT 1
+        """
+        return bool(self._db.query(query, tuple(params)))
 
     def import_from_csv(self, source_path: str | Path, /, *, tables: list[str] | None = None) -> None:
         """Import data from CSV files into the database."""
@@ -1970,10 +1968,10 @@ class PlexosDB:
         >>> db.create_schema()
         >>> db.add_object("Generator1", ClassEnum.Generator)
         >>> db.add_property(
+        ...     ClassEnum.Generator,
         ...     "Generator1",
         ...     "Max Capacity",
         ...     100.0,
-        ...     object_class_enum=ClassEnum.Generator,
         ...     scenario="Scenario",
         ... )
         >>> db.list_scenarios()
@@ -2182,7 +2180,7 @@ class PlexosDB:
         """Update an attribute value for an object."""
         raise NotImplementedError
 
-    def update_category(self, category_name: str, new_name: str, /, *, class_name: ClassEnum) -> None:
+    def update_category(self, category: str, new_name: str, /, *, class_name: ClassEnum) -> None:
         """Update a category name."""
         raise NotImplementedError
 

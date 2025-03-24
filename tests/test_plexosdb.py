@@ -159,20 +159,20 @@ def test_get_class_id(db_instance_with_xml):
 
 def test_checks(db_instance_with_xml):
     db = db_instance_with_xml
-    result = db.check_category_exists("-", ClassEnum.System)
+    result = db.check_category_exists(ClassEnum.System, "-")
     assert result
 
 
 def test_category_operations(db_instance_with_schema):
     db = db_instance_with_schema
-    category_id = db.add_category("test_category", class_name=ClassEnum.Generator)
+    category_id = db.add_category(ClassEnum.Generator, "test_category")
     assert category_id
 
-    category_id_original = db.add_category("test_category2", class_name=ClassEnum.Generator)
+    category_id_original = db.add_category(ClassEnum.Generator, "test_category2")
     assert category_id_original == 2
 
     # Test that we return the same id if we add a repeated category
-    category_id_repeated = db.add_category("test_category2", class_name=ClassEnum.Generator)
+    category_id_repeated = db.add_category(ClassEnum.Generator, "test_category2")
     assert category_id_original == category_id_repeated
 
     categories = db.list_categories(ClassEnum.Generator)
@@ -183,13 +183,13 @@ def test_membership_operations(db_instance_with_schema):
     db = db_instance_with_schema
     parent_object_name = "TestGen"
     parent_class = ClassEnum.Generator
-    _ = db.add_object(parent_object_name, parent_class)
+    _ = db.add_object(parent_class, parent_object_name)
     child_object_name = "TestNode"
     child_class = ClassEnum.Node
-    _ = db.add_object(child_object_name, child_class)
+    _ = db.add_object(child_class, child_object_name)
     collection = CollectionEnum.Nodes
     membership_id = db.add_membership(
-        parent_object_name, child_object_name, parent_class, child_class, collection
+        parent_class, child_class, parent_object_name, child_object_name, collection
     )
     assert membership_id == db.get_membership_id(parent_object_name, child_object_name, collection)
 
@@ -199,34 +199,34 @@ def test_object_operations(db_instance_with_schema):
     db = db_instance_with_schema
 
     test_object_name = "TestGen"
-    object_id = db.add_object(test_object_name, ClassEnum.Generator)
+    object_id = db.add_object(ClassEnum.Generator, test_object_name)
     assert object_id
-    assert db.check_object_exists(test_object_name, ClassEnum.Generator)
+    assert db.check_object_exists(ClassEnum.Generator, test_object_name)
 
     # Make sure we get the same object_id
-    object_id_query = db.get_object_id(test_object_name, ClassEnum.Generator)
+    object_id_query = db.get_object_id(ClassEnum.Generator, test_object_name)
     assert object_id == object_id_query
 
     test_object_name = "TestGen2"
     test_object_category = "Thermal"
-    object_id = db.add_object(test_object_name, ClassEnum.Generator, category=test_object_category)
-    test_object = db.get_object_legacy(test_object_name, ClassEnum.Generator)
-    assert test_object[0]["name"] == test_object_name
-
-    # test_object_with_category = db.get_object_legacy(test_object_name, category="Thermal")
-    # assert test_object == test_object_with_category
+    object_id = db.add_object(ClassEnum.Generator, test_object_name, category=test_object_category)
+    test_object_id = db.get_object_id(ClassEnum.Generator, test_object_name, category=test_object_category)
+    assert object_id == test_object_id
 
     test_object_name = "TestGen3"
     test_object_category = "Thermal"
     test_object_description = "Thermal Generator for area 1."
     object_id = db.add_object(
-        test_object_name,
         ClassEnum.Generator,
+        test_object_name,
         category=test_object_category,
         description=test_object_description,
     )
-    test_object = db.get_object_legacy(test_object_name, ClassEnum.Generator)
-    assert test_object[0]["name"] == test_object_name
+    test_object_id = db.get_object_id(ClassEnum.Generator, test_object_name)
+    assert object_id == test_object_id
+
+    with pytest.raises(ValueError):
+        _ = db.get_object_properties(ClassEnum.Generator, test_object_name, category=test_object_category)
 
     assert len(db.list_objects_by_class(ClassEnum.Generator)) == 3
 
@@ -236,33 +236,31 @@ def test_add_property_to_object(db_instance_with_schema):
     test_object_name = "TestGen"
     test_property_name = "Max Capacity"
     test_property_value = 100.0
-    _ = db.add_object(test_object_name, ClassEnum.Generator)
-    data_id = db.add_property(
-        test_object_name, test_property_name, test_property_value, object_class_enum=ClassEnum.Generator
-    )
-    object_properties = db.get_object_legacy(test_object_name, ClassEnum.Generator)
+    _ = db.add_object(ClassEnum.Generator, test_object_name)
+    data_id = db.add_property(ClassEnum.Generator, test_object_name, test_property_name, test_property_value)
+    object_properties = db.get_object_properties(ClassEnum.Generator, test_object_name)
     assert object_properties
     assert object_properties[0]["name"] == test_object_name
     assert object_properties[0]["property"] == test_property_name
-    assert object_properties[0]["property_value"] == test_property_value
+    assert object_properties[0]["value"] == test_property_value
 
     test_property_name = "Max Capacity"
     test_property_value = 100.0
     scenario = "TestScenario"
     data_id_scenario = db.add_property(
+        ClassEnum.Generator,
         test_object_name,
         test_property_name,
         test_property_value,
-        object_class_enum=ClassEnum.Generator,
         scenario=scenario,
     )
     assert data_id != data_id_scenario
-    object_properties_scenario = db.get_object_legacy(test_object_name, ClassEnum.Generator)
+    object_properties_scenario = db.get_object_properties(ClassEnum.Generator, test_object_name)
     assert object_properties
     assert len(object_properties_scenario) == 2  # 2 properties so far
     assert object_properties_scenario[0]["name"] == test_object_name
     assert object_properties_scenario[0]["property"] == test_property_name
-    assert object_properties_scenario[0]["property_value"] == test_property_value
+    assert object_properties_scenario[0]["value"] == test_property_value
     assert object_properties_scenario[0]["scenario"] is None
     assert object_properties_scenario[1]["name"] == test_object_name
     assert object_properties_scenario[1]["property"] == test_property_name
@@ -271,15 +269,13 @@ def test_add_property_to_object(db_instance_with_schema):
     test_object_name = "TestGen"
     test_property_name = "Max Energy"
     test_property_value = 200.0
-    data_id = db.add_property(
-        test_object_name, test_property_name, test_property_value, object_class_enum=ClassEnum.Generator
-    )
-    object_properties = db.get_object_legacy(
-        test_object_name, ClassEnum.Generator, property_names="Max Energy"
+    data_id = db.add_property(ClassEnum.Generator, test_object_name, test_property_name, test_property_value)
+    object_properties = db.get_object_properties(
+        ClassEnum.Generator, test_object_name, property_names="Max Energy"
     )
     assert len(object_properties) == 1  # Only one property asked
-    object_properties = db.get_object_legacy(
-        test_object_name, ClassEnum.Generator, property_names=["Max Energy", "Max Capacity"]
+    object_properties = db.get_object_properties(
+        ClassEnum.Generator, test_object_name, property_names=["Max Energy", "Max Capacity"]
     )
     assert len(object_properties) == 3
 
@@ -287,16 +283,18 @@ def test_add_property_to_object(db_instance_with_schema):
 def test_invalid_property(db_instance_with_schema):
     db = db_instance_with_schema
     test_object_name = "TestGen"
+    test_property_name = "Max Energy"
+    test_property_value = 200.0
+    _ = db.add_object(ClassEnum.Generator, test_object_name)
+    _ = db.add_property(ClassEnum.Generator, test_object_name, test_property_name, test_property_value)
+
     test_property_name = "Wrong Property"
     test_property_value = 100.0
-    _ = db.add_object(test_object_name, ClassEnum.Generator)
     with pytest.raises(PropertyNameError):
-        _ = db.add_property(
-            test_object_name, test_property_name, test_property_value, object_class_enum=ClassEnum.Generator
-        )
+        _ = db.add_property(ClassEnum.Generator, test_object_name, test_property_name, test_property_value)
 
     with pytest.raises(PropertyNameError):
-        _ = db.get_object_legacy(test_object_name, ClassEnum.Generator, property_names=test_property_name)
+        _ = db.get_object_properties(ClassEnum.Generator, test_object_name, property_names=test_property_name)
 
 
 def test_get_object_properties(db_instance_with_schema):
@@ -304,11 +302,9 @@ def test_get_object_properties(db_instance_with_schema):
     test_object_name = "TestGen"
     test_property_name = "Max Capacity"
     test_property_value = 100.0
-    _ = db.add_object(test_object_name, ClassEnum.Generator)
-    _ = db.add_property(
-        test_object_name, test_property_name, test_property_value, object_class_enum=ClassEnum.Generator
-    )
-    object_properties = db.get_object_properties(test_object_name, ClassEnum.Generator)
+    _ = db.add_object(ClassEnum.Generator, test_object_name)
+    _ = db.add_property(ClassEnum.Generator, test_object_name, test_property_name, test_property_value)
+    object_properties = db.get_object_properties(ClassEnum.Generator, test_object_name)
     assert object_properties
     assert object_properties[0]["name"] == test_object_name
     assert object_properties[0]["property"] == test_property_name
@@ -322,12 +318,12 @@ def test_list_scenarios(db_instance_with_schema):
     test_property_name = "Max Capacity"
     test_property_value = 100.0
     test_scenario = "Ramping"
-    _ = db.add_object(test_object_name, ClassEnum.Generator)
+    _ = db.add_object(ClassEnum.Generator, test_object_name)
     _ = db.add_property(
+        ClassEnum.Generator,
         test_object_name,
         test_property_name,
         test_property_value,
-        object_class_enum=ClassEnum.Generator,
         scenario=test_scenario,
     )
     scenarios = db.list_scenarios()
@@ -374,3 +370,27 @@ def test_xml_round_trip(db_instance_with_schema, tmp_path):
         assert len(original_db.query(f"SELECT * FROM {table_name}")) == len(
             deserialized_db.query(f"SELECT * FROM {table_name}")
         ), "Different number of rows encounter."
+
+
+@pytest.mark.xfail(reason="Work in progress")
+def test_copy_object():
+    db = db_instance_with_schema
+    original_object_name = "TestGen"
+    object_class = ClassEnum.Generator
+    original_object_id = db.add_object(original_object_name, object_class)
+    test_property_name = "Max Capacity"
+    test_property_value = 100.0
+    _ = db.add_property(
+        original_object_name,
+        test_property_name,
+        test_property_value,
+        object_class_enum=ClassEnum.Generator,
+    )
+
+    # Test default behaviour of copying properties
+    new_object_name = "TestGenCopy"
+    new_object_id = db.copy_object(object_class, original_object_name, new_object_name)
+    assert new_object_id
+    assert new_object_id != original_object_id
+    _ = db.get_object_properties(object_class, new_object_name)
+    assert 0

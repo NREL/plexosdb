@@ -1,6 +1,6 @@
 """Plexos Input XML API."""
 
-import xml.etree.ElementTree as ET  # noqa
+import xml.etree.ElementTree as ET  # noqa: N817
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from os import PathLike
@@ -143,8 +143,8 @@ class XMLHandler:
 
     def to_xml(self, fpath: str | PathLike) -> bool:
         """Save memory xml to file."""
-        assert self.root
-        assert self.tree
+        assert self.root is not None
+        assert self.tree is not None
         ET.indent(self.tree)
 
         # Sorting elements by their text
@@ -200,7 +200,7 @@ class XMLHandler:
         [^1]:
         https://stackoverflow.com/questions/18159221/remove-namespace-and-prefix-from-xml-in-python-using-lxml
         """
-        assert self.root
+        assert self.root is not None
         ns = "{%s}" % namespace  # noqa: UP031
         nsl = len(ns)
         for elem in self.root.iter():

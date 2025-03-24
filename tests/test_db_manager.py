@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -200,8 +201,7 @@ def test_sqlite_manager_backup(db_instance_populated, tmp_path):
         count = cursor.fetchone()[0]
         assert count == 3
 
-    # Test backup to invalid location
-    invalid_path = "/nonexistent/directory/backup.db"
+    invalid_path = "NUL:backup.db" if os.name == "nt" else "/dev/null/invalid.db"
     success = db_instance_populated.backup(invalid_path)
     assert success is False
 
@@ -649,13 +649,11 @@ def test_close_additional_cases(monkeypatch):
 
     db3.close()
 
-    # Verify close was called
     mock_conn.close.assert_called_once()
 
 
 def test_no_default_schema():
     """Test that no schema is created by default."""
-    # Create a DB manager with initialize=True but no schema provided
     db = SQLiteManager(initialize=True)
 
     # Should have no tables
@@ -665,24 +663,21 @@ def test_no_default_schema():
     db.close()
 
 
-def test_in_memory_flag_setting():
+def test_in_memory_flag_setting(tmp_path):
     """Test that _in_memory flag is correctly set based on initialization parameters."""
-    # Test in_memory=False with db_path provided
-    db1 = SQLiteManager(db_path="/tmp/test.db", in_memory=False)
+    db_path = tmp_path / "test.db"
+    db1 = SQLiteManager(db_path=db_path, in_memory=False)
     assert db1._in_memory is False
     db1.close()
 
-    # Test in_memory=True with db_path provided - should override
-    db2 = SQLiteManager(db_path="/tmp/test.db", in_memory=True)
+    db2 = SQLiteManager(db_path=db_path, in_memory=True)
     assert db2._in_memory is True
     db2.close()
 
-    # Test with db_path=None - should default to in_memory=True
     db3 = SQLiteManager(db_path=None, in_memory=False)
     assert db3._in_memory is True
     db3.close()
 
-    # Test with no parameters - should default to in_memory=True
     db4 = SQLiteManager()
     assert db4._in_memory is True
     db4.close()
@@ -690,25 +685,21 @@ def test_in_memory_flag_setting():
 
 def test_backup_path_handling(db_instance_populated, tmp_path):
     """Test backup method path handling."""
-    # Test with Path object
     path_obj = tmp_path / "backup_path.db"
     success = db_instance_populated.backup(path_obj)
     assert success is True
     assert path_obj.exists()
 
-    # Test with string path
     str_path = str(tmp_path / "backup_string.db")
     success = db_instance_populated.backup(str_path)
     assert success is True
     assert Path(str_path).exists()
 
-    # Test with path requiring parent directory creation
     nested_path = tmp_path / "new_dir" / "nested.db"
     success = db_instance_populated.backup(nested_path)
     assert success is True
     assert nested_path.exists()
 
-    # Test with OSError - use a path with invalid permissions
     import os
 
     if os.name != "nt":  # Skip on Windows where permission model is different
@@ -720,7 +711,6 @@ def test_backup_path_handling(db_instance_populated, tmp_path):
             success = db_instance_populated.backup(restricted_path)
             assert success is False
         finally:
-            # Restore permissions so cleanup can occur
             restricted_dir.chmod(0o755)
 
 
@@ -796,7 +786,6 @@ def test_close_commit_for_file_db(monkeypatch):
     # Replace the connection
     monkeypatch.setattr(db, "_conn", mock_conn)
 
-    # Close the database
     db.close()
 
     # Verify commit was called (only for file databases)
