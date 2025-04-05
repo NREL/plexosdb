@@ -41,17 +41,21 @@ Issues = "https://github.com/NREL/plexosdb/issues"
 Source = "https://github.com/NREL/plexosdb"
 Changelog = "https://github.com/NREL/plexosdb/blob/master/CHANGELOG.md"
 
-[project.optional-dependencies]
-all = ["plexosdb[docs,dev]"]
+[dependency-groups]
 docs = [
+    "furo",
     "sphinx-book-theme",
     "ghp-import",
     "myst-parser",
     "sphinx-copybutton",
     "sphinx-tabs",
     "sphinxcontrib-mermaid",
+    "sphinx-autobuild>=2024.10.3",
+    "sphinx-multiversion>=0.2.4",
+    "sphinxcontrib-versioning>=2.2.1",
 ]
 dev = [
+    "pytest-benchmark>=5.1.0",
     "bump2version",
     "ipython",
     "pudb",
@@ -131,6 +135,7 @@ docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "F401", "F403", "D104"]
+"__main__.py" = ["D100", "E402", "F401", "F403", "D104"]
 "**/{tests,docs,tools}/*" = ["D100", "D103", "E402"]
 
 [tool.pytest.ini_options]
@@ -138,9 +143,11 @@ pythonpath = [
   "src"
 ]
 markers = [
-    "get_functions: Functions that get data",
-    "add_functions: Functions that add data",
-    "empty_database: Functions for test empty database"
+    "getters: Functions that get data",
+    "adders: Functions that add data",
+    "empty_database: Functions for test empty database",
+    "export: Functions that export the database.",
+    "listing: Functions that list elements of the  database."
 ]
 
 [tool.coverage.run]

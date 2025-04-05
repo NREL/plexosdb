@@ -1,6 +1,8 @@
 """Util functions for plexosdb."""
 
 import ast
+from collections.abc import Iterable
+from importlib.resources import files
 from itertools import islice
 from typing import Any
 
@@ -60,3 +62,18 @@ def no_space(a: str, b: str) -> int:
     if a.replace(" ", "") < b.replace(" ", ""):
         return -1
     return 1
+
+
+def normalize_names(names: str | Iterable[str]) -> list[str]:
+    """Normalize a name or list of names into a unique list of strings."""
+    if isinstance(names, str):
+        return [names]
+    if hasattr(names, "__iter__"):
+        return list(set(names))
+    raise ValueError(f"{names} must be a string or an iterable of strings.")
+
+
+def get_sql_query(query_name: str):
+    """Load SQL query from package."""
+    fpath = files("plexosdb.queries").joinpath(query_name)
+    return fpath.read_text(encoding="utf-8-sig")

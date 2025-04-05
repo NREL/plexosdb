@@ -1,7 +1,4 @@
-"""Custom exceptions for R2X."""
-# ruff: noqa: D101
-
-
+# ruff: noqa: D100, D101
 class NotFoundError(Exception):
     pass
 
@@ -18,7 +15,9 @@ class MultipleFilesError(Exception):
     pass
 
 
-class PropertyNameError(ValueError):
-    """Raised when one or more property names are not valid."""
+class NameError(ValueError):
+    pass
 
+
+class NoPropertiesError(Exception):
     pass

@@ -4,32 +4,50 @@ import xml.etree.ElementTree as ET  # noqa: N817
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from os import PathLike
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from .enums import Schema
 from .utils import validate_string
 
+PLEXOS_NAMESPACE = "http://tempuri.org/MasterDataSet.xsd"
+
 
 class XMLHandler:
     """PLEXOS XML handler."""
 
+    # Tell mypy that these attributes are never None after initialization
+    if TYPE_CHECKING:
+        root: ET.Element
+        tree: ET.ElementTree
+
     def __init__(
-        self, fpath: str | PathLike, namespace: str, in_memory: bool = True, model: str | None = None
+        self,
+        fpath: str | PathLike | None = None,
+        namespace: str = PLEXOS_NAMESPACE,
+        in_memory: bool = True,
+        initialize: bool = False,
     ) -> None:
         self.fpath = fpath
         self.namespace = namespace
-        self.model = model
         self.in_memory = in_memory
         self._cache: dict = {}
         self._counts: dict = {}
 
-        # Parse the XML using bare ElementTree
-        self.tree = ET.parse(fpath)
-        self.root = self.tree.getroot()
+        if initialize:
+            self.root = ET.Element("MasterDataSet")
+            self.tree = ET.ElementTree(self.root)
 
-        # Clean the root for simplier queries
-        self._remove_namespace(namespace)
+        # If we are parsing an XML file
+        if fpath and not initialize:
+            self.tree = ET.parse(fpath)
+            self.root = self.tree.getroot()
+            self._remove_namespace(namespace)
+
+        # At this point both should be either define from a file or from initialize.
+        assert self.root is not None
+        assert self.tree is not None
 
         # Create in-memory cache to speed up searching on the document
         if self.in_memory:
@@ -40,11 +58,28 @@ class XMLHandler:
             self._counts = {key: len(_cache[key]) for key in _cache}
 
     @classmethod
-    def parse(
-        cls, fpath: str | PathLike, namespace: str = "http://tempuri.org/MasterDataSet.xsd", **kwargs
-    ) -> "XMLHandler":
+    def parse(cls, fpath: str | PathLike, namespace: str = PLEXOS_NAMESPACE, **kwargs) -> "XMLHandler":
         """Return XML instance from file requested."""
         return XMLHandler(fpath=fpath, namespace=namespace, **kwargs)
+
+    def create_table_element(self, rows: list[tuple], column_types: dict[str, str], table_name: str) -> bool:
+        """Create XML elements for a given table."""
+        for row in rows:
+            table_element = ET.SubElement(self.root, table_name)
+            for (column_name, column_type), column_value in zip(column_types.items(), row):
+                if column_value is None:
+                    continue
+                column_element = ET.SubElement(table_element, column_name)
+                match column_type:
+                    case "BIT":
+                        match column_value:
+                            case 1:
+                                column_element.text = "true"
+                            case 0:
+                                column_element.text = "false"
+                    case _:
+                        column_element.text = str(column_value)
+        return True
 
     def get_records(
         self,
@@ -106,8 +141,10 @@ class XMLHandler:
         for element in elements:
             yield from self._cache_iter(element_type, **{f"{label}": element})
 
-    def to_xml(self, fpath: str | PathLike) -> None:
+    def to_xml(self, fpath: str | PathLike) -> bool:
         """Save memory xml to file."""
+        assert self.root is not None
+        assert self.tree is not None
         ET.indent(self.tree)
 
         # Sorting elements by their text
@@ -115,7 +152,7 @@ class XMLHandler:
         self.root[:] = sorted_elements
 
         # Rebuilding the XML tree with sorted elements
-        logger.debug("Saving xml file")
+        logger.debug("Saving xml file to {}", fpath)
         self.root.set("xmlns", self.namespace)
         with open(fpath, "wb") as f:
             self.tree.write(
@@ -128,7 +165,7 @@ class XMLHandler:
             del self._cache
             del self._counts
 
-        return None
+        return True
 
     def _cache_iter(self, element_type: Schema, **tag_elements) -> Iterator | list:
         if not tag_elements:
@@ -163,6 +200,7 @@ class XMLHandler:
         [^1]:
         https://stackoverflow.com/questions/18159221/remove-namespace-and-prefix-from-xml-in-python-using-lxml
         """
+        assert self.root is not None
         ns = "{%s}" % namespace  # noqa: UP031
         nsl = len(ns)
         for elem in self.root.iter():

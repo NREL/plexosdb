@@ -124,3 +124,11 @@ def str2enum(string, schema_enum=Schema) -> Schema | None:
         if e.name == string:
             return e
     return None
+
+
+def get_default_collection(class_enum: ClassEnum) -> CollectionEnum:
+    """Return default collection for class."""
+    collection_name = f"{class_enum}s"
+    if collection_name not in CollectionEnum.__members__:
+        collection_name = class_enum.name
+    return CollectionEnum[collection_name]
