@@ -215,6 +215,12 @@ def test_add_property_to_object(db_instance_with_schema):
     )
     assert len(object_properties) == 3
 
+    data_ids = db.get_object_data_ids(ClassEnum.Generator, test_object_name)
+    assert data_id in data_ids
+
+    with pytest.raises(KeyError):
+        _ = db.get_object_data_ids(ClassEnum.Generator, test_object_name, category="bad_category")
+
 
 def test_add_property_to_object_with_text(db_instance_with_schema):
     db = db_instance_with_schema
@@ -325,3 +331,9 @@ def test_xml_round_trip(db_instance_with_schema, tmp_path):
         assert len(original_db.query(f"SELECT * FROM {table_name}")) == len(
             deserialized_db.query(f"SELECT * FROM {table_name}")
         ), "Different number of rows encounter."
+
+
+@pytest.mark.export
+def test_xml_not_exist():
+    with pytest.raises(FileNotFoundError):
+        _ = PlexosDB.from_xml("not/existing/path")

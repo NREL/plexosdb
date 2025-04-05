@@ -955,67 +955,62 @@ class PlexosDB:
             return True
 
         with self._db.transaction():
-            try:
-                self._db.execute("DROP TABLE IF EXISTS temp_mapping")
-                self._db.execute("CREATE TEMPORARY TABLE temp_mapping (old_id INTEGER, new_id INTEGER)")
+            self._db.execute("DROP TABLE IF EXISTS temp_mapping")
+            self._db.execute("CREATE TEMPORARY TABLE temp_mapping (old_id INTEGER, new_id INTEGER)")
 
-                for old_id, new_id in membership_mapping.items():
-                    self._db.execute("INSERT INTO temp_mapping VALUES (?, ?)", (old_id, new_id))
+            for old_id, new_id in membership_mapping.items():
+                self._db.execute("INSERT INTO temp_mapping VALUES (?, ?)", (old_id, new_id))
 
-                self._db.execute("""
-                INSERT INTO t_data (membership_id, property_id, value, state)
-                    SELECT
-                        tm.new_id, d.property_id, d.value, d.state
-                    FROM
-                        t_data d
-                    JOIN temp_mapping tm ON d.membership_id = tm.old_id
-                """)
+            self._db.execute("""
+            INSERT INTO t_data (membership_id, property_id, value, state)
+                SELECT
+                    tm.new_id, d.property_id, d.value, d.state
+                FROM
+                    t_data d
+                JOIN temp_mapping tm ON d.membership_id = tm.old_id
+            """)
 
-                self._db.execute("DROP TABLE IF EXISTS temp_data_mapping")
-                self._db.execute("CREATE TEMPORARY TABLE temp_data_mapping (old_id INTEGER, new_id INTEGER)")
+            self._db.execute("DROP TABLE IF EXISTS temp_data_mapping")
+            self._db.execute("CREATE TEMPORARY TABLE temp_data_mapping (old_id INTEGER, new_id INTEGER)")
 
-                self._db.execute("""
-                    INSERT INTO temp_data_mapping
-                    SELECT old_d.data_id AS old_id, new_d.data_id AS new_id
-                    FROM t_data old_d
-                    JOIN temp_mapping tm ON old_d.membership_id = tm.old_id
-                    JOIN t_data new_d ON
-                        new_d.membership_id = tm.new_id AND
-                        new_d.property_id = old_d.property_id AND
-                        new_d.value = old_d.value
-                    WHERE new_d.data_id NOT IN (SELECT data_id FROM t_tag)
-                """)
+            self._db.execute("""
+                INSERT INTO temp_data_mapping
+                SELECT old_d.data_id AS old_id, new_d.data_id AS new_id
+                FROM t_data old_d
+                JOIN temp_mapping tm ON old_d.membership_id = tm.old_id
+                JOIN t_data new_d ON
+                    new_d.membership_id = tm.new_id AND
+                    new_d.property_id = old_d.property_id AND
+                    new_d.value = old_d.value
+                WHERE new_d.data_id NOT IN (SELECT data_id FROM t_tag)
+            """)
 
-                # Copy tags using data ID mapping
-                self._db.execute("""
-                    INSERT INTO t_tag (data_id, object_id, state, action_id)
-                    SELECT tdm.new_id, t.object_id, t.state, t.action_id
-                    FROM t_tag t
-                    JOIN temp_data_mapping tdm ON t.data_id = tdm.old_id
-                """)
+            # Copy tags using data ID mapping
+            self._db.execute("""
+                INSERT INTO t_tag (data_id, object_id, state, action_id)
+                SELECT tdm.new_id, t.object_id, t.state, t.action_id
+                FROM t_tag t
+                JOIN temp_data_mapping tdm ON t.data_id = tdm.old_id
+            """)
 
-                # Copy text data
-                self._db.execute("""
-                    INSERT INTO t_text (data_id, class_id, value, state, action_id)
-                    SELECT tdm.new_id, t.class_id, t.value, t.state, t.action_id
-                    FROM t_text t
-                    JOIN temp_data_mapping tdm ON t.data_id = tdm.old_id
-                """)
+            # Copy text data
+            self._db.execute("""
+                INSERT INTO t_text (data_id, class_id, value, state, action_id)
+                SELECT tdm.new_id, t.class_id, t.value, t.state, t.action_id
+                FROM t_text t
+                JOIN temp_data_mapping tdm ON t.data_id = tdm.old_id
+            """)
 
-                # Copy band data
-                self._db.execute("""
-                    INSERT INTO t_band (data_id, band_id, state)
-                    SELECT tdm.new_id, b.band_id, b.state
-                    FROM t_band b
-                    JOIN temp_data_mapping tdm ON b.data_id = tdm.old_id
-                """)
+            # Copy band data
+            self._db.execute("""
+                INSERT INTO t_band (data_id, band_id, state)
+                SELECT tdm.new_id, b.band_id, b.state
+                FROM t_band b
+                JOIN temp_data_mapping tdm ON b.data_id = tdm.old_id
+            """)
 
-                self._db.execute("DROP TABLE IF EXISTS temp_mapping")
-                self._db.execute("DROP TABLE IF EXISTS temp_data_mapping")
-
-            except sqlite3.Error as e:
-                logger.error(f"Error copying properties: {e}")
-                return False
+            self._db.execute("DROP TABLE IF EXISTS temp_mapping")
+            self._db.execute("DROP TABLE IF EXISTS temp_data_mapping")
         return True
 
     def create_object_scenario(
