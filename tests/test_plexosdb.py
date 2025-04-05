@@ -1,88 +1,12 @@
-import shutil
-import uuid
-
 import pytest
 
+from plexosdb.db import PlexosDB
 from plexosdb.enums import ClassEnum, CollectionEnum
-from plexosdb.exceptions import MissingPropertyError, NameError
-from plexosdb.plexosdb import PlexosDB
-
-DB_FILENAME = "plexosdb.xml"
+from plexosdb.exceptions import NameError, NoPropertiesError
 
 
 def test_smoke_test():
-    from plexosdb.plexosdb import PlexosDB  # noqa: F401
-
-
-@pytest.fixture(scope="session")
-def db_instance():
-    """Create a base DB instance that lasts the entire test session."""
-    db = PlexosDB()
-    yield db
-
-
-@pytest.fixture(scope="function")
-def db_instance_with_schema() -> PlexosDB:
-    """Create a base DB instance that lasts the entire test session."""
-    db = PlexosDB()
-    db.create_schema()
-    with db._db.transaction():
-        db._db.execute(
-            "INSERT INTO t_class(class_id, name, description) VALUES (1, 'System', 'System class')"
-        )
-        db._db.execute(
-            "INSERT INTO t_class(class_id, name, description) VALUES (2, 'Generator', 'Generator class')"
-        )
-        db._db.execute("INSERT INTO t_class(class_id, name, description) VALUES (3, 'Node', 'Node class')")
-        db._db.execute(
-            "INSERT INTO t_class(class_id, name, description) VALUES (4, 'Scenario', 'Scenario class')"
-        )
-        db._db.execute(
-            "INSERT INTO t_object(object_id, name, class_id, GUID) VALUES (1, 'System', 1, ?)",
-            (str(uuid.uuid4()),),
-        )
-        db._db.execute(
-            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
-            "VALUES (1, 1, 2, 'Generators')"
-        )
-        db._db.execute(
-            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
-            "VALUES (2, 1, 3, 'Nodes')"
-        )
-        db._db.execute(
-            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
-            "VALUES (3, 2, 3, 'Nodes')"
-        )
-        db._db.execute(
-            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
-            "VALUES (4, 1, 4, 'Scenario')"
-        )
-        db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (1,'MW')")
-        db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (2,'MWh')")
-        db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (3,'%')")
-        db._db.execute(
-            "INSERT INTO t_property(property_id, collection_id, unit_id, name) VALUES (1,1,1, 'Max Capacity')"
-        )
-        db._db.execute(
-            "INSERT INTO t_property(property_id, collection_id, unit_id, name) VALUES (2,1,2, 'Max Energy')"
-        )
-        db._db.execute(
-            "INSERT INTO t_property(property_id, collection_id, unit_id, name) "
-            "VALUES (3,1,1, 'Rating Factor')"
-        )
-        db._db.execute("INSERT INTO t_config(element, value) VALUES ('Version', '9.2')")
-    yield db
-
-
-@pytest.fixture()
-def db_instance_with_xml(data_folder, tmp_path):
-    """Create a base DB instance that lasts the entire test session."""
-    xml_fname = data_folder / DB_FILENAME
-    xml_copy = tmp_path / f"copy_{DB_FILENAME}"
-    shutil.copy(xml_fname, xml_copy)
-    db = PlexosDB.from_xml(xml_path=xml_copy)
-    yield db
-    xml_copy.unlink()
+    from plexosdb.db import PlexosDB  # noqa: F401
 
 
 def test_initialize_instance():
@@ -134,14 +58,15 @@ def test_initialize_instance():
 )
 def test_schema_creation(db_instance_with_schema, table_name):
     tables = db_instance_with_schema.query("SELECT name FROM sqlite_master WHERE type='table'")
-    table_names = [row["name"] for row in tables]
+    table_names = [row[0] for row in tables]
     assert table_name in table_names
+    table_name in db_instance_with_schema._db.tables
 
 
 def test_get_plexos_version(db_instance_with_schema):
     db = db_instance_with_schema
-    assert db.version == "9.2"
-    db.get_plexos_version() == "9.2"
+    assert db.version == (9, 2)
+    db.get_plexos_version() == (9, 2)
 
 
 def test_plexosdb_constructor_from_xml(db_instance_with_xml):
@@ -180,7 +105,7 @@ def test_category_operations(db_instance_with_schema):
 
 
 def test_membership_operations(db_instance_with_schema):
-    db = db_instance_with_schema
+    db: PlexosDB = db_instance_with_schema
     parent_object_name = "TestGen"
     parent_class = ClassEnum.Generator
     _ = db.add_object(parent_class, parent_object_name)
@@ -193,8 +118,14 @@ def test_membership_operations(db_instance_with_schema):
     )
     assert membership_id == db.get_membership_id(parent_object_name, child_object_name, collection)
 
+    memberships = db.get_memberships(child_object_name, object_class=child_class)
+    assert memberships
+    assert len(memberships) == 1
+    assert memberships[0]["membership_id"] == membership_id
+    assert memberships[0]["child"] == child_object_name
+    assert memberships[0]["parent"] == parent_object_name
 
-# @pytest.mark.xfail(reason="Expected to fail until we fix the bug.")
+
 def test_object_operations(db_instance_with_schema):
     db = db_instance_with_schema
 
@@ -225,12 +156,13 @@ def test_object_operations(db_instance_with_schema):
     test_object_id = db.get_object_id(ClassEnum.Generator, test_object_name)
     assert object_id == test_object_id
 
-    with pytest.raises(MissingPropertyError):
+    with pytest.raises(NoPropertiesError):
         _ = db.get_object_properties(ClassEnum.Generator, test_object_name, category=test_object_category)
 
     assert len(db.list_objects_by_class(ClassEnum.Generator)) == 3
 
 
+@pytest.mark.adders
 def test_add_property_to_object(db_instance_with_schema):
     db = db_instance_with_schema
     test_object_name = "TestGen"
@@ -297,6 +229,7 @@ def test_invalid_property(db_instance_with_schema):
         _ = db.get_object_properties(ClassEnum.Generator, test_object_name, property_names=test_property_name)
 
 
+@pytest.mark.getters
 def test_get_object_properties(db_instance_with_schema):
     db = db_instance_with_schema
     test_object_name = "TestGen"
@@ -370,27 +303,3 @@ def test_xml_round_trip(db_instance_with_schema, tmp_path):
         assert len(original_db.query(f"SELECT * FROM {table_name}")) == len(
             deserialized_db.query(f"SELECT * FROM {table_name}")
         ), "Different number of rows encounter."
-
-
-@pytest.mark.xfail(reason="Work in progress")
-def test_copy_object():
-    db = db_instance_with_schema
-    original_object_name = "TestGen"
-    object_class = ClassEnum.Generator
-    original_object_id = db.add_object(original_object_name, object_class)
-    test_property_name = "Max Capacity"
-    test_property_value = 100.0
-    _ = db.add_property(
-        original_object_name,
-        test_property_name,
-        test_property_value,
-        object_class_enum=ClassEnum.Generator,
-    )
-
-    # Test default behaviour of copying properties
-    new_object_name = "TestGenCopy"
-    new_object_id = db.copy_object(object_class, original_object_name, new_object_name)
-    assert new_object_id
-    assert new_object_id != original_object_id
-    _ = db.get_object_properties(object_class, new_object_name)
-    assert 0

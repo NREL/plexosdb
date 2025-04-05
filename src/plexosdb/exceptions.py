@@ -15,9 +15,9 @@ class MultipleFilesError(Exception):
     pass
 
 
-class NameError(Exception):
+class NameError(ValueError):
     pass
 
 
-class MissingPropertyError(Exception):
+class NoPropertiesError(Exception):
     pass

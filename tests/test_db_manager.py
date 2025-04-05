@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from plexosdb.db_manager import SQLiteManager, create_namedtuple_factory
+from plexosdb.db_manager import SQLiteManager
 
 TEST_SCHEMA = (
     "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER);"
@@ -64,13 +64,10 @@ def db_path_on_disk(tmp_path):
     return tmp_path / "test_db.sqlite"
 
 
-@pytest.fixture(scope="function")
-def db_instance_named_tuples():
-    """Create a DB instance that returns named tuples."""
-    db = SQLiteManager(use_named_tuples=True)
-    db.executescript(TEST_SCHEMA)
-    yield db
-    db.close()
+def test_sqlite_version(db_instance):
+    db = db_instance
+
+    assert isinstance(db.sqlite_version, str)
 
 
 def test_create_sqlite_manager_instance():
@@ -86,20 +83,20 @@ def test_create_collations():
     """Test creating custom collations."""
     db = SQLiteManager()
 
-    # Test default no_space collation
-    db.execute("CREATE TABLE test_collation (id INTEGER PRIMARY KEY, value TEXT)")
-    db.execute("INSERT INTO test_collation (value) VALUES (?)", ("Hello World",))
-    db.execute("INSERT INTO test_collation (value) VALUES (?)", ("HelloWorld",))
-
-    # Query using the NOSPACE collation
-    results = db.query("SELECT value FROM test_collation WHERE value = ? COLLATE NOSPACE", ("Hello World",))
-    assert len(results) == 2  # Should match both with and without space
+    # # Test default no_space collation
+    # db.execute("CREATE TABLE test_collation (id INTEGER PRIMARY KEY, value TEXT)")
+    # db.execute("INSERT INTO test_collation (value) VALUES (?)", ("Hello World",))
+    # db.execute("INSERT INTO test_collation (value) VALUES (?)", ("HelloWorld",))
+    #
+    # # Query using the NOSPACE collation
+    # results = db.query("SELECT value FROM test_collation WHERE value = ? COLLATE NOSPACE", ("Hello World",))
+    # assert len(results) == 2  # Should match both with and without space
 
     # Test adding custom collation
     def reverse_collation(s1, s2):
         return -1 if s1 > s2 else 1 if s1 < s2 else 0
 
-    success = db._create_collations("REVERSE", reverse_collation)
+    success = db.add_collation("REVERSE", reverse_collation)
     assert success is True
     db.close()
 
@@ -111,7 +108,7 @@ def test_sqlite_configuration(tmp_path):
 
     # Test file-based database
     temp_file = tmp_path / "test.sqlite"  # Special file URI for testing
-    db_file = SQLiteManager(db_path=temp_file, in_memory=False)
+    db_file = SQLiteManager(fpath_or_conn=temp_file, in_memory=False)
 
     # Verify memory database has memory settings
     mem_pragmas = {
@@ -168,18 +165,12 @@ def test_sqlite_manager_arguments():
     """Test SQLiteManager initialization with different arguments."""
     # Test with custom connection
     conn = sqlite3.connect(":memory:")
-    db = SQLiteManager(conn=conn)
+    db = SQLiteManager(fpath_or_conn=conn)
     assert db._conn == conn
     db.close()
 
-    # Test with named tuples
-    db_named = SQLiteManager(use_named_tuples=True)
-    assert db_named._conn.row_factory == create_namedtuple_factory
-    db_named.close()
-
     # Test with initialize=False
-    db_no_init = SQLiteManager(initialize=False)
-    # Should not have created schema
+    db_no_init = SQLiteManager()
     tables = db_no_init.query("SELECT name FROM sqlite_master WHERE type='table'")
     assert len(tables) == 0
     db_no_init.close()
@@ -262,19 +253,6 @@ def test_sqlite_manager_query(db_instance_populated):
         db_instance_populated.query("SELECT * FROM nonexistent_table")
 
 
-def test_sqlite_manager_query_named_tuples(db_instance_named_tuples):
-    """Test query with named tuple results."""
-    db_instance_named_tuples.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Alice", 30))
-    db_instance_named_tuples.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Bob", 25))
-
-    result = db_instance_named_tuples.query("SELECT name, age FROM users WHERE age > ?", (20,))
-    assert len(result) == 2
-    assert hasattr(result[0], "name")  # Should be a named tuple
-    assert hasattr(result[0], "age")
-    assert result[0].name in ("Alice", "Bob")
-    assert result[0].age in (25, 30)
-
-
 def test_sqlite_manager_executemany(db_instance_empty):
     """Test executemany functionality."""
     # Test successful executemany
@@ -354,19 +332,6 @@ def test_sqlite_manager_iter_query(db_instance_populated):
         list(db_instance_populated.iter_query("SELECT * FROM nonexistent_table"))
 
 
-def test_sqlite_manager_iter_query_named_tuples(db_instance_named_tuples):
-    """Test iter_query with named tuple results."""
-    db_instance_named_tuples.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Alice", 30))
-    db_instance_named_tuples.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Bob", 25))
-
-    results = list(db_instance_named_tuples.iter_query("SELECT name, age FROM users ORDER BY age"))
-    assert len(results) == 2
-    assert hasattr(results[0], "name")  # Should be a named tuple
-    assert hasattr(results[0], "age")
-    assert results[0].name == "Bob"
-    assert results[0].age == 25
-
-
 def test_sqlite_manager_last_insert_rowid(db_instance_empty):
     """Test last_insert_rowid functionality."""
     # Test after single insert
@@ -441,7 +406,7 @@ def test_context_manager(db_path_on_disk):
     db_file_path = str(db_path_on_disk)
 
     # First, create and populate the database with a context manager
-    with SQLiteManager(db_path=db_file_path, in_memory=False) as db:
+    with SQLiteManager(fpath_or_conn=db_file_path, in_memory=False) as db:
         # Create tables
         db.executescript(TEST_SCHEMA)
         # Insert test data - use explicit transaction to ensure atomicity
@@ -539,7 +504,7 @@ def test_failed_collation_creation(monkeypatch):
     monkeypatch.setattr(db, "_conn", mock_conn)
 
     # Test collation creation failure
-    result = db._create_collations("TEST_COLLATION", lambda x, y: 0)
+    result = db.add_collation("TEST_COLLATION", lambda x, y: 0)
     assert result is False, "Should return False when collation creation fails"
 
     db.close()
@@ -654,7 +619,7 @@ def test_close_additional_cases(monkeypatch):
 
 def test_no_default_schema():
     """Test that no schema is created by default."""
-    db = SQLiteManager(initialize=True)
+    db = SQLiteManager()
 
     # Should have no tables
     tables = db.query("SELECT name FROM sqlite_master WHERE type='table'")
@@ -665,22 +630,21 @@ def test_no_default_schema():
 
 def test_in_memory_flag_setting(tmp_path):
     """Test that _in_memory flag is correctly set based on initialization parameters."""
-    db_path = tmp_path / "test.db"
-    db1 = SQLiteManager(db_path=db_path, in_memory=False)
+    fpath_or_conn = tmp_path / "test.db"
+    db1 = SQLiteManager(fpath_or_conn=fpath_or_conn, in_memory=False)
     assert db1._in_memory is False
     db1.close()
 
-    db2 = SQLiteManager(db_path=db_path, in_memory=True)
+    db2 = SQLiteManager(fpath_or_conn=fpath_or_conn, in_memory=True)
     assert db2._in_memory is True
     db2.close()
 
-    db3 = SQLiteManager(db_path=None, in_memory=False)
+    with pytest.raises(NotImplementedError):
+        _ = SQLiteManager(fpath_or_conn=None, in_memory=False)
+
+    db3 = SQLiteManager()
     assert db3._in_memory is True
     db3.close()
-
-    db4 = SQLiteManager()
-    assert db4._in_memory is True
-    db4.close()
 
 
 def test_backup_path_handling(db_instance_populated, tmp_path):

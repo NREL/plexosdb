@@ -12,8 +12,11 @@ from loguru import logger
 
 from .db_manager import SQLiteManager
 from .enums import ClassEnum, CollectionEnum, Schema, get_default_collection, str2enum
-from .exceptions import MissingPropertyError, NameError
-from .utils import normalize_names
+from .exceptions import (
+    NameError,
+    NoPropertiesError,
+)
+from .utils import no_space, normalize_names
 from .xml_handler import XMLHandler
 
 if sys.version_info >= (3, 12):
@@ -21,7 +24,7 @@ if sys.version_info >= (3, 12):
 else:
     from .utils import batched
 
-SQLITE_BACKEND_KWARGS = {"create_collations", "initialize", "in_memory", "use_named_tuples"}
+SQLITE_BACKEND_KWARGS = {"in_memory"}
 PLEXOS_DEFAULT_SCHEMA = fpath = files("plexosdb").joinpath("schema.sql").read_text(encoding="utf-8-sig")
 
 
@@ -30,9 +33,8 @@ class PlexosDB:
 
     def __init__(
         self,
-        xml_fpath: Path | str | None = None,
-        db_path: Path | str | None = None,
-        plexos_schema: str | None = None,
+        fpath_or_conn: Path | str | sqlite3.Connection | None = None,
+        new_db: bool = False,
         **kwargs,
     ) -> None:
         """Initialize the API using an XML file or other data sources.
@@ -45,32 +47,33 @@ class PlexosDB:
             Additional keyword arguments for the backend.
         """
         sqlite_kwargs = {key: value for key, value in kwargs.items() if key in SQLITE_BACKEND_KWARGS}
-        self._db = SQLiteManager(db_path=db_path, **sqlite_kwargs)
+        self._db = SQLiteManager(fpath_or_conn=fpath_or_conn, **sqlite_kwargs)
+        self._db.add_collation("NOSPACE", no_space)
 
-        # Initialize version attribute
-        self._version = self._initialize_version()
+        self._version = None
+        if not new_db:
+            self._version = self._get_plexos_version()
 
     @property
-    def version(self) -> str:
+    def version(self) -> tuple[int, ...] | None:
         """Get the PLEXOS version of the loaded model."""
         if not self._version:
-            self._version = self._initialize_version()
+            self._version = self._get_plexos_version()
         return self._version
 
-    def _initialize_version(self) -> str:
+    def _get_plexos_version(self) -> tuple[int, ...] | None:
         """Initialize the PLEXOS version from the database."""
-        # Attempt to get version from database configuration
         try:
-            result = self.query("SELECT value FROM t_config WHERE element = 'Version'")
+            result = self._db.fetchone("SELECT value FROM t_config WHERE element = 'Version'")
         except sqlite3.OperationalError:
-            return ""
-        if result and result[0][0]:
-            return result[0][0]
-        return ""
+            return None
+        if not result:
+            return None
+        return tuple(map(int, result[0].split(".")))
 
     @classmethod
-    def from_xml(cls, xml_path: str | Path, **kwargs) -> "PlexosDB":
-        """Create a PlexosDB instance from an XML file.
+    def from_xml(cls, xml_path: str | Path, schema: str | None = None, **kwargs) -> "PlexosDB":
+        """Construct a PlexosDB instance from an XML file.
 
         This factory method creates a new PlexosDB instance and populates it with data
         from the provided XML file. It creates the database schema and processes all
@@ -80,6 +83,8 @@ class PlexosDB:
         ----------
         xml_path : str | Path
             Path to the XML file to import data from
+        schema: str | None
+            SQL schema to initialize the database
         **kwargs : dict
             Additional keyword arguments to pass to the PlexosDB constructor
 
@@ -95,6 +100,7 @@ class PlexosDB:
 
         See Also
         --------
+        PlexosDB : PLEXOS SQLite manager
         create_schema : Creates the database schema
         XMLHandler.parse : Parses the XML file
         str2enum : Converts XML tag names to schema enumerations
@@ -124,18 +130,18 @@ class PlexosDB:
             )
             raise FileNotFoundError(msg)
 
-        instance = cls(**kwargs)
-        instance.create_schema()
+        instance = cls(new_db=True, **kwargs)
+        instance.create_schema(schema=schema)
         xml_handler = XMLHandler.parse(fpath=xml_path)
         xml_tags = set([e.tag for e in xml_handler.root])  # Extract set of valid tags from xml
         for tag in xml_tags:
             # Only parse valid schemas that we maintain.
             # NOTE: If there are some missing tables, we need to add them to the Enums.
-            schema = str2enum(tag)
-            if not schema:
+            schema_enum = str2enum(tag)
+            if not schema_enum:
                 continue
 
-            record_dict = xml_handler.get_records(schema)
+            record_dict = xml_handler.get_records(schema_enum)
             if not record_dict:  # Skip if no records
                 continue
 
@@ -871,7 +877,148 @@ class PlexosDB:
         copy_properties: bool = True,
     ) -> int:
         """Copy an object and its properties, tags, and texts."""
-        raise NotImplementedError
+        object_id = self.get_object_id(object_class, name=original_object_name)
+        category_id = self.query("SELECT category_id from t_object WHERE object_id = ?", (object_id,))
+        category = self.query("SELECT name from t_category WHERE category_id = ?", (category_id[0][0],))
+        new_object_id = self.add_object(object_class, new_object_name, category=category[0][0])
+        membership_mapping = self.copy_object_memberships(
+            object_class=object_class, original_name=new_object_name, new_name=new_object_name
+        )
+
+        # If we do not find a membership, we just look for the system membership
+        if not membership_mapping:
+            membership_mapping = {}
+            system_membership_id = self.get_memberships(
+                original_object_name, object_class=object_class, include_system_membership=True
+            )[0]["membership_id"]
+            new_membership_id = self.get_memberships(
+                new_object_name, object_class=object_class, include_system_membership=True
+            )[0]["membership_id"]
+            membership_mapping[system_membership_id] = new_membership_id
+
+        data_ids = self.get_object_data_ids(object_class, name=original_object_name)
+        if not data_ids and copy_properties:
+            logger.debug(f"No properties found for {original_object_name}")
+            return new_object_id
+
+        self._copy_object_properties(membership_mapping=membership_mapping)
+
+        return new_object_id
+
+    def copy_object_memberships(self, object_class, original_name: str, new_name: str) -> dict[int, int]:
+        """Copy all existing memberships of old object to the new object."""
+        membership_mapping: dict[int, int] = {}
+        all_memberships = self.get_memberships(original_name, object_class=object_class)
+        for membership in all_memberships:
+            membership_mapping = {}
+            parent_name = membership["parent"]
+            child_name = membership["child"]
+            parent_class = ClassEnum[membership["parent_class_name"]]
+            child_class = ClassEnum[membership["child_class_name"]]
+            collection = CollectionEnum[membership["collection_name"]]
+
+            # Determine if original object was parent or child
+            if child_name == original_name:
+                # Original object is child, new object will be child
+                old_id = self.get_membership_id(parent_name, original_name, collection)
+                try:
+                    new_id = self.add_membership(parent_class, child_class, parent_name, new_name, collection)
+                    membership_mapping[old_id] = new_id
+                except Exception as e:
+                    logger.warning(f"Could not create child membership: {e}")
+
+            elif parent_name == original_name:
+                # Original object is parent, new object will be parent
+                old_id = self.get_membership_id(original_name, child_name, collection)
+                try:
+                    new_id = self.add_membership(parent_class, child_class, new_name, child_name, collection)
+                    membership_mapping[old_id] = new_id
+                except Exception as e:
+                    logger.warning(f"Could not create parent membership: {e}")
+        if not membership_mapping:
+            msg = "`{}.{}` do not have any memberships."
+            logger.warning(msg, object_class, original_name)
+        return membership_mapping
+
+    def _copy_object_properties(self, membership_mapping: dict[int, int]):
+        """Copy all property data from original object to new object efficiently.
+
+        Parameters
+        ----------
+        membership_mapping : dict[int, int]
+            Mapping from original membership IDs to new membership IDs
+
+        Returns
+        -------
+        bool
+            True if successful
+        """
+        if not membership_mapping:
+            return True
+
+        with self._db.transaction():
+            try:
+                self._db.execute("DROP TABLE IF EXISTS temp_mapping")
+                self._db.execute("CREATE TEMPORARY TABLE temp_mapping (old_id INTEGER, new_id INTEGER)")
+
+                for old_id, new_id in membership_mapping.items():
+                    self._db.execute("INSERT INTO temp_mapping VALUES (?, ?)", (old_id, new_id))
+
+                self._db.execute("""
+                INSERT INTO t_data (membership_id, property_id, value, state)
+                    SELECT
+                        tm.new_id, d.property_id, d.value, d.state
+                    FROM
+                        t_data d
+                    JOIN temp_mapping tm ON d.membership_id = tm.old_id
+                """)
+
+                self._db.execute("DROP TABLE IF EXISTS temp_data_mapping")
+                self._db.execute("CREATE TEMPORARY TABLE temp_data_mapping (old_id INTEGER, new_id INTEGER)")
+
+                self._db.execute("""
+                    INSERT INTO temp_data_mapping
+                    SELECT old_d.data_id AS old_id, new_d.data_id AS new_id
+                    FROM t_data old_d
+                    JOIN temp_mapping tm ON old_d.membership_id = tm.old_id
+                    JOIN t_data new_d ON
+                        new_d.membership_id = tm.new_id AND
+                        new_d.property_id = old_d.property_id AND
+                        new_d.value = old_d.value
+                    WHERE new_d.data_id NOT IN (SELECT data_id FROM t_tag)
+                """)
+
+                # Copy tags using data ID mapping
+                self._db.execute("""
+                    INSERT INTO t_tag (data_id, object_id, state, action_id)
+                    SELECT tdm.new_id, t.object_id, t.state, t.action_id
+                    FROM t_tag t
+                    JOIN temp_data_mapping tdm ON t.data_id = tdm.old_id
+                """)
+
+                # Copy text data
+                self._db.execute("""
+                    INSERT INTO t_text (data_id, class_id, value, state, action_id)
+                    SELECT tdm.new_id, t.class_id, t.value, t.state, t.action_id
+                    FROM t_text t
+                    JOIN temp_data_mapping tdm ON t.data_id = tdm.old_id
+                """)
+
+                # Copy band data
+                self._db.execute("""
+                    INSERT INTO t_band (data_id, band_id, state)
+                    SELECT tdm.new_id, b.band_id, b.state
+                    FROM t_band b
+                    JOIN temp_data_mapping tdm ON b.data_id = tdm.old_id
+                """)
+
+                self._db.execute("DROP TABLE IF EXISTS temp_mapping")
+                self._db.execute("DROP TABLE IF EXISTS temp_data_mapping")
+
+            except sqlite3.Error as e:
+                logger.error(f"Error copying properties: {e}")
+                return False
+        return True
 
     def create_object_scenario(
         self,
@@ -1061,9 +1208,9 @@ class PlexosDB:
             t_category.name = ?
         AND t_class.name = ?
         """
-        result = self._db.query(query, (name, class_enum))
+        result = self._db.fetchone(query, (name, class_enum))
         assert result
-        return result[0]["category_id"]
+        return result[0]
 
     def get_category_max_id(self, class_enum: ClassEnum) -> int:
         """Return the current maximum rank for a given category class.
@@ -1108,9 +1255,9 @@ class PlexosDB:
         WHERE
             t_class.name = ?
         """
-        result = self._db.query(query, (class_enum,))
+        result = self._db.fetchone(query, (class_enum,))
         assert result
-        return result[0]["rank"]
+        return result[0]
 
     def get_class_id(self, class_enum: ClassEnum) -> int:
         """Return the ID for a given class.
@@ -1144,9 +1291,9 @@ class PlexosDB:
         15  # Example ID
         """
         query = f"SELECT class_id FROM {Schema.Class.name} WHERE name = ?"
-        result = self._db.query(query, (class_enum,))
+        result = self._db.fetchone(query, (class_enum,))
         assert result
-        return result[0]["class_id"]
+        return result[0]
 
     def get_collection_id(
         self,
@@ -1202,9 +1349,9 @@ class PlexosDB:
         AND parent_class.name = ?
         AND child_class.name = ?
         """
-        result = self._db.query(query, (collection, parent_class_enum, child_class_enum))
+        result = self._db.fetchone(query, (collection, parent_class_enum, child_class_enum))
         assert result
-        return result[0]["collection_id"]
+        return result[0]
 
     def get_config(self, element: str | None = None) -> dict | list[dict]:
         """Get configuration values from the database."""
@@ -1273,20 +1420,95 @@ class PlexosDB:
         AND child_object.name = ?
         AND collection.name = ?
         """
-        result = self._db.query(query, (parent_name, child_name, collection))
+        result = self._db.fetchone(query, (parent_name, child_name, collection))
         assert result
-        return result[0]["membership_id"]
+        return result[0]
 
     def get_memberships(
         self,
-        *object_names: str | list[str],
+        *object_names: Iterable[str] | str,
         object_class: ClassEnum,
         parent_class: ClassEnum | None = None,
+        category: str | None = None,
         collection: CollectionEnum | None = None,
         include_system_membership: bool = False,
-    ) -> list[tuple]:
-        """Retrieve all memberships for the given object(s)."""
-        raise NotImplementedError
+    ) -> list[dict[str, Any]]:
+        """Retrieve all memberships for the given object(s).
+
+        Parameters
+        ----------
+        object_names : str or list[str]
+            Name or list of names of the objects to get their memberships.
+            You can pass multiple string arguments or a single list of strings.
+        object_class : ClassEnum
+            Class of the objects.
+        parent_class : ClassEnum | None, optional
+            Class of the parent object. Defaults to object_class if not provided.
+        collection : CollectionEnum | None, optional
+            Collection to filter memberships.
+        include_system_membership : bool, optional
+            If False (default), exclude system memberships (where parent_class is System).
+            If True, include them.
+
+        Returns
+        -------
+        list[tuple]
+            A list of tuples representing memberships. Each tuple is structured as:
+            (parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id,
+            return self.query(query_string=query_string, params=params)
+            parent_class_name, collection_name).
+
+        Raises
+        ------
+        KeyError
+            If any of the object_names do not exist.
+        """
+        names = normalize_names(*object_names)
+        object_ids = tuple(self.get_object_id(object_class, name=name, category=category) for name in names)
+        query_string = """
+            SELECT
+                mem.membership_id,
+                mem.parent_class_id,
+                mem.child_class_id,
+                parent_object.name AS parent,
+                child_object.name AS child,
+                mem.collection_id,
+                parent_class.name AS parent_class_name,
+                child_class.name AS child_class_name,
+                collections.name AS collection_name
+            FROM
+                t_membership AS mem
+            INNER JOIN
+                t_object AS parent_object ON mem.parent_object_id = parent_object.object_id
+            INNER JOIN
+                t_object AS child_object ON mem.child_object_id = child_object.object_id
+            LEFT JOIN
+                t_class AS parent_class ON mem.parent_class_id = parent_class.class_id
+            LEFT JOIN
+                t_class AS child_class ON mem.child_class_id = child_class.class_id
+            LEFT JOIN
+                t_collection AS collections ON mem.collection_id = collections.collection_id
+            """
+        conditions = []
+        if not include_system_membership:
+            conditions.append(f"parent_class.name <> '{ClassEnum.System.name}'")
+        if len(object_ids) == 1:
+            conditions.append(
+                f"(child_object.object_id = {object_ids[0]} OR parent_object.object_id = {object_ids[0]})"
+            )
+        else:
+            conditions.append(
+                f"(child_object.object_id in {object_ids} OR parent_object.object_id in {object_ids})"
+            )
+        if not parent_class:
+            parent_class = object_class
+        if collection:
+            conditions.append(
+                f"parent_class.name = '{parent_class.value}' and collections.name = '{collection.value}'"
+            )
+        if conditions:
+            query_string += " WHERE " + " AND ".join(conditions)
+        return self._db.fetchall_dict(query_string)
 
     def get_metadata(
         self,
@@ -1339,9 +1561,10 @@ class PlexosDB:
 
         Raises
         ------
+        KeyError
+            If the specified category does not exist
         NameError
             If any specified property does not exist for the collection
-            If the specified category does not exist for the class
 
         See Also
         --------
@@ -1364,9 +1587,7 @@ class PlexosDB:
             collection_enum = get_default_collection(class_enum)
         if category:
             if not self.check_category_exists(class_enum, category):
-                msg = f"Category = `{category}` does not exist for class = `{class_enum}`. "
-                msg += "Check available categories using `list_categories`"
-                raise NameError(msg)
+                raise KeyError
             filters += " AND cat.name = ?"
             params.append(category)
 
@@ -1402,7 +1623,7 @@ class PlexosDB:
         """
         result = self._db.query(query, tuple(params))
         assert result
-        return [row["data_id"] for row in result]
+        return [row[0] for row in result]
 
     def get_object_properties(  # noqa: C901
         self,
@@ -1483,7 +1704,7 @@ class PlexosDB:
 
         if not self.has_properties(class_enum, name, collection_enum=collection_enum, category=category):
             msg = f"Object = `{name}` does not have any properties attached to it."
-            raise MissingPropertyError(msg)
+            raise NoPropertiesError(msg)
 
         query = """
         SELECT
@@ -1651,9 +1872,9 @@ class PlexosDB:
             category_id = self.get_category_id(class_enum, category)
             params.append(category_id)
             query += "AND obj.category_id = ?"
-        result = self._db.query(query, tuple(params))
+        result = self._db.fetchone(query, tuple(params))
         assert result
-        return result[0]["object_id"]
+        return result[0]
 
     def get_objects(
         self,
@@ -1670,7 +1891,7 @@ class PlexosDB:
         """Get all objects, optionally filtered by class and category."""
         raise NotImplementedError
 
-    def get_plexos_version(self) -> str:
+    def get_plexos_version(self) -> tuple[int, ...] | None:
         """Return the version information of the PLEXOS model."""
         return self.version
 
@@ -1729,12 +1950,12 @@ class PlexosDB:
         parent_class_enum = parent_class_enum or ClassEnum.System
         collection_id = self.get_collection_id(collection_enum, parent_class_enum, child_class_enum)
         query = f"SELECT property_id FROM {Schema.Property.name} WHERE name = ? AND collection_id = ?"
-        result = self._db.query(
+        result = self._db.fetchone(
             query,
             (property_name, collection_id),
         )
         assert result
-        return result[0]["property_id"]
+        return result[0]
 
     def get_property_unit(
         self,
@@ -1799,9 +2020,8 @@ class PlexosDB:
 
         Raises
         ------
-        NameError
-            If any specified property does not exist for the collection
-            If the specified category does not exist for the class
+        KeyError
+            If the specified category does not exist
 
         See Also
         --------
@@ -1826,9 +2046,7 @@ class PlexosDB:
             collection_enum = get_default_collection(class_enum)
         if category:
             if not self.check_category_exists(class_enum, category):
-                msg = f"Category = `{name}` does not exist for class = `{class_enum}`. "
-                msg += "Check available categories using `list_categories`"
-                raise NameError(msg)
+                raise KeyError
             filters += " AND cat.name = ?"
             params.append(category)
         query = f"""
@@ -1908,7 +2126,7 @@ class PlexosDB:
         WHERE
             t_class.name = ?
         """
-        result = self._db.query(query, (class_enum,))
+        result = self._db.fetchall_dict(query, (class_enum,))
         assert result
         return [row["name"] for row in result]
 

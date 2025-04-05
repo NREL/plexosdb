@@ -1,43 +1,23 @@
 """SQLite database manager."""
 
 import sqlite3
-from collections import namedtuple
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any
 
 from loguru import logger
 
-from plexosdb.utils import no_space
 
-
-def create_namedtuple_factory(cursor: sqlite3.Cursor, row: tuple) -> NamedTuple:
-    """Convert a database row into a named tuple.
-
-    Parameters
-    ----------
-    cursor : sqlite3.Cursor
-        The SQLite cursor object
-    row : tuple
-        The database row as a tuple
-
-    Returns
-    -------
-    NamedTuple
-        A named tuple representing the row
-    """
-    fields = [col[0] for col in cursor.description]
-    Row = namedtuple("Row", fields)  # type: ignore
-    return Row(*row)
-
-
-def create_sqlite_connection(database: str | None = None, in_memory: bool = False) -> sqlite3.Connection:
+def create_sqlite_connection(
+    fpath_or_conn: str | Path | sqlite3.Connection | None = None,
+    in_memory: bool = False,
+) -> sqlite3.Connection:
     """Create a SQLite database connection.
 
     Parameters
     ----------
-    database : str, optional
+    fpath_or_conn : str, sqlite4.Connection, optional
         Path to the SQLite database file or None for in-memory database
     in_memory : bool, default=False
         Whether to create an in-memory database regardless of database path
@@ -47,9 +27,18 @@ def create_sqlite_connection(database: str | None = None, in_memory: bool = Fals
     sqlite3.Connection
         A new SQLite connection
     """
-    if in_memory or database is None:
+    if in_memory and fpath_or_conn is None:
         return sqlite3.connect(":memory:")
-    return sqlite3.connect(database, isolation_level=None)  # Autocommit mode
+    if isinstance(fpath_or_conn, str):
+        fpath_or_conn = Path(fpath_or_conn)
+    if isinstance(fpath_or_conn, Path):
+        if not fpath_or_conn.exists():
+            logger.info("Database {} does not exists. Creating it.", fpath_or_conn)
+        return sqlite3.connect(str(fpath_or_conn), isolation_level=None)
+    if fpath_or_conn is None:
+        msg = "fpath, connections or in_memory are required to create the SQLite connection."
+        raise NotImplementedError(msg)
+    return fpath_or_conn
 
 
 class SQLiteManager:
@@ -59,12 +48,9 @@ class SQLiteManager:
 
     def __init__(
         self,
-        db_path: str | Path | None = None,
+        fpath_or_conn: str | Path | sqlite3.Connection | None = None,
         conn: sqlite3.Connection | None = None,
-        initialize: bool = True,
-        create_collations: bool = True,
         in_memory: bool = True,
-        use_named_tuples: bool = False,
     ) -> None:
         """Initialize the database manager.
 
@@ -80,8 +66,6 @@ class SQLiteManager:
             Whether to return named tuples for query results. Default = False
         initialize: bool
             Whether to initialize a new schema for the database. Default = True
-        create_collations: bool
-            Whether to add default python collation functions to the database. Default = True
         in_memory: bool
             Force in-memory database regardless of db_path. Default True
 
@@ -89,22 +73,10 @@ class SQLiteManager:
         --------
         no_space Collation function for searching withouth spaces.
         """
-        self._in_memory = in_memory or db_path is None
-
-        if not conn:
-            path_str = str(db_path) if db_path is not None else None
-            conn = create_sqlite_connection(path_str, self._in_memory)
+        self._in_memory = in_memory
+        conn = create_sqlite_connection(fpath_or_conn=fpath_or_conn, in_memory=self._in_memory)
         self._conn = conn
-
-        if initialize:
-            self._set_sqlite_configuration()
-
-            # Register collations first (might be needed by the schema)
-            if create_collations:
-                self._create_collations("NOSPACE", no_space)
-
-        # Set row factory to namedtuple if requested for easier access to data.
-        self._conn.row_factory = create_namedtuple_factory if use_named_tuples else sqlite3.Row
+        self._set_sqlite_configuration()
 
     @property
     def conn(self) -> sqlite3.Connection:
@@ -112,9 +84,19 @@ class SQLiteManager:
         assert self._conn is not None, "Database connection is not initialized"
         return self._conn
 
+    @property
+    def sqlite_version(self) -> int:
+        """SQLite version."""
+        return self.query("select sqlite_version()")[0][0]
+
+    @property
+    def tables(self) -> list[str]:
+        """SQLite version."""
+        return self.list_table_names()
+
     def _set_sqlite_configuration(self) -> None:
         """Configure SQLite for optimal performance."""
-        # Use our class flag to determine the configuration
+        self.execute("PRAGMA foreign_keys = ON")
         if self._in_memory:
             # In-memory optimizations
             self.execute("PRAGMA synchronous = NORMAL;")
@@ -122,24 +104,23 @@ class SQLiteManager:
             self.execute("PRAGMA temp_store = MEMORY")
             self.execute("PRAGMA mmap_size = 30000000000")  # 30GB
             self.execute("PRAGMA cache_size = -20000")  # ~20MB
-        else:
-            # File-based optimizations for durability
-            self.execute("PRAGMA synchronous = FULL;")
-            self.execute("PRAGMA journal_mode = DELETE;")  # More compatible
-            self.execute("PRAGMA temp_store = MEMORY")
-            self.execute("PRAGMA cache_size = -2000")  # ~2MB (smaller for disk)
+            return
+        # File-based optimizations for durability
+        self.execute("PRAGMA synchronous = FULL;")
+        self.execute("PRAGMA journal_mode = DELETE;")  # More compatible
+        self.execute("PRAGMA temp_store = MEMORY")
+        self.execute("PRAGMA cache_size = -2000")  # ~2MB (smaller for disk)
+        return
 
-        self.execute("PRAGMA foreign_keys = ON")
-
-    def _create_collations(self, name: str, callable_func: Callable[[str, str], int]) -> bool:
+    def add_collation(self, name: str, callable_func: Callable[[str, str], int]) -> bool:
         """Register a collation function.
 
         Parameters
         ----------
-            name : str
-        Name of the collation
+        name : str
+            Name of the collation
         callable_func : callable
-        Function implementing the collation
+            Function implementing the collation
 
         Returns
         -------
@@ -351,7 +332,7 @@ class SQLiteManager:
 
         Yields
         ------
-        tuple or NamedTuple
+        tuple
             One database row at a time
 
         Raises
@@ -401,6 +382,11 @@ class SQLiteManager:
         except IndexError:
             # This shouldn't happen with last_insert_rowid() but handle it anyway
             return 0
+
+    def list_table_names(self):
+        """Return a list of current table names on the database."""
+        sql = "SELECT name FROM sqlite_master WHERE type ='table'"
+        return [r[0] for r in self.fetchall(sql)]
 
     def optimize(self) -> bool:
         """Run optimization routines on the database.
@@ -456,12 +442,303 @@ class SQLiteManager:
         """
         cursor = self.conn.cursor()
         try:
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-
+            cursor.execute(query, params or tuple())
             return cursor.fetchall()
+        except sqlite3.Error:
+            # Let the caller handle database errors
+            raise
+        finally:
+            cursor.close()
+
+    def fetchall(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list:
+        """Execute a query and return all results as a list of rows.
+
+        This method is a standard DB-API style alias for query().
+
+        Parameters
+        ----------
+        query : str
+            SQL query to execute (SELECT statements only)
+        params : tuple or dict, optional
+            Parameters to bind to the query
+
+        Returns
+        -------
+        list
+            All rows (as tuples or named tuples based on row_factory setting)
+
+        Raises
+        ------
+        sqlite3.Error
+            If a database error occurs
+
+        See Also
+        --------
+        query : Equivalent method with PlexosDB-specific naming
+        fetchone : Get only the first row of results
+        fetchall_dict : Return results as dictionaries
+
+        Examples
+        --------
+        >>> db = SQLiteManager()
+        >>> db.execute("CREATE TABLE test (id INTEGER, name TEXT)")
+        >>> db.execute("INSERT INTO test VALUES (1, 'Alice')")
+        >>> db.fetchall("SELECT * FROM test")
+        [(1, 'Alice')]
+        """
+        return self.query(query, params)
+
+    def fetchall_dict(
+        self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """Execute a query and return all results as a list of dictionaries.
+
+        Parameters
+        ----------
+        query : str
+            SQL query to execute (SELECT statements only)
+        params : tuple or dict, optional
+            Parameters to bind to the query
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            All rows as dictionaries with column names as keys
+
+        Raises
+        ------
+        sqlite3.Error
+            If a database error occurs
+
+        See Also
+        --------
+        query : Return results as tuples
+        iter_dicts : Memory-efficient iterator over dictionaries
+
+        Examples
+        --------
+        >>> db = SQLiteManager()
+        >>> db.execute("CREATE TABLE users (id INTEGER, name TEXT)")
+        >>> db.execute("INSERT INTO users VALUES (1, 'Alice')")
+        >>> db.fetchall_dict("SELECT * FROM users")
+        [{'id': 1, 'name': 'Alice'}]
+        >>> user = db.fetchall_dict("SELECT * FROM users")[0]
+        >>> print(f"User {user['id']}: {user['name']}")
+        User 1: Alice
+        """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(query, params or tuple())
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        except sqlite3.Error:
+            # Let the caller handle database errors
+            raise
+        finally:
+            cursor.close()
+
+    def fetchmany(
+        self, query: str, size: int = 1000, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list:
+        """Execute a query and return a specified number of rows.
+
+        Parameters
+        ----------
+        query : str
+            SQL query to execute (SELECT statements only)
+        size : int, default=1000
+            Maximum number of rows to return
+        params : tuple or dict, optional
+            Parameters to bind to the query
+
+        Returns
+        -------
+        list
+            Up to 'size' rows from the query result
+
+        Raises
+        ------
+        sqlite3.Error
+            If a database error occurs
+
+        See Also
+        --------
+        fetchall : Get all rows
+        fetchone : Get only one row
+        iter_query : Iterator over results
+
+        Examples
+        --------
+        >>> db = SQLiteManager()
+        >>> db.execute("CREATE TABLE items (id INTEGER, name TEXT)")
+        >>> db.executemany("INSERT INTO items VALUES (?, ?)", [(i, f"Item {i}") for i in range(1, 101)])
+        >>> # Get first 10 items
+        >>> first_batch = db.fetchmany("SELECT * FROM items", size=10)
+        >>> len(first_batch)
+        10
+        """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(query, params or tuple())
+            return cursor.fetchmany(size)
+        except sqlite3.Error:
+            # Let the caller handle database errors
+            raise
+        finally:
+            cursor.close()
+
+    def fetchone(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> Any | None:
+        """Execute a query and return only the first result row.
+
+        Parameters
+        ----------
+        query : str
+            SQL query to execute (SELECT statements only)
+        params : tuple or dict, optional
+            Parameters to bind to the query
+
+        Returns
+        -------
+        tuple or namedtuple or None
+            First row of results or None if no results
+
+        Raises
+        ------
+        sqlite3.Error
+            If a database error occurs
+
+        See Also
+        --------
+        fetchall : Get all rows
+        fetchone_dict : Get first row as dictionary
+
+        Examples
+        --------
+        >>> db = SQLiteManager()
+        >>> db.execute("CREATE TABLE users (id INTEGER, name TEXT)")
+        >>> db.execute("INSERT INTO users VALUES (1, 'Alice')")
+        >>> user = db.fetchone("SELECT * FROM users WHERE id = ?", (1,))
+        >>> user
+        (1, 'Alice')
+        >>> user = db.fetchone("SELECT * FROM users WHERE id = ?", (999,))
+        >>> user is None
+        True
+        """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(query, params or tuple())
+            return cursor.fetchone()
+        except sqlite3.Error:
+            # Let the caller handle database errors
+            raise
+        finally:
+            cursor.close()
+
+    def fetchone_dict(
+        self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        """Execute a query and return only the first result row as a dictionary.
+
+        Parameters
+        ----------
+        query : str
+            SQL query to execute (SELECT statements only)
+        params : tuple or dict, optional
+            Parameters to bind to the query
+
+        Returns
+        -------
+        dict[str, Any] or None
+            First row as dictionary with column names as keys, or None if no results
+
+        Raises
+        ------
+        sqlite3.Error
+            If a database error occurs
+
+        See Also
+        --------
+        fetchone : Get first row as tuple
+        fetchall_dict : Get all rows as dictionaries
+
+        Examples
+        --------
+        >>> db = SQLiteManager()
+        >>> db.execute("CREATE TABLE users (id INTEGER, name TEXT, email TEXT)")
+        >>> db.execute("INSERT INTO users VALUES (1, 'Alice', 'alice@example.com')")
+        >>> user = db.fetchone_dict("SELECT * FROM users WHERE id = ?", (1,))
+        >>> print(f"{user['name']}'s email is {user['email']}")
+        Alice's email is alice@example.com
+        """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(query, params or tuple())
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            columns = [desc[0] for desc in cursor.description]
+            return dict(zip(columns, row))
+        except sqlite3.Error:
+            # Let the caller handle database errors
+            raise
+        finally:
+            cursor.close()
+
+    def iter_dicts(
+        self,
+        query: str,
+        params: tuple[Any, ...] | dict[str, Any] | None = None,
+        batch_size: int = 1000,
+    ) -> Iterator[dict[str, Any]]:
+        """Execute a read-only query and yield results as dictionaries.
+
+        This is memory-efficient for large result sets. Each row is returned
+        as a dictionary with column names as keys.
+
+        Parameters
+        ----------
+        query : str
+            SQL query to execute (SELECT statements only)
+        params : tuple or dict, optional
+            Parameters to bind to the query
+        batch_size : int, default=1000
+            Number of records to fetch in each batch
+
+        Yields
+        ------
+        dict[str, Any]
+            One database row at a time as a dictionary
+
+        Raises
+        ------
+        sqlite3.Error
+            If a database error occurs
+
+        See Also
+        --------
+        iter_query : Iterator over tuples or named tuples
+        fetchall_dict : Get all results as dictionaries at once
+
+        Examples
+        --------
+        >>> db = SQLiteManager()
+        >>> db.execute("CREATE TABLE users (id INTEGER, name TEXT)")
+        >>> db.executemany("INSERT INTO users VALUES (?, ?)", [(i, f"User {i}") for i in range(1, 1001)])
+        >>> # Process users efficiently one at a time
+        >>> for user in db.iter_dicts("SELECT * FROM users"):
+        ...     print(f"Processing user {user['name']}")
+        """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(query, params or tuple())
+            columns = [desc[0] for desc in cursor.description]
+
+            while True:
+                rows = cursor.fetchmany(batch_size)
+                if not rows:
+                    break
+                for row in rows:
+                    yield dict(zip(columns, row))
         except sqlite3.Error:
             # Let the caller handle database errors
             raise
