@@ -64,6 +64,12 @@ def db_instance_with_schema() -> PlexosDB:
             "INSERT INTO t_class(class_id, name, description) VALUES (4, 'Scenario', 'Scenario class')"
         )
         db._db.execute(
+            "INSERT INTO t_class(class_id, name, description) VALUES (5, 'DataFile', 'DataFile class')"
+        )
+        db._db.execute(
+            "INSERT INTO t_class(class_id, name, description) VALUES (6, 'Storage', 'Storage class')"
+        )
+        db._db.execute(
             "INSERT INTO t_object(object_id, name, class_id, GUID) VALUES (1, 'System', 1, ?)",
             (str(uuid.uuid4()),),
         )
@@ -82,6 +88,14 @@ def db_instance_with_schema() -> PlexosDB:
         db._db.execute(
             "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
             "VALUES (4, 1, 4, 'Scenario')"
+        )
+        db._db.execute(
+            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
+            "VALUES (5, 1, 6, 'Storages')"
+        )
+        db._db.execute(
+            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
+            "VALUES (6, 3, 2, 'Nodes')"
         )
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (1,'MW')")
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (2,'MWh')")

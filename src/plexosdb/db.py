@@ -821,8 +821,6 @@ class PlexosDB:
         >>> db.check_property_exists(CollectionEnum.Generators, ClassEnum.Generator, ["Invalid Property"])
         False
         """
-        if property_names is None:
-            return []
         property_names = normalize_names(property_names)
         valid_props = self.list_valid_properties(
             collection_enum,
