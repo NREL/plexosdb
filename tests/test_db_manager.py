@@ -779,3 +779,22 @@ def test_close_connection_error(monkeypatch):
 
     # Connection should be set to None despite error
     assert db._conn is None
+
+
+def test_fetching_methods(db_instance_populated):
+    db = db_instance_populated
+    result_many = db.fetchmany("SELECT * from users", size=1)
+    assert result_many
+    assert len(result_many) == 1
+
+    result_one = db.fetchone("SELECT * from users")
+    assert result_one
+    assert len(result_one) == 3
+    assert [result_one] == result_many
+
+    result_one_dict = db.fetchone_dict("SELECT * from users")
+    assert result_one_dict
+    assert isinstance(result_one_dict, dict)
+
+    for user in db.iter_dicts("SELECT * from users"):
+        assert isinstance(user, dict)
