@@ -70,6 +70,10 @@ def db_instance_with_schema() -> PlexosDB:
             "INSERT INTO t_class(class_id, name, description) VALUES (6, 'Storage', 'Storage class')"
         )
         db._db.execute(
+            "INSERT INTO t_class(class_id, name, description) VALUES (7, 'Report', 'Report class')"
+        )
+        db._db.execute("INSERT INTO t_class(class_id, name, description) VALUES (8, 'Model', 'Model class')")
+        db._db.execute(
             "INSERT INTO t_object(object_id, name, class_id, GUID) VALUES (1, 'System', 1, ?)",
             (str(uuid.uuid4()),),
         )
@@ -93,6 +97,18 @@ def db_instance_with_schema() -> PlexosDB:
             "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
             "VALUES (5, 1, 6, 'Storages')"
         )
+        db._db.execute(
+            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
+            "VALUES (6, 1, 8, 'Models')"
+        )
+        db._db.execute(
+            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
+            "VALUES (7, 8, 7, 'Models')"
+        )
+        db._db.execute(
+            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
+            "VALUES (8, 1, 7, 'Reports')"
+        )
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (1,'MW')")
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (2,'MWh')")
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (3,'%')")
@@ -108,4 +124,7 @@ def db_instance_with_schema() -> PlexosDB:
         )
         db._db.execute("INSERT INTO t_config(element, value) VALUES ('Version', '9.2')")
         db._db.execute("INSERT INTO t_attribute(attribute_id, class_id, name) VALUES( 1, 2, 'Latitude')")
+        db._db.execute(
+            "INSERT INTO t_property_report(property_id, collection_id, name) VALUES (1, 1, 'Units')"
+        )
     yield db

@@ -680,8 +680,102 @@ class PlexosDB:
         report_samples: bool | None = None,
         write_flat_files: bool = False,
     ) -> None:
-        """Add a report configuration."""
-        raise NotImplementedError
+        """Add a report configuration to the database.
+
+        Creates a new report in the database with the specified properties and output options.
+        Reports define what data will be available for post-processing after simulation runs.
+
+        Parameters
+        ----------
+        object_name : str
+            Name of the report object to add the configuration to
+        property : str
+            Name of the property to report on
+        collection : CollectionEnum
+            Collection enumeration that contains the property
+        parent_class : ClassEnum
+            Parent class enumeration for the collection
+        child_class : ClassEnum
+            Child class enumeration for the collection
+        phase_id : int, optional
+            Phase ID for the report (1=ST, 2=MT, 3=PASA, 4=LT), by default 4 (Long Term)
+        report_period : bool | None, optional
+            Whether to report period data, by default None
+        report_summary : bool | None, optional
+            Whether to report summary data, by default True
+        report_statistics : bool | None, optional
+            Whether to report statistics, by default None
+        report_samples : bool | None, optional
+            Whether to report samples, by default None
+        write_flat_files : bool, optional
+            Whether to output flat files, by default False
+
+        Raises
+        ------
+        NameError
+            If the specified property does not exist for the collection
+
+        See Also
+        --------
+        get_object_id : Get the ID for an object
+        get_collection_id : Get the ID for a collection
+        list_valid_properties_report : List valid report properties for a collection
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_object(ClassEnum.Report, "GeneratorOutput")
+        >>> db.add_report(
+        ...     object_name="GeneratorOutput",
+        ...     property="Generation",
+        ...     collection=CollectionEnum.Generators,
+        ...     parent_class=ClassEnum.System,
+        ...     child_class=ClassEnum.Generator,
+        ...     report_period=True,
+        ...     report_summary=True,
+        ... )
+        """
+        object_id = self.get_object_id(ClassEnum.Report, object_name)
+        collection_id = self.get_collection_id(
+            collection, parent_class_enum=parent_class, child_class_enum=child_class
+        )
+        valid_properties = self.list_valid_properties_report(
+            collection, parent_class_enum=parent_class, child_class_enum=child_class
+        )
+        if property not in valid_properties:
+            msg = (
+                f"Property {property} does not exist for collection: {collection}. "
+                "Check valid properties for the report type using `list_valid_properties_report`."
+            )
+            raise NameError(msg)
+
+        # NOTE: We can migrate this to its own `get_property_report_id` if needed.
+        property_id = self.query(
+            "select property_id from t_property_report where collection_id = ? and name = ?",
+            (collection_id, property),
+        )[0][0]
+
+        report_query = """
+        INSERT INTO
+        t_report(object_id, property_id, phase_id, report_period,
+        report_summary, report_statistics, report_samples, write_flat_files)
+        VALUES (?,?,?,?,?,?,?,?)
+        """
+        self._db.execute(
+            report_query,
+            (
+                object_id,
+                property_id,
+                phase_id,
+                report_period,
+                report_summary,
+                report_statistics,
+                report_samples,
+                write_flat_files,
+            ),
+        )
+        return
 
     def add_text(
         self,
@@ -2539,6 +2633,49 @@ class PlexosDB:
             collection_enum, parent_class_enum=parent_class_enum, child_class_enum=child_class_enum
         )
         query = "SELECT name from t_property where collection_id = ?"
+        result = self.query(query, (collection_id,))
+        assert result
+        return [d[0] for d in result]
+
+    def list_valid_properties_report(
+        self,
+        collection_enum: CollectionEnum,
+        /,
+        parent_class_enum: ClassEnum,
+        child_class_enum: ClassEnum,
+    ) -> list[str]:
+        """Return list of valid property names for reports.
+
+        Retrieves all valid property names that can be used with a specific collection filtered by parent and
+        child classes.
+
+        Parameters
+        ----------
+        collection_enum : CollectionEnum
+            Collection enumeration to list properties for
+        parent_class_enum : ClassEnum | None, optional
+            Parent class enumeration to filter by, by default None
+        child_class_enum : ClassEnum | None, optional
+            Child class enumeration to filter by, by default None
+
+        Returns
+        -------
+        list[str]
+            List of valid property report names
+
+        Raises
+        ------
+        AssertionError
+            If the query fails
+
+        See Also
+        --------
+        get_collection_id : Get the ID for a collection
+        """
+        collection_id = self.get_collection_id(
+            collection_enum, parent_class_enum=parent_class_enum, child_class_enum=child_class_enum
+        )
+        query = "SELECT name from t_property_report where collection_id = ?"
         result = self.query(query, (collection_id,))
         assert result
         return [d[0] for d in result]
