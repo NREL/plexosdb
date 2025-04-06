@@ -304,7 +304,7 @@ def test_list_units(db_instance_with_schema):
 def test_list_classes(db_instance_with_schema):
     db = db_instance_with_schema
     classes = db.list_classes()
-    assert len(classes) == 6
+    assert len(classes) == 8
     assert classes[0] == ClassEnum.System
 
 
