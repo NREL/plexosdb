@@ -170,16 +170,47 @@ class PlexosDB:
 
     def add_attribute(
         self,
-        /,
-        *,
-        object_name: str,
         object_class: ClassEnum,
-        attribute_class: ClassEnum,
+        /,
+        object_name: str,
+        *,
         attribute_name: str,
         attribute_value: str | float | int,
     ) -> int:
-        """Add attribute to a given object."""
-        raise NotImplementedError
+        """Add attribute to a given object.
+
+        Attributes are different from properties. They live on a separate table
+        and are mostly used for model configuration.
+
+        Parameters
+        ----------
+        object_class
+            ClassEnum from the object to be added. E.g., for generators class_id=ClassEnum.Generators
+        object_name : str
+            Name to be added to the object
+        attribute_name
+            Valid name of the attribute to be added for the given class
+        attribute_value
+            Value to be added to the attribute
+
+        Returns
+        -------
+        int
+            attribute_id
+
+        Notes
+        -----
+        By default, we add all objects to the system membership.
+        """
+        object_id = self.get_object_id(object_class, name=object_name)
+        attribute_id = self.get_attribute_id(object_class, name=attribute_name)
+        params = (object_id, attribute_id, attribute_value)
+        placeholders = ", ".join("?" * len(params))
+        query = (
+            f"INSERT INTO {Schema.AttributeData.name}(object_id, attribute_id, value) VALUES({placeholders})"
+        )
+        attribute_id = self._db.execute(query, params)
+        return attribute_id
 
     def add_band(
         self,
@@ -1135,14 +1166,65 @@ class PlexosDB:
 
     def get_attribute(
         self,
-        attribute_name: str,
+        object_class: ClassEnum,
         /,
         *,
         object_name: str,
-        object_class: ClassEnum,
+        attribute_name: str,
     ) -> dict:
         """Get attribute details for a specific object."""
-        raise NotImplementedError
+        query = """
+        SELECT
+            t_attribute_data.value
+        FROM
+            t_attribute_data
+        WHERE
+            t_attribute_data.attribute_id = ?
+        AND t_attribute_data.object_id = ?
+        """
+        object_id = self.get_object_id(object_class, name=object_name)
+        attribute_id = self.get_attribute_id(object_class, name=attribute_name)
+
+        result = self._db.fetchone(query, (attribute_id, object_id))
+        assert result
+        return result
+
+    def get_attribute_id(self, class_enum: ClassEnum, /, name: str) -> int:
+        """Return the ID for a given attribute.
+
+        Retrieves the unique identifier for an attribute with the specified name and class.
+
+        Parameters
+        ----------
+        class_enum : ClassEnum
+            Class enumeration the category belongs to
+        name : str
+            Name of the attribute
+
+        Returns
+        -------
+        int
+            ID of the category
+
+        Raises
+        ------
+        AssertionError
+            If the category does not exist
+        """
+        query = """
+        SELECT
+            attribute_id
+        FROM
+            t_attribute
+        LEFT JOIN
+            t_class ON t_class.class_id = t_attribute.class_id
+        WHERE
+            t_attribute.name = ?
+        AND t_class.name = ?
+        """
+        result = self._db.fetchone(query, (name, class_enum))
+        assert result
+        return result[0]
 
     def get_attributes(
         self,
@@ -2074,6 +2156,40 @@ class PlexosDB:
     ) -> Iterator[dict]:
         """Iterate through properties with chunked processing to handle large datasets efficiently."""
         raise NotImplementedError
+
+    def list_attributes(self, class_enum: ClassEnum) -> list[str]:
+        """Get all attributes for a specific class.
+
+        Retrieves the names of attributes associated with the specified class.
+
+        Parameters
+        ----------
+        class_enum : ClassEnum
+            Class enumeration to list categories for
+
+        Returns
+        -------
+        list[str]
+            List of attributes names
+
+        Raises
+        ------
+        AssertionError
+            If the query fails
+        """
+        query = f"""
+        SELECT
+            t_attribute.name
+        FROM
+            {Schema.Attributes.name}
+        LEFT JOIN
+            t_class ON t_class.class_id = t_attribute.class_id
+        WHERE
+            t_class.name = ?
+        """
+        result = self._db.fetchall_dict(query, (class_enum,))
+        assert result
+        return [row["name"] for row in result]
 
     def list_categories(self, class_enum: ClassEnum) -> list[str]:
         """Get all categories for a specific class.
