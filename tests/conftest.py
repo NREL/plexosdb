@@ -93,10 +93,6 @@ def db_instance_with_schema() -> PlexosDB:
             "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
             "VALUES (5, 1, 6, 'Storages')"
         )
-        db._db.execute(
-            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
-            "VALUES (6, 3, 2, 'Nodes')"
-        )
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (1,'MW')")
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (2,'MWh')")
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (3,'%')")
@@ -111,4 +107,5 @@ def db_instance_with_schema() -> PlexosDB:
             "VALUES (3,1,1, 'Rating Factor')"
         )
         db._db.execute("INSERT INTO t_config(element, value) VALUES ('Version', '9.2')")
+        db._db.execute("INSERT INTO t_attribute(attribute_id, class_id, name) VALUES( 1, 2, 'Latitude')")
     yield db
