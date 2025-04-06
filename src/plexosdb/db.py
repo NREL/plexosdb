@@ -310,7 +310,6 @@ class PlexosDB:
         self,
         parent_class_enum: ClassEnum,
         child_class_enum: ClassEnum,
-        /,
         parent_object_name: str,
         child_object_name: str,
         collection_enum: CollectionEnum,
@@ -411,7 +410,7 @@ class PlexosDB:
         name: str,
         *,
         description: str | None = None,
-        category: str = "-",
+        category: str | None = None,
         collection_enum: CollectionEnum | None = None,
     ) -> int:
         """Add an object to the database and append a system membership.
@@ -465,6 +464,7 @@ class PlexosDB:
         1
         """
         category_id = None
+        category = category or "-"
         if not self.check_category_exists(class_enum, category):
             category_id = self.add_category(class_enum, category)
 
@@ -621,9 +621,7 @@ class PlexosDB:
 
         if scenario is not None:
             if not self.check_scenario_exists(scenario):
-                scenario_id = self.add_object(
-                    ClassEnum.Scenario, scenario, collection_enum=CollectionEnum.Scenario
-                )
+                scenario_id = self.add_scenario(scenario)
             scenario_query = "INSERT INTO t_tag(object_id,data_id) VALUES (?,?)"
             result = self._db.execute(scenario_query, (scenario_id, data_id))
 
@@ -633,6 +631,38 @@ class PlexosDB:
                 text_result = self.add_text(key, value, data_id)
                 assert text_result
         return data_id
+
+    def add_scenario(self, name: str, category: str | None = None) -> int:
+        """Add a scenario object in the database.
+
+        Parameters
+        ----------
+        name: str
+            Name of the scenario
+        category: str | None
+            Name of the category for the scenario
+
+        See Also
+        --------
+        get_scenario_id : Get the ID for a scenario
+        list_scenarios : List all available scenarios in the database
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_scenario("TestScenario")
+        >>> db.list_scenarios()
+        [("TestScenario")]
+        """
+        if self.check_scenario_exists(name):
+            msg = f"Scenario = `{name}` exist on the database. "
+            "Select a different name."
+            raise NameError(msg)
+        object_id = self.add_object(
+            ClassEnum.Scenario, name=name, category=category, collection_enum=CollectionEnum.Scenarios
+        )
+        return object_id
 
     def add_report(
         self,
@@ -864,14 +894,14 @@ class PlexosDB:
             return False
         return True
 
-    def check_scenario_exists(self, scenario_name) -> bool:
+    def check_scenario_exists(self, name: str) -> bool:
         """Check if a scenario exists in the database.
 
         Determines whether a scenario with the given name exists.
 
         Parameters
         ----------
-        scenario_name : str
+        name : str
             Name of the scenario to check
 
         Returns
@@ -896,7 +926,7 @@ class PlexosDB:
         """
         query = f"SELECT 1 FROM {Schema.Objects.name} WHERE name = ? AND class_id = ?"
         class_id = self.get_class_id(ClassEnum.Scenario)
-        return bool(self._db.query(query, (scenario_name, class_id)))
+        return bool(self._db.query(query, (name, class_id)))
 
     def copy_object(
         self,
@@ -1877,7 +1907,7 @@ class PlexosDB:
                 JOIN t_object obj ON mem.child_object_id = obj.object_id
                 JOIN t_class cls ON mem.child_class_id = cls.class_id
                 LEFT JOIN t_category cat ON obj.category_id = cat.category_id
-                WHERE cls.name = 'Scenario' AND t.data_id IN ({placeholders})
+                WHERE cls.name = '{ClassEnum.Scenario}' AND t.data_id IN ({placeholders})
             """
             for row in self.query(scenario_query, chunk_data_ids):
                 if row[0] in base_data:
@@ -2043,9 +2073,37 @@ class PlexosDB:
         """Get the unit for a specific property."""
         raise NotImplementedError
 
-    def get_scenario_id(self, scenario_name: str) -> int:
-        """Return scenario id for a given scenario name."""
-        raise NotImplementedError
+    def get_scenario_id(self, name: str) -> int:
+        """Return the ID for a given scenario.
+
+        Retrieves the object id for a scenario based on its name.
+
+        Parameters
+        ----------
+        name : str
+            Name of the scenario
+
+        Returns
+        -------
+        int
+            ID of the property
+
+        Raises
+        ------
+        AssertionError
+            If the property does not exist
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_scenario("TestScenario")
+        42  # Example ID
+        >>> db.get_scenario_id("TestScenario")
+        42
+        """
+        object_id = self.get_object_id(ClassEnum.Scenario, name=name)
+        return object_id
 
     def get_text(
         self,

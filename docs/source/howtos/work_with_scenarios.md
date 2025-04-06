@@ -1,8 +1,24 @@
 # Working with Scenarios
 
-Scenarios in PLEXOS allow you to model different conditions or assumptions. PlexosDB provides methods to manage these scenarios.
+Scenarios in PLEXOS allow you to model different conditions or assumptions.
+PlexosDB provides methods to manage these scenarios.
 
 ## Creating Scenarios
+
+Scenarios can be added manually to the database by calling `add_scenario`:
+
+```python
+from plexosdb import PlexosDB
+
+# Initialize database
+db = PlexosDB()
+db.create_schema()
+
+db.add_scenario("TestScenario")
+```
+
+
+## Creating Scenario Properties
 
 Scenarios are automatically created when adding properties with a scenario name:
 
