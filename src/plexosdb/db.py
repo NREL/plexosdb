@@ -10,13 +10,15 @@ from typing import Any, Literal
 
 from loguru import logger
 
+from plexosdb.checks import check_memberships_from_records
+
 from .db_manager import SQLiteManager
 from .enums import ClassEnum, CollectionEnum, Schema, get_default_collection, str2enum
 from .exceptions import (
     NameError,
     NoPropertiesError,
 )
-from .utils import no_space, normalize_names
+from .utils import create_membership_record, no_space, normalize_names, prepare_sql_data_params
 from .xml_handler import XMLHandler
 
 if sys.version_info >= (3, 12):
@@ -377,17 +379,92 @@ class PlexosDB:
 
     def add_memberships_from_records(
         self,
-        records: list[dict],
+        records: list[dict[str, int]],
         /,
         *,
-        parent_class: ClassEnum,
-        child_class: ClassEnum,
-        collection: CollectionEnum,
-        create_missing_objects: bool = False,
         chunksize: int = 10_000,
-    ) -> None:
-        """Bulk insert multiple memberships from a list of records."""
-        raise NotImplementedError
+    ) -> bool:
+        """Bulk insert multiple memberships from a list of records.
+
+        Efficiently adds multiple membership relationships between objects in batches.
+        This method is much more efficient than calling `add_membership` multiple times.
+
+        Parameters
+        ----------
+        records : list[dict[str, int]]
+            List of membership records. Each record should be a dictionary with these fields:
+            - 'parent_class_id': int - ID of the parent class
+            - 'parent_object_id': int - ID of the parent object
+            - 'collection_id': int - ID of the collection
+            - 'child_class_id': int - ID of the child class
+            - 'child_object_id': int - ID of the child object
+        chunksize : int, optional
+            Number of records to process in each batch, by default 10_000.
+            Useful for controlling memory usage with large datasets.
+
+        Returns
+        -------
+        bool
+            True if the operation was successful
+
+        Raises
+        ------
+        KeyError
+            If any records are missing required fields
+
+        See Also
+        --------
+        add_membership : Add a single membership between two objects
+        check_memberships_from_records : Validate membership records format
+        create_membership_record : Helper to create membership record dictionaries
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> # Create parent and children objects
+        >>> parent_id = db.add_object(ClassEnum.Region, "Region1")
+        >>> child_ids = []
+        >>> for i in range(5):
+        ...     child_ids.append(db.add_object(ClassEnum.Node, f"Node{i}"))
+        >>> # Prepare membership records
+        >>> parent_class_id = db.get_class_id(ClassEnum.Region)
+        >>> child_class_id = db.get_class_id(ClassEnum.Node)
+        >>> collection_id = db.get_collection_id(
+        ...     CollectionEnum.RegionNodes,
+        ...     parent_class_enum=ClassEnum.Region,
+        ...     child_class_enum=ClassEnum.Node,
+        ... )
+        >>> # Create records
+        >>> records = []
+        >>> for child_id in child_ids:
+        ...     records.append(
+        ...         {
+        ...             "parent_class_id": parent_class_id,
+        ...             "parent_object_id": parent_id,
+        ...             "collection_id": collection_id,
+        ...             "child_class_id": child_class_id,
+        ...             "child_object_id": child_id,
+        ...         }
+        ...     )
+        >>> # Bulk insert all memberships at once
+        >>> db.add_memberships_from_records(records)
+        True
+        """
+        if not check_memberships_from_records(records):
+            msg = "Some of the records do not have all the required fields. "
+            msg += "Check construction of records."
+            raise KeyError(msg)
+        query = f"""
+        INSERT INTO {Schema.Memberships.name}
+            (parent_class_id,parent_object_id, collection_id, child_class_id, child_object_id)
+        VALUES
+            (:parent_class_id, :parent_object_id, :collection_id, :child_class_id, :child_object_id)
+        """
+        query_status = self._db.executemany(query, records)
+        assert query_status
+        logger.debug("Added {} memberships.", len(records))
+        return True
 
     def add_metadata(
         self,
@@ -485,19 +562,214 @@ class PlexosDB:
         _ = self.add_membership(ClassEnum.System, class_enum, "System", name, collection_enum)
         return object_id
 
+    def add_objects(self, *object_names, class_enum: ClassEnum, category: str | None = None) -> None:
+        """Add multiple objects of the same class to the database in bulk.
+
+        This method efficiently adds multiple objects to the database in a single operation,
+        which is much more performant than calling add_object() multiple times. It also
+        creates system memberships for all objects in bulk.
+
+        Parameters
+        ----------
+        object_names : Iterable[str]
+            Names of the objects to be added
+        class_enum : ClassEnum
+            Class enumeration of the objects
+        category : str | None, optional
+            Category of the objects, by default None (which uses "-" as default category)
+
+        Returns
+        -------
+        None
+
+        See Also
+        --------
+        add_object : Add a single object
+        add_memberships_from_records : Add multiple memberships in bulk
+        normalize_names : Normalize object names for consistency
+        get_default_collection : Get the default collection for a class
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> # Add multiple generators at once
+        >>> generator_names = ["Gen1", "Gen2", "Gen3", "Gen4", "Gen5"]
+        >>> db.add_objects(generator_names, class_enum=ClassEnum.Generator, category="Thermal")
+        """
+        category_id = None
+        category = category or "-"
+
+        if not self.check_category_exists(class_enum, category):
+            category_id = self.add_category(class_enum, category)
+
+        class_id = self.get_class_id(class_enum)
+        names = normalize_names(*object_names)
+        params = [(name, class_id, category_id, str(uuid.uuid4())) for name in names]
+
+        query = f"INSERT INTO {Schema.Objects.name}(name, class_id, category_id, GUID) "
+        query += "VALUES(?,?,?,?)"
+        query_result = self._db.executemany(query, params)
+        assert query_result
+
+        # Add system memberships in bulk
+        collection_enum = get_default_collection(class_enum)
+        object_ids = self.get_objects_id(names, class_enum=class_enum)
+        parent_class_id = self.get_class_id(ClassEnum.System)
+        parent_object_id = self.get_object_id(ClassEnum.System, "System")
+        collection_id = self.get_collection_id(
+            collection_enum, parent_class_enum=ClassEnum.System, child_class_enum=class_enum
+        )
+        membership_records = create_membership_record(
+            object_ids,
+            child_object_class_id=class_id,
+            parent_object_class_id=parent_class_id,
+            parent_object_id=parent_object_id,
+            collection_id=collection_id,
+        )
+        self.add_memberships_from_records(membership_records)
+        return
+
     def add_properties_from_records(
         self,
         records: list[dict],
         /,
         *,
-        parent_class: ClassEnum,
+        object_class: ClassEnum,
+        parent_class: ClassEnum = ClassEnum.System,
         parent_object_name: str = "System",
         collection: CollectionEnum,
         scenario: str,
         chunksize: int = 10_000,
     ) -> None:
-        """Bulk insert multiple properties from a list of records."""
-        raise NotImplementedError
+        """Bulk insert multiple properties from a list of records.
+
+        Efficiently adds multiple properties to multiple objects in batches using
+        transactions, which is significantly faster than calling add_property repeatedly.
+
+        Each record should contain an 'object_name' field and property-value pairs.
+        All properties are automatically marked as dynamic and enabled in the database.
+
+        Parameters
+        ----------
+        records : list[dict]
+            List of records where each record is a dictionary with:
+            - 'object_name': str - Name of the object
+            - property1: value1, property2: value2, ... - Property name-value pairs
+        object_class : ClassEnum
+            Class enumeration of the objects (e.g., ClassEnum.Generator)
+        parent_class : ClassEnum, optional
+            Parent class enumeration, by default ClassEnum.System
+        parent_object_name : str, optional
+            Name of the parent object, by default "System"
+        collection : CollectionEnum
+            Collection enumeration for the properties (e.g., CollectionEnum.GeneratorProperties)
+        scenario : str
+            Scenario name to associate with all properties
+        chunksize : int, optional
+            Number of records to process in each batch to control memory usage,
+            by default 10_000
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If records are improperly formatted or missing required fields
+        KeyError
+            If an object name doesn't exist in the database
+
+        See Also
+        --------
+        add_property : Add a single property
+        check_property_exists : Check if properties exist for a collection
+        add_memberships_from_records : Bulk insert multiple memberships
+        prepare_sql_data_params : Utility for preparing SQL parameters from records
+
+        Notes
+        -----
+        This method uses SQLite transactions to ensure all insertions are atomic.
+        If an error occurs during processing, the entire transaction is rolled back.
+
+        Properties are inserted directly using SQL for optimal performance, and all
+        added properties are automatically marked as dynamic and enabled.
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> # Create objects first
+        >>> db.add_object(ClassEnum.Generator, "Generator1")
+        >>> db.add_object(ClassEnum.Generator, "Generator2")
+        >>> # Prepare property records
+        >>> records = [
+        ...     {"object_name": "Generator1", "Max Capacity": 100.0, "Min Stable Level": 20.0},
+        ...     {"object_name": "Generator2", "Max Capacity": 150.0, "Min Stable Level": 30.0},
+        ... ]
+        >>> # Add properties in bulk
+        >>> db.add_properties_from_records(
+        ...     records,
+        ...     object_class=ClassEnum.Generator,
+        ...     collection=CollectionEnum.GeneratorProperties,
+        ...     scenario="Base Case",
+        ... )
+        """
+        if not records:
+            logger.warning("No records provided for bulk property insertion")
+            return
+
+        collection_id = self.get_collection_id(
+            collection, parent_class_enum=parent_class, child_class_enum=object_class
+        )
+        collection_properties = self.query(
+            f"select name, property_id from t_property where collection_id={collection_id}"
+        )
+        component_names = tuple(d["name"] for d in records)
+        memberships = self.get_memberships_system(component_names, object_class=object_class)
+
+        if not memberships:
+            raise KeyError(
+                "Object do not exists on the database yet. "
+                "Make sure you use `add_object` before adding properties."
+            )
+
+        params = prepare_sql_data_params(
+            records, memberships=memberships, property_mapping=collection_properties
+        )
+
+        # We perform everything on a single transaction to roll back if a mistake happens
+        with self._db.transaction():
+            filter_property_ids = [d[1] for d in params]
+            for property_id in filter_property_ids:
+                self._db.execute("UPDATE t_property set is_dynamic=1 where property_id = ?", (property_id,))
+                self._db.execute("UPDATE t_property set is_enabled=1 where property_id = ?", (property_id,))
+
+            self._db.executemany(
+                "INSERT into t_data(membership_id, property_id, value) values (?,?,?)", params
+            )
+
+            if scenario is not None:
+                if not self.check_scenario_exists(scenario):
+                    scenario_id = self.add_scenario(scenario)
+                else:
+                    scenario_id = self.get_scenario_id(scenario)
+                for batch in batched(params, chunksize):
+                    batched_list = list(batch)
+                    # place_holders = ", ".join(["(?, ?, ?)"] * len(batch)
+                    scenario_query = f"""
+                        INSERT into t_tag(data_id, object_id)
+                        SELECT
+                            data_id as data_id,
+                            {scenario_id} as object_id
+                        FROM
+                          t_data
+                        WHERE membership_id = ? AND property_id = ? AND value = ?
+                    """
+                    self._db.executemany(scenario_query, batched_list)
+        logger.debug(f"Successfully processed {len(records)} property records in batches")
+        return
 
     def add_property(
         self,
@@ -622,6 +894,8 @@ class PlexosDB:
         if scenario is not None:
             if not self.check_scenario_exists(scenario):
                 scenario_id = self.add_scenario(scenario)
+            else:
+                scenario_id = self.get_scenario_id(scenario)
             scenario_query = "INSERT INTO t_tag(object_id,data_id) VALUES (?,?)"
             result = self._db.execute(scenario_query, (scenario_id, data_id))
 
@@ -1041,11 +1315,11 @@ class PlexosDB:
         # If we do not find a membership, we just look for the system membership
         if not membership_mapping:
             membership_mapping = {}
-            system_membership_id = self.get_memberships(
-                original_object_name, object_class=object_class, include_system_membership=True
+            system_membership_id = self.get_object_memberships(
+                original_object_name, class_enum=object_class, include_system_membership=True
             )[0]["membership_id"]
-            new_membership_id = self.get_memberships(
-                new_object_name, object_class=object_class, include_system_membership=True
+            new_membership_id = self.get_object_memberships(
+                new_object_name, class_enum=object_class, include_system_membership=True
             )[0]["membership_id"]
             membership_mapping[system_membership_id] = new_membership_id
 
@@ -1061,7 +1335,7 @@ class PlexosDB:
     def copy_object_memberships(self, object_class, original_name: str, new_name: str) -> dict[int, int]:
         """Copy all existing memberships of old object to the new object."""
         membership_mapping: dict[int, int] = {}
-        all_memberships = self.get_memberships(original_name, object_class=object_class)
+        all_memberships = self.get_object_memberships(original_name, class_enum=object_class)
         for membership in all_memberships:
             membership_mapping = {}
             parent_name = membership["parent"]
@@ -1623,13 +1897,13 @@ class PlexosDB:
         assert result
         return result[0]
 
-    def get_memberships(
+    def get_object_memberships(
         self,
         *object_names: Iterable[str] | str,
-        object_class: ClassEnum,
-        parent_class: ClassEnum | None = None,
+        class_enum: ClassEnum,
+        parent_class_enum: ClassEnum | None = None,
         category: str | None = None,
-        collection: CollectionEnum | None = None,
+        collection_enum: CollectionEnum | None = None,
         include_system_membership: bool = False,
     ) -> list[dict[str, Any]]:
         """Retrieve all memberships for the given object(s).
@@ -1639,9 +1913,9 @@ class PlexosDB:
         object_names : str or list[str]
             Name or list of names of the objects to get their memberships.
             You can pass multiple string arguments or a single list of strings.
-        object_class : ClassEnum
+        class_enum : ClassEnum
             Class of the objects.
-        parent_class : ClassEnum | None, optional
+        parent_class_enum : ClassEnum | None, optional
             Class of the parent object. Defaults to object_class if not provided.
         collection : CollectionEnum | None, optional
             Collection to filter memberships.
@@ -1662,18 +1936,91 @@ class PlexosDB:
         KeyError
             If any of the object_names do not exist.
         """
+        object_ids = tuple(self.get_objects_id(*object_names, class_enum=class_enum))
+        query_string = """
+        SELECT
+            mem.membership_id,
+            mem.parent_class_id,
+            mem.child_class_id,
+            parent_object.name AS parent,
+            child_object.name AS child,
+            mem.collection_id,
+            parent_class.name AS parent_class_name,
+            child_class.name AS child_class_name,
+            collections.name AS collection_name
+        FROM
+            t_membership AS mem
+        INNER JOIN
+            t_object AS parent_object ON mem.parent_object_id = parent_object.object_id
+        INNER JOIN
+            t_object AS child_object ON mem.child_object_id = child_object.object_id
+        LEFT JOIN
+            t_class AS parent_class ON mem.parent_class_id = parent_class.class_id
+        LEFT JOIN
+            t_class AS child_class ON mem.child_class_id = child_class.class_id
+        LEFT JOIN
+            t_collection AS collections ON mem.collection_id = collections.collection_id
+        """
+        conditions = []
+        if not include_system_membership:
+            conditions.append(f"parent_class.name <> '{ClassEnum.System.name}'")
+        if not parent_class_enum:
+            parent_class_enum = class_enum
+        if collection_enum:
+            conditions.append(
+                f"parent_class.name = '{parent_class_enum.value}' "
+                f"and collections.name = '{collection_enum.value}'"
+            )
+
+        object_placeholders = ", ".join("?" * len(object_ids))
+        conditions.append(
+            f"(child_object.object_id in ({object_placeholders}) "
+            f"OR parent_object.object_id in ({object_placeholders}))"
+        )
+        if conditions:
+            query_string += " WHERE " + " AND ".join(conditions)
+        return self._db.fetchall_dict(
+            query_string, object_ids + object_ids
+        )  #  Passing obth for parent and child
+
+    def get_memberships_system(
+        self,
+        *object_names: Iterable[str] | str,
+        object_class: ClassEnum,
+        category: str | None = None,
+        collection: CollectionEnum | None = None,
+    ) -> list[dict[str, Any]]:
+        """Retrieve system memberships for the given object(s).
+
+        Parameters
+        ----------
+        object_names : str or list[str]
+            Name or list of names of the objects to get their memberships.
+            You can pass multiple string arguments or a single list of strings.
+        object_class : ClassEnum
+            Class of the objects.
+        collection : CollectionEnum | None, optional
+            Collection to filter memberships.
+
+        Returns
+        -------
+        list[tuple]
+            A list of tuples representing memberships of the object to the system.
+
+        Raises
+        ------
+        KeyError
+            If any of the object_names do not exist.
+        """
         names = normalize_names(*object_names)
         object_ids = tuple(self.get_object_id(object_class, name=name, category=category) for name in names)
         query_string = """
             SELECT
                 mem.membership_id,
-                mem.parent_class_id,
                 mem.child_class_id,
-                parent_object.name AS parent,
-                child_object.name AS child,
+                child_object.name AS name,
                 mem.collection_id,
-                parent_class.name AS parent_class_name,
-                child_class.name AS child_class_name,
+                child_class.name AS class,
                 collections.name AS collection_name
             FROM
                 t_membership AS mem
@@ -1689,8 +2036,6 @@ class PlexosDB:
                 t_collection AS collections ON mem.collection_id = collections.collection_id
             """
         conditions = []
-        if not include_system_membership:
-            conditions.append(f"parent_class.name <> '{ClassEnum.System.name}'")
         if len(object_ids) == 1:
             conditions.append(
                 f"(child_object.object_id = {object_ids[0]} OR parent_object.object_id = {object_ids[0]})"
@@ -1699,8 +2044,7 @@ class PlexosDB:
             conditions.append(
                 f"(child_object.object_id in {object_ids} OR parent_object.object_id in {object_ids})"
             )
-        if not parent_class:
-            parent_class = object_class
+        parent_class = ClassEnum.System
         if collection:
             conditions.append(
                 f"parent_class.name = '{parent_class.value}' and collections.name = '{collection.value}'"
@@ -2075,20 +2419,27 @@ class PlexosDB:
         assert result
         return result[0]
 
-    def get_objects(
+    def get_objects_id(
         self,
-        /,
-        *,
-        class_enum: ClassEnum | None = None,
-        category: str | None = None,
-        include_properties: bool = False,
-        property_names: str | Iterable[str] | None = None,
-        collection: CollectionEnum | None = None,
-        parent_class: ClassEnum | None = None,
-        scenario: str | None = None,
-    ) -> list[dict]:
-        """Get all objects, optionally filtered by class and category."""
-        raise NotImplementedError
+        *object_names: Iterable[str] | str,
+        class_enum: ClassEnum,
+    ) -> list[int]:
+        """Get object_ids for a list of names for a given class."""
+        names = normalize_names(*object_names)
+        class_id = self.get_class_id(class_enum)
+        placeholders = ", ".join("?" for _ in names)
+        query = f"""
+        SELECT
+            object_id
+        FROM {Schema.Objects.name}
+        WHERE
+            name in ({placeholders})
+        AND
+            class_id = {class_id}
+        """
+        result = self._db.fetchall(query, tuple(names))
+        assert result
+        return [r[0] for r in result]
 
     def get_plexos_version(self) -> tuple[int, ...] | None:
         """Return the version information of the PLEXOS model."""

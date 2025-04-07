@@ -118,7 +118,7 @@ def test_membership_operations(db_instance_with_schema):
     )
     assert membership_id == db.get_membership_id(parent_object_name, child_object_name, collection)
 
-    memberships = db.get_memberships(child_object_name, object_class=child_class)
+    memberships = db.get_object_memberships(child_object_name, class_enum=child_class)
     assert memberships
     assert len(memberships) == 1
     assert memberships[0]["membership_id"] == membership_id
