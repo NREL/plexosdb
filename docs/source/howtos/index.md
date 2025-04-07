@@ -18,4 +18,5 @@ work_with_scenarios
 import_export
 manage_relationships
 copy_objects
+bulk_operations
 ```
