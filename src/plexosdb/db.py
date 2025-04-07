@@ -894,6 +894,8 @@ class PlexosDB:
         if scenario is not None:
             if not self.check_scenario_exists(scenario):
                 scenario_id = self.add_scenario(scenario)
+            else:
+                scenario_id = self.get_scenario_id(scenario)
             scenario_query = "INSERT INTO t_tag(object_id,data_id) VALUES (?,?)"
             result = self._db.execute(scenario_query, (scenario_id, data_id))
 
