@@ -562,7 +562,7 @@ class PlexosDB:
         _ = self.add_membership(ClassEnum.System, class_enum, "System", name, collection_enum)
         return object_id
 
-    def add_objects(self, object_names, *, class_enum: ClassEnum, category: str | None = None) -> None:
+    def add_objects(self, *object_names, class_enum: ClassEnum, category: str | None = None) -> None:
         """Add multiple objects of the same class to the database in bulk.
 
         This method efficiently adds multiple objects to the database in a single operation,
@@ -604,8 +604,8 @@ class PlexosDB:
             category_id = self.add_category(class_enum, category)
 
         class_id = self.get_class_id(class_enum)
-        object_names = normalize_names(object_names)
-        params = [(name, class_id, category_id, str(uuid.uuid4())) for name in object_names]
+        names = normalize_names(*object_names)
+        params = [(name, class_id, category_id, str(uuid.uuid4())) for name in names]
 
         query = f"INSERT INTO {Schema.Objects.name}(name, class_id, category_id, GUID) "
         query += "VALUES(?,?,?,?)"
@@ -614,7 +614,7 @@ class PlexosDB:
 
         # Add system memberships in bulk
         collection_enum = get_default_collection(class_enum)
-        object_ids = self.get_objects_id(object_names, class_enum=class_enum)
+        object_ids = self.get_objects_id(names, class_enum=class_enum)
         parent_class_id = self.get_class_id(ClassEnum.System)
         parent_object_id = self.get_object_id(ClassEnum.System, "System")
         collection_id = self.get_collection_id(
@@ -1897,8 +1897,7 @@ class PlexosDB:
 
     def get_object_memberships(
         self,
-        object_names: Iterable[str] | str,
-        *,
+        *object_names: Iterable[str] | str,
         class_enum: ClassEnum,
         parent_class_enum: ClassEnum | None = None,
         category: str | None = None,
@@ -1935,7 +1934,7 @@ class PlexosDB:
         KeyError
             If any of the object_names do not exist.
         """
-        object_ids = tuple(self.get_objects_id(object_names, class_enum=class_enum))
+        object_ids = tuple(self.get_objects_id(*object_names, class_enum=class_enum))
         query_string = """
         SELECT
             mem.membership_id,
@@ -1968,19 +1967,19 @@ class PlexosDB:
         if collection_enum:
             conditions.append(
                 f"parent_class.name = '{parent_class_enum.value}' "
-                "and collections.name = '{collection_enum.value}'"
+                f"and collections.name = '{collection_enum.value}'"
             )
-        if len(object_ids) == 1:
-            conditions.append(
-                f"(child_object.object_id = {object_ids[0]} OR parent_object.object_id = {object_ids[0]})"
-            )
-        else:
-            conditions.append(
-                f"(child_object.object_id in {object_ids} OR parent_object.object_id in {object_ids})"
-            )
+
+        object_placeholders = ", ".join("?" * len(object_ids))
+        conditions.append(
+            f"(child_object.object_id in ({object_placeholders}) "
+            f"OR parent_object.object_id in ({object_placeholders}))"
+        )
         if conditions:
             query_string += " WHERE " + " AND ".join(conditions)
-        return self._db.fetchall_dict(query_string)
+        return self._db.fetchall_dict(
+            query_string, object_ids + object_ids
+        )  #  Passing obth for parent and child
 
     def get_memberships_system(
         self,
@@ -2420,13 +2419,11 @@ class PlexosDB:
 
     def get_objects_id(
         self,
-        /,
-        object_names: Iterable[str] | str,
-        *,
+        *object_names: Iterable[str] | str,
         class_enum: ClassEnum,
     ) -> list[int]:
         """Get object_ids for a list of names for a given class."""
-        names = normalize_names(object_names)
+        names = normalize_names(*object_names)
         class_id = self.get_class_id(class_enum)
         placeholders = ", ".join("?" for _ in names)
         query = f"""

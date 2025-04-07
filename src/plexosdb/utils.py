@@ -64,7 +64,7 @@ def no_space(a: str, b: str) -> int:
     return 1
 
 
-def normalize_names(names: str | Iterable[str]) -> list[str]:
+def normalize_names(*args) -> list[str]:
     """Normalize a name or list of names into a unique list of strings.
 
     Parameters
@@ -82,11 +82,11 @@ def normalize_names(names: str | Iterable[str]) -> list[str]:
     ValueError
         If the input is neither a string nor an iterable of strings
     """
-    if isinstance(names, str):
-        return [names]
-    if hasattr(names, "__iter__"):
-        return list(set(names))
-    raise ValueError(f"{names} must be a string or an iterable of strings.")
+    if len(args) == 1 and hasattr(args[0], "__iter__") and not isinstance(args[0], str):
+        names = args[0]
+    else:
+        names = args
+    return list(set(str(name) for name in names if name is not None))
 
 
 def get_sql_query(query_name: str):
