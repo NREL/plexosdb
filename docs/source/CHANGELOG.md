@@ -2,26 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
-## [unreleased]
+## [1.0.0] - 2025-04-07
 
 ### 🚀 Features
 
-- *(db)* Adding new version of db manager.
-- Adding draft version of new `PlexosDB`
-- Adding some list methods
-- Adding more elegant exceptions.
+- Consolidate code structure (#26)
+- Adding support for adding attributes (#27)
+- *(scenarios)* Adding scenario manipulation. (#28)
+- Adding report writing capability (#29)
+- Adding bulk operations to plexosdb (#30)
+
+## [0.1.0b1] - 2025-03-13
 
 ### 🐛 Bug Fixes
 
-- Pass the right child class
-- Adding version property and fix for python version
-- Adding to_xml method and more testing
-- Changing the API and adding more testing
-- Almost there
+- Removing reference to other package
 
-### 🧪 Testing
+### CI
 
-- Fixing test to pass on Python < 3.11
+- Adding release action (#25)
 
 ## [0.1.0] - 2025-02-13
 
