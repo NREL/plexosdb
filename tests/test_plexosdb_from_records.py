@@ -1,3 +1,5 @@
+import pytest
+
 from plexosdb import ClassEnum, CollectionEnum, PlexosDB
 
 
@@ -71,3 +73,15 @@ def test_bulk_insert_memberships_from_records(db_instance_with_schema):
         collection_enum=CollectionEnum.Nodes,
     )
     assert len(db_memberships) == 5
+
+    memberships = [
+        {
+            "parent_class_id": parent_class_id,
+            "child_class_id": child_class_id,
+            "child_object_id": child_id,
+            "parent_object_id": parent_id,
+        }
+        for parent_id, child_id in zip(parent_object_ids, child_object_ids)
+    ]
+    with pytest.raises(KeyError):
+        _ = db.add_memberships_from_records(memberships)
