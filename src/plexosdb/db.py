@@ -2943,16 +2943,9 @@ class PlexosDB:
         --------
         >>> db = PlexosDB()
         >>> db.create_schema()
-        >>> db.add_object(ClassEnum.Generator, "Generator1")
-        >>> db.add_property(
-        ...     ClassEnum.Generator,
-        ...     "Generator1",
-        ...     "Max Capacity",
-        ...     100.0,
-        ...     model="Model",
-        ... )
-        >>> db.list_scenarios()
-        ["Model"]
+        >>> db.add_object(ClassEnum.Model, "model_01")
+        >>> db.list_models()
+        ["model_01"]
         """
         query_string = """
         SELECT
