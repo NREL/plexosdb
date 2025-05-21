@@ -2871,6 +2871,26 @@ class PlexosDB:
         normalized_object_names: list[str] | None,
         normalized_property_names: list[str] | None,
     ) -> list[int]:
+        """Get data IDs that match the given criteria.
+
+        Parameters
+        ----------
+        class_enum : ClassEnum
+            Class enumeration to filter by
+        collection_id : int
+            ID of the collection to search in
+        parent_class : ClassEnum
+            Parent class enumeration
+        normalized_object_names : list[str] | None
+            List of normalized object names to filter by
+        normalized_property_names : list[str] | None
+            List of normalized property names to filter by
+
+        Returns
+        -------
+        list[int]
+            List of matching data IDs
+        """
         params: list[Any] = []
         filters = ["c.name = ?"]
         params.append(str(class_enum.value))
@@ -2901,6 +2921,20 @@ class PlexosDB:
         return [row[0] for row in self.query(query, tuple(params))]
 
     def _get_base_data(self, chunk_data_ids: list[int], placeholders: str) -> dict[int, dict]:
+        """Get base data for the given chunk of data IDs.
+
+        Parameters
+        ----------
+        chunk_data_ids : list[int]
+            List of data IDs to retrieve data for
+        placeholders : str
+            SQL placeholders string for the query
+
+        Returns
+        -------
+        dict[int, dict]
+            Dictionary mapping data IDs to their base data records
+        """
         query = f"""
         SELECT d.data_id, o.name, p.name, d.value, u.value
         FROM t_data d
@@ -2929,6 +2963,17 @@ class PlexosDB:
     def _update_chunk_data(
         self, base_data: dict[int, dict], chunk_data_ids: list[int], placeholders: str
     ) -> None:
+        """Update chunk data with additional information from related tables.
+
+        Parameters
+        ----------
+        base_data : dict[int, dict]
+            Dictionary of base data to update
+        chunk_data_ids : list[int]
+            List of data IDs in this chunk
+        placeholders : str
+            SQL placeholders string for the queries
+        """
         text_query = f"""
         SELECT txt.data_id, GROUP_CONCAT(txt.value, '; ') as text_values
         FROM t_text txt
@@ -2986,7 +3031,47 @@ class PlexosDB:
         collection: CollectionEnum | None = None,
         chunk_size: int = 1000,
     ) -> Iterator[dict]:
-        """Iterate through properties with chunked processing."""
+        """Iterate through properties with chunked processing to handle large datasets efficiently.
+
+        This method efficiently retrieves properties for multiple objects of the specified class,
+        processing data in chunks to minimize memory usage. Results are yielded one at a time
+        as dictionaries.
+
+        Parameters
+        ----------
+        class_enum : ClassEnum
+            Class enumeration of the objects to retrieve properties for
+        object_names : str | Iterable[str] | None, optional
+            Names of specific objects to retrieve properties for. If None, gets properties
+            for all objects of the specified class
+        property_names : str | Iterable[str] | None, optional
+            Names of specific properties to retrieve. If None, gets all properties
+        parent_class : ClassEnum | None, optional
+            Parent class enumeration for filtering properties, defaults to ClassEnum.System
+        collection : CollectionEnum | None, optional
+            Collection enumeration to filter properties by
+        chunk_size : int, optional
+            Number of records to process in each database query chunk, by default 1000
+
+        Yields
+        ------
+        dict
+            Dictionary containing property information with keys:
+            - name: Object name
+            - property: Property name
+            - value: Property value
+            - unit: Unit of measurement
+            - texts: Associated text data
+            - tags: Associated tags
+            - bands: Associated bands
+            - scenario: Associated scenario name
+            - scenario_category: Category of the associated scenario
+
+        Raises
+        ------
+        NameError
+            If a specified property does not exist for the collection
+        """
         parent_class = parent_class or ClassEnum.System
         collection = collection or get_default_collection(class_enum)
         normalized_object_names = normalize_names(object_names) if object_names else None
