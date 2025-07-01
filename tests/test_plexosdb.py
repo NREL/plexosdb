@@ -308,6 +308,17 @@ def test_list_classes(db_instance_with_schema):
     assert classes[0] == ClassEnum.System
 
 
+@pytest.mark.listing
+def test_list_collections(db_instance_with_schema):
+    db = db_instance_with_schema
+    collections = db.list_collections()
+    assert isinstance(collections, list)
+    assert len(collections) > 0
+
+    spec_collections = db.list_collections(parent_class=ClassEnum.Generator, child_class=ClassEnum.Node)
+    assert isinstance(spec_collections, list)
+
+
 @pytest.mark.export
 def test_export_to_xml(db_instance_with_schema, tmp_path):
     db = db_instance_with_schema
