@@ -225,6 +225,7 @@ CREATE TABLE `t_category`
     `rank` INT NOT NULL,
     `name` VARCHAR(512) NULL,
     `state` INT NULL,
+    UNIQUE (`class_id`, `name`)
     CONSTRAINT PK_t_category
                PRIMARY KEY (`category_id`)
 );
