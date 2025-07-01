@@ -72,7 +72,7 @@ membership_id = db.get_membership_id(
 print(f"Membership ID: {membership_id}")
 
 # Get all memberships for an object
-memberships = db.get_memberships(
+memberships = db.get_object_memberships(
     "Node1",
     object_class=ClassEnum.Node
 )
