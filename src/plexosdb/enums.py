@@ -116,7 +116,6 @@ class CollectionEnum(StrEnum):
     DataFiles = "DataFiles"
     Constraint = "Constraint"
     Constraints = "Constraints"
-    Variables = "Variables"
 
 
 def str2enum(string, schema_enum=Schema) -> Schema | None:
@@ -129,10 +128,6 @@ def str2enum(string, schema_enum=Schema) -> Schema | None:
 
 def get_default_collection(class_enum: ClassEnum) -> CollectionEnum:
     """Return default collection for class."""
-    # Special case for Data File
-    if class_enum == ClassEnum.DataFile:
-        return CollectionEnum.DataFiles
-
     collection_name = f"{class_enum}s"
     if collection_name not in CollectionEnum.__members__:
         collection_name = class_enum.name
