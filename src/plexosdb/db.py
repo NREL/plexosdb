@@ -2813,7 +2813,8 @@ class PlexosDB:
             where_clause = " WHERE "
 
         query_string = """
-            SELECT t_collection.collection_id, t_collection.name, parent_class.name, child_class.name
+            SELECT t_collection.collection_id, t_collection.name AS collection_name,
+            parent_class.name AS parent_class_name, child_class.name AS child_class_name
             FROM t_collection
             LEFT JOIN t_class AS parent_class ON parent_class.class_id = t_collection.parent_class_id
             LEFT JOIN t_class AS child_class ON t_collection.child_class_id = child_class.class_id
