@@ -125,6 +125,24 @@ def test_membership_operations(db_instance_with_schema):
     assert memberships[0]["child"] == child_object_name
     assert memberships[0]["parent"] == parent_object_name
 
+    # Test that collection is enabled after adding membership
+    collections = db.list_collections(parent_class=parent_class, child_class=child_class)
+    target_collection = next((c for c in collections if c["collection_name"] == collection.value), None)
+    assert target_collection is not None
+
+    # Test error handling for duplicate membership
+    with pytest.raises(AssertionError):
+        db.add_membership(parent_class, child_class, parent_object_name, child_object_name, collection)
+
+    # Test with different objects to ensure method works with multiple memberships
+    child_object_name2 = "TestNode2"
+    db.add_object(child_class, child_object_name2)
+    membership_id2 = db.add_membership(
+        parent_class, child_class, parent_object_name, child_object_name2, collection
+    )
+    assert membership_id2 != membership_id
+    assert membership_id2 == db.get_membership_id(parent_object_name, child_object_name2, collection)
+
 
 def test_object_operations(db_instance_with_schema):
     db = db_instance_with_schema
@@ -160,6 +178,53 @@ def test_object_operations(db_instance_with_schema):
         _ = db.get_object_properties(ClassEnum.Generator, test_object_name, category=test_object_category)
 
     assert len(db.list_objects_by_class(ClassEnum.Generator)) == 3
+
+
+@pytest.mark.object_operations
+def test_update_object(db_instance_with_schema):
+    db = db_instance_with_schema
+
+    # Add categories and object with property
+    db.add_category(ClassEnum.Generator, "Thermal")
+    db.add_category(ClassEnum.Generator, "Solar")
+    object_id = db.add_object(ClassEnum.Generator, "TestGen", category="Thermal")
+
+    # Update name only
+    assert db.update_object(ClassEnum.Generator, "TestGen", new_name="UpdatedGen") is True
+    assert db.get_object_id(ClassEnum.Generator, "UpdatedGen") == object_id
+    assert not db.check_object_exists(ClassEnum.Generator, "TestGen")
+
+    # Update all fields and verify them
+    assert (
+        db.update_object(
+            ClassEnum.Generator,
+            "UpdatedGen",
+            new_name="FinalGen",
+            new_category="Solar",
+            new_description="Updated generator",
+        )
+        is True
+    )
+
+    result = db.query(
+        """
+        SELECT o.name, c.name as category, o.description
+        FROM t_object o
+        LEFT JOIN t_category c ON o.category_id = c.category_id
+        WHERE o.object_id = ?
+    """,
+        (object_id,),
+    )
+    assert result
+    assert result[0][0] == "FinalGen"
+    assert result[0][1] == "Solar"
+    assert result[0][2] == "Updated generator"
+
+    with pytest.raises(AssertionError):
+        db.update_object(ClassEnum.Generator, "NonexistentGen", new_name="NewName")
+
+    with pytest.raises(AssertionError):
+        db.update_object(ClassEnum.Generator, "FinalGen", new_name="Test", new_category="BadCategory")
 
 
 @pytest.mark.adders

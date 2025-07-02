@@ -105,6 +105,7 @@ class CollectionEnum(StrEnum):
     Horizons = "Horizons"
     Report = "Report"
     Reports = "Reports"
+    ReferenceNode = "ReferenceNode"
     PASA = "PASA"
     MTSchedule = "MTSchedule"
     STSchedule = "STSchedule"
