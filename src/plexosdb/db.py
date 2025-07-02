@@ -3243,16 +3243,83 @@ class PlexosDB:
 
     def update_object(
         self,
-        object_name: str,
-        /,
-        *,
         class_enum: ClassEnum,
-        new_name: str | None = None,
+        object_name: str,
+        *,
+        new_name: str,  # Required parameter now
         new_category: str | None = None,
         new_description: str | None = None,
-    ) -> None:
-        """Update an object's attributes."""
-        raise NotImplementedError
+    ) -> bool:
+        """Update an object's attributes.
+
+        Parameters
+        ----------
+        class_enum : ClassEnum
+            Class enumeration of the object
+        object_name : str
+            Current name of the object to update
+        new_name : str
+            New name for the object
+        new_category : str | None, optional
+            New category for the object, by default None
+        new_description : str | None, optional
+            New description for the object, by default None
+
+        Returns
+        -------
+        bool
+            True if the update was successful
+
+        Raises
+        ------
+        AssertionError
+            If the query fails
+
+        See Also
+        --------
+        get_object_id : Get the ID for an object
+        get_category_id : Get the ID for a category
+        add_object : Add a new object to the database
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_object(ClassEnum.Generator, "ThermalGen1", category="Thermal")
+        >>> db.add_object(ClassEnum.Generator, "SolarGen1", category="Solar")
+        >>> # Update just the name
+        >>> db.update_object(ClassEnum.Generator, "ThermalGen1", new_name="SolarGen")
+        True
+        >>> # Update name, category, and description
+        >>> db.update_object(
+        ...     ClassEnum.Generator,
+        ...     "SolarGen",
+        ...     new_name="SolarGen2",
+        ...     new_category="Solar",
+        ...     new_description="Updated from thermal to solar generator",
+        ... )
+        True
+        """
+        object_id = self.get_object_id(class_enum, object_name)
+
+        set_clauses = ["name = ?"]
+        params: list[Any] = [new_name]
+
+        if new_category is not None:
+            category_id = self.get_category_id(class_enum, new_category)
+            set_clauses.append("category_id = ?")
+            params.append(category_id)
+
+        if new_description is not None:
+            set_clauses.append("description = ?")
+            params.append(new_description)
+
+        query = f"UPDATE {Schema.Objects.name} SET {', '.join(set_clauses)} WHERE object_id = ?"
+        params.append(object_id)
+
+        result = self._db.execute(query, tuple(params))
+        assert result
+        return True
 
     def update_properties(self, updates: list[dict]) -> None:
         """Update multiple properties in a single transaction."""
