@@ -2973,6 +2973,7 @@ class PlexosDB:
         placeholders : str
             SQL placeholders string for the queries
         """
+
         def _update_field_data(query_template: str, field_name: str, params: tuple = ()) -> None:
             """Execute query and update base_data with results."""
             query = query_template.format(placeholders=placeholders)
@@ -2989,7 +2990,7 @@ class PlexosDB:
             WHERE txt.data_id IN ({placeholders})
             GROUP BY txt.data_id
             """,
-            "texts"
+            "texts",
         )
 
         # Update tags
@@ -3001,7 +3002,7 @@ class PlexosDB:
             WHERE tag.data_id IN ({placeholders})
             GROUP BY tag.data_id
             """,
-            "tags"
+            "tags",
         )
 
         # Update bands
@@ -3012,7 +3013,7 @@ class PlexosDB:
             WHERE band.data_id IN ({placeholders})
             GROUP BY band.data_id
             """,
-            "bands"
+            "bands",
         )
 
         scenario_query = f"""
