@@ -2807,10 +2807,6 @@ class PlexosDB:
         """
         raise NotImplementedError
 
-    def list_models(self) -> list[dict]:
-        """Return all models in the database."""
-        raise NotImplementedError
-
     def list_objects_by_class(self, class_enum: ClassEnum, /, *, category: str | None = None) -> list[dict]:
         """Return all objects of a specific class.
 
@@ -2923,6 +2919,43 @@ class PlexosDB:
             t_class.name = ?
         """
         result = self.query(query_string, (ClassEnum.Scenario,))
+        assert result
+        return [d[0] for d in result]
+
+    def list_models(self) -> list[str]:
+        """Return all models in the database.
+
+        Returns
+        -------
+        list[str]
+            List of valid models names
+
+        Raises
+        ------
+        AssertionError
+            If the query fails
+
+        See Also
+        --------
+        query : Query the SQL database
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_object(ClassEnum.Model, "model_01")
+        >>> db.list_models()
+        ["model_01"]
+        """
+        query_string = """
+        SELECT
+            t_object.name
+        FROM t_object
+        LEFT JOIN t_class on t_class.class_id = t_object.class_id
+        WHERE
+            t_class.name = ?
+        """
+        result = self.query(query_string, (ClassEnum.Model,))
         assert result
         return [d[0] for d in result]
 

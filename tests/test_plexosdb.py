@@ -293,6 +293,16 @@ def test_list_scenarios(db_instance_with_schema):
 
 
 @pytest.mark.listing
+def test_list_models(db_instance_with_schema):
+    db = db_instance_with_schema
+    test_model_name = "Model01"
+    _ = db.add_object(ClassEnum.Model, test_model_name)
+    models = db.list_models()
+    assert len(models) == 1
+    assert models[0] == test_model_name
+
+
+@pytest.mark.listing
 def test_list_units(db_instance_with_schema):
     db = db_instance_with_schema
     units = db.list_units()
