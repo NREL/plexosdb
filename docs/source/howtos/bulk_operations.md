@@ -24,19 +24,19 @@ db.add_object(ClassEnum.Generator, "Generator3")
 # Prepare the property records
 records = [
     {
-        "object_name": "Generator1",
+        "name": "Generator1",
         "Max Capacity": 100.0,
         "Min Stable Level": 20.0,
         "Heat Rate": 10.5
     },
     {
-        "object_name": "Generator2",
+        "name": "Generator2",
         "Max Capacity": 150.0,
         "Min Stable Level": 30.0,
         "Heat Rate": 9.8
     },
     {
-        "object_name": "Generator3",
+        "name": "Generator3",
         "Max Capacity": 200.0,
         "Min Stable Level": 40.0,
         "Heat Rate": 8.7
@@ -47,7 +47,7 @@ records = [
 db.add_properties_from_records(
     records,
     object_class=ClassEnum.Generator,
-    collection=CollectionEnum.GeneratorProperties,
+    collection=CollectionEnum.Generators,
     scenario="Base Case"
 )
 ```
@@ -67,30 +67,38 @@ Key performance features:
 You can process different types of objects separately:
 
 ```python
+# Add Generator objects
+db.add_object(ClassEnum.Generator, "Generator1")
+db.add_object(ClassEnum.Generator, "Generator2")
+
+# Add Region objects
+db.add_object(ClassEnum.Region, "Region1")
+db.add_object(ClassEnum.Region, "Region2")
+
 # Generator properties
 generator_records = [
-    {"object_name": "Generator1", "Max Capacity": 100.0},
-    {"object_name": "Generator2", "Max Capacity": 150.0}
+    {"name": "Generator1", "Max Capacity": 100.0},
+    {"name": "Generator2", "Max Capacity": 150.0}
 ]
 
 # Region properties
 region_records = [
-    {"object_name": "Region1", "Load Scaling Factor": 1.1},
-    {"object_name": "Region2", "Load Scaling Factor": 0.9}
+    {"name": "Region1", "Load Scaling Factor": 1.1},
+    {"name": "Region2", "Load Scaling Factor": 0.9}
 ]
 
 # Process each set with appropriate parameters
 db.add_properties_from_records(
     generator_records,
     object_class=ClassEnum.Generator,
-    collection=CollectionEnum.GeneratorProperties,
+    collection=CollectionEnum.Generators,
     scenario="Base Case"
 )
 
 db.add_properties_from_records(
     region_records,
     object_class=ClassEnum.Region,
-    collection=CollectionEnum.RegionProperties,
+    collection=CollectionEnum.Regions,
     scenario="Base Case"
 )
 ```
@@ -129,7 +137,7 @@ for i in range(1, 101):  # Create 100 nodes
 parent_class_id = db.get_class_id(ClassEnum.Region)
 child_class_id = db.get_class_id(ClassEnum.Node)
 collection_id = db.get_collection_id(
-    CollectionEnum.RegionNodes,
+    CollectionEnum.ReferenceNode,
     parent_class_enum=ClassEnum.Region,
     child_class_enum=ClassEnum.Node
 )
@@ -146,6 +154,17 @@ membership_records = create_membership_record(
 # Bulk insert all memberships at once
 db.add_memberships_from_records(membership_records)
 ```
+
+
+To identify the correct `CollectionEnum` for your relationship, use the `list_collections` method:
+
+```python
+collection_list = db.list_collections(parent_class=ClassEnum.Region, child_class=ClassEnum.Node)
+print(collection_list)  # Shows available collections for Region-Node relationships
+```
+
+This ensures you're using the exact collection name that exists in your database schema.
+
 
 ### Performance Benefits
 

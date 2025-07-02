@@ -74,7 +74,7 @@ from plexosdb.enums import ClassEnum
 db.add_property(
     ClassEnum.Generator,
     object_name="Generator1",
-    name="Comments",
+    name="Max Capacity",  # Use a valid property name
     value="Main unit",
     text={ClassEnum.Generator: "Primary generation unit"}
 )
@@ -87,18 +87,18 @@ For efficiency when adding many properties at once:
 ```python
 # Prepare property records
 property_records = [
-    {"name": "Generator1", "property": "Max Capacity", "value": 100.0},
-    {"name": "Generator1", "property": "Min Stable Level", "value": 20.0},
-    {"name": "Generator2", "property": "Max Capacity", "value": 150.0},
-    {"name": "Generator2", "property": "Min Stable Level", "value": 30.0},
+    {"name": "Generator1", "Max Capacity": 100.0, "Min Stable Level": 20.0},
+    {"name": "Generator2", "Max Capacity": 150.0, "Min Stable Level": 30.0},
+    {"name": "Generator3", "Max Capacity": 250.0, "Min Stable Level": 10.0},
 ]
 
 # Bulk add properties
 db.add_properties_from_records(
     property_records,
+    object_class=ClassEnum.Generator,
     parent_class=ClassEnum.System,
-    collection=CollectionEnum.GeneratorProperties,
-    scenario="Base Case"
+    collection=CollectionEnum.Generators,
+    scenario="Base Case",
 )
 ```
 
@@ -109,7 +109,7 @@ Before adding properties, you can check if they are valid for a collection:
 ```python
 # Check if properties are valid
 valid_props = db.list_valid_properties(
-    CollectionEnum.GeneratorProperties,
+    CollectionEnum.Generators,
     parent_class_enum=ClassEnum.System,
     child_class_enum=ClassEnum.Generator
 )
