@@ -2810,7 +2810,6 @@ class PlexosDB:
         child_class_id = self.get_class_id(child_class) if child_class else None
         where_clause = ""
 
-
         if parent_class_id or child_class_id:
             where_clause = " WHERE "
 
