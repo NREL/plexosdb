@@ -340,6 +340,16 @@ def test_list_scenarios(db_instance_with_schema):
 
 
 @pytest.mark.listing
+def test_list_models(db_instance_with_schema):
+    db = db_instance_with_schema
+    test_model_name = "Model01"
+    _ = db.add_object(ClassEnum.Model, test_model_name)
+    models = db.list_models()
+    assert len(models) == 1
+    assert models[0] == test_model_name
+
+
+@pytest.mark.listing
 def test_list_units(db_instance_with_schema):
     db = db_instance_with_schema
     units = db.list_units()
@@ -353,6 +363,16 @@ def test_list_classes(db_instance_with_schema):
     classes = db.list_classes()
     assert len(classes) == 8
     assert classes[0] == ClassEnum.System
+
+
+@pytest.mark.listing
+def test_list_collections(db_instance_with_schema):
+    db = db_instance_with_schema
+    collections = db.list_collections()
+    assert isinstance(collections, list)
+    assert len(collections) > 0
+    spec_collections = db.list_collections(parent_class=ClassEnum.Generator, child_class=ClassEnum.Node)
+    assert isinstance(spec_collections, list)
 
 
 @pytest.mark.export

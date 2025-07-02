@@ -2805,11 +2805,32 @@ class PlexosDB:
             List of collections with their details including id, name,
             parent_class, child_class, description, etc.
         """
-        raise NotImplementedError
+        params = []
+        parent_class_id = self.get_class_id(parent_class) if parent_class else None
+        child_class_id = self.get_class_id(child_class) if child_class else None
+        where_clause = ""
 
-    def list_models(self) -> list[dict]:
-        """Return all models in the database."""
-        raise NotImplementedError
+        if parent_class_id or child_class_id:
+            where_clause = " WHERE "
+
+        query_string = """
+            SELECT t_collection.collection_id, t_collection.name AS collection_name,
+            parent_class.name AS parent_class_name, child_class.name AS child_class_name
+            FROM t_collection
+            LEFT JOIN t_class AS parent_class ON parent_class.class_id = t_collection.parent_class_id
+            LEFT JOIN t_class AS child_class ON t_collection.child_class_id = child_class.class_id
+        """
+        if parent_class_id:
+            params.append(parent_class_id)
+            where_clause += "parent_class.class_id = ?"
+        if child_class_id:
+            params.append(child_class_id)
+            if parent_class_id:
+                where_clause += " AND "
+            where_clause += " child_class.class_id = ?"
+
+        result = self._db.iter_dicts(query_string + where_clause, tuple(params))
+        return list(result)
 
     def list_objects_by_class(self, class_enum: ClassEnum, /, *, category: str | None = None) -> list[dict]:
         """Return all objects of a specific class.
@@ -2923,6 +2944,43 @@ class PlexosDB:
             t_class.name = ?
         """
         result = self.query(query_string, (ClassEnum.Scenario,))
+        assert result
+        return [d[0] for d in result]
+
+    def list_models(self) -> list[str]:
+        """Return all models in the database.
+
+        Returns
+        -------
+        list[str]
+            List of valid models names
+
+        Raises
+        ------
+        AssertionError
+            If the query fails
+
+        See Also
+        --------
+        query : Query the SQL database
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_object(ClassEnum.Model, "model_01")
+        >>> db.list_models()
+        ["model_01"]
+        """
+        query_string = """
+        SELECT
+            t_object.name
+        FROM t_object
+        LEFT JOIN t_class on t_class.class_id = t_object.class_id
+        WHERE
+            t_class.name = ?
+        """
+        result = self.query(query_string, (ClassEnum.Model,))
         assert result
         return [d[0] for d in result]
 
