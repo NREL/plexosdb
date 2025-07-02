@@ -337,6 +337,53 @@ def test_get_object_properties(db_instance_with_schema):
     assert object_properties[0]["value"] == test_property_value
 
 
+@pytest.mark.getters
+def test_iterate_properties(db_instance_with_schema):
+    """Test iterator for properties with chunked processing."""
+    db = db_instance_with_schema
+
+    # Add test objects with properties
+    objects = ["Gen1", "Gen2", "Gen3"]
+    properties = {
+        "Max Capacity": [100.0, 200.0, 300.0],
+    }
+
+    # Add generators and their properties
+    for i, obj_name in enumerate(objects):
+        db.add_object(ClassEnum.Generator, obj_name)
+        for prop_name, values in properties.items():
+            db.add_property(ClassEnum.Generator, obj_name, prop_name, values[i])
+
+    # Test iterating all properties
+    all_props = list(db.iterate_properties(ClassEnum.Generator))
+    assert len(all_props) == len(objects) * len(properties)
+
+    # Test filtering by object names
+    filtered_props = list(db.iterate_properties(ClassEnum.Generator, object_names=["Gen1", "Gen2"]))
+    assert len(filtered_props) == 2 * len(properties)
+
+    # Test filtering by property names
+    filtered_props = list(db.iterate_properties(ClassEnum.Generator, property_names=["Max Capacity"]))
+    assert len(filtered_props) == len(objects)
+
+    # Test filtering by both object and property names
+    filtered_props = list(
+        db.iterate_properties(ClassEnum.Generator, object_names=["Gen1"], property_names=["Max Capacity"])
+    )
+    assert len(filtered_props) == 1
+    assert filtered_props[0]["name"] == "Gen1"
+    assert filtered_props[0]["property"] == "Max Capacity"
+    assert filtered_props[0]["value"] == 100.0
+
+    # Test chunked processing
+    chunked_props = list(db.iterate_properties(ClassEnum.Generator, chunk_size=2))
+    assert len(chunked_props) == len(objects) * len(properties)
+
+    # Test with invalid property name
+    with pytest.raises(NameError):
+        list(db.iterate_properties(ClassEnum.Generator, property_names=["Invalid Property"]))
+
+
 @pytest.mark.listing
 def test_list_scenarios(db_instance_with_schema):
     db = db_instance_with_schema
