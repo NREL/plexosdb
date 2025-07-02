@@ -3187,7 +3187,6 @@ class PlexosDB:
         self,
         class_enum: ClassEnum,
         object_name: str,
-        /,
         *,
         new_name: str,  # Required parameter now
         new_category: str | None = None,
@@ -3217,6 +3216,31 @@ class PlexosDB:
         ------
         AssertionError
             If the query fails
+
+        See Also
+        --------
+        get_object_id : Get the ID for an object
+        get_category_id : Get the ID for a category
+        add_object : Add a new object to the database
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_object(ClassEnum.Generator, "ThermalGen1", category="Thermal")
+        >>> db.add_object(ClassEnum.Generator, "SolarGen1", category="Solar")
+        >>> # Update just the name
+        >>> db.update_object(ClassEnum.Generator, "ThermalGen1", new_name="SolarGen")
+        True
+        >>> # Update name, category, and description
+        >>> db.update_object(
+        ...     ClassEnum.Generator,
+        ...     "SolarGen", 
+        ...     new_name="SolarGen2",
+        ...     new_category="Solar",
+        ...     new_description="Updated from thermal to solar generator"
+        ... )
+        True
         """
         object_id = self.get_object_id(class_enum, object_name)
 
