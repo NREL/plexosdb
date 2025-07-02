@@ -23,7 +23,7 @@ db.add_property(
 
 db.add_property(
     ClassEnum.Generator,
-    object_name="Generator1", 
+    object_name="Generator1",
     name="Min Stable Level",
     value=20.0,
     scenario="Base Case"
@@ -51,7 +51,7 @@ db.add_object(ClassEnum.Generator, "Generator1")
 # Add property
 db.add_property(
     ClassEnum.Generator,
-    object_name="Generator1", 
+    object_name="Generator1",
     name="Max Capacity",
     value=20.0,
     scenario="Base Case"
@@ -163,7 +163,7 @@ def duplicate_generator_with_connections(db, original_name, new_name):
 
     # Find and copy all connections
     memberships = db.get_memberships_system(
-        original_name, 
+        original_name,
         object_class=ClassEnum.Generator
     )
 

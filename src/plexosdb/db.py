@@ -705,8 +705,8 @@ class PlexosDB:
         >>> db.add_object(ClassEnum.Generator, "Generator2")
         >>> # Prepare property records
         >>> records = [
-        ...     {"object_name": "Generator1", "Max Capacity": 100.0, "Min Stable Level": 20.0},
-        ...     {"object_name": "Generator2", "Max Capacity": 150.0, "Min Stable Level": 30.0},
+        ...     {"name": "Generator1", "Max Capacity": 100.0, "Min Stable Level": 20.0},
+        ...     {"name": "Generator2", "Max Capacity": 150.0, "Min Stable Level": 30.0},
         ... ]
         >>> # Add properties in bulk
         >>> db.add_properties_from_records(
