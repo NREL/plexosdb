@@ -2959,6 +2959,22 @@ class PlexosDB:
             for row in self.query(query, tuple(chunk_data_ids))
         }
 
+    def _update_field_data(
+        self,
+        base_data: dict[int, dict],
+        chunk_data_ids: list[int],
+        placeholders: str,
+        query_template: str,
+        field_name: str,
+        params: tuple = (),
+    ) -> None:
+        """Execute query and update base_data with results."""
+        query = query_template.format(placeholders=placeholders)
+        query_params = params + tuple(chunk_data_ids) if params else tuple(chunk_data_ids)
+        for row in self.query(query, query_params):
+            if row[0] in base_data:
+                base_data[row[0]][field_name] = row[1] or ""
+
     def _update_chunk_data(
         self, base_data: dict[int, dict], chunk_data_ids: list[int], placeholders: str
     ) -> None:
@@ -2973,17 +2989,11 @@ class PlexosDB:
         placeholders : str
             SQL placeholders string for the queries
         """
-
-        def _update_field_data(query_template: str, field_name: str, params: tuple = ()) -> None:
-            """Execute query and update base_data with results."""
-            query = query_template.format(placeholders=placeholders)
-            query_params = params + tuple(chunk_data_ids) if params else tuple(chunk_data_ids)
-            for row in self.query(query, query_params):
-                if row[0] in base_data:
-                    base_data[row[0]][field_name] = row[1] or ""
-
         # Update texts
-        _update_field_data(
+        self._update_field_data(
+            base_data,
+            chunk_data_ids,
+            placeholders,
             """
             SELECT txt.data_id, GROUP_CONCAT(txt.value, '; ') as text_values
             FROM t_text txt
@@ -2994,7 +3004,10 @@ class PlexosDB:
         )
 
         # Update tags
-        _update_field_data(
+        self._update_field_data(
+            base_data,
+            chunk_data_ids,
+            placeholders,
             """
             SELECT tag.data_id, GROUP_CONCAT(pt.name, '; ') as tag_values
             FROM t_tag tag
@@ -3006,7 +3019,10 @@ class PlexosDB:
         )
 
         # Update bands
-        _update_field_data(
+        self._update_field_data(
+            base_data,
+            chunk_data_ids,
+            placeholders,
             """
             SELECT band.data_id, GROUP_CONCAT(band.band_id, '; ') as band_values
             FROM t_band band
