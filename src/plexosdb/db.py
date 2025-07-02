@@ -374,7 +374,7 @@ class PlexosDB:
         """
         params = (parent_class_id, parent_object_id, collection_id, child_class_id, child_object_id)
         query_status = self._db.execute(query, params)
-        assert query_status, "Membership already exist for the parent and object combination."
+        assert query_status, "Membership already exists for the parent and object combination."
         self._db.execute("UPDATE t_collection set is_enabled=1 where collection_id = ?", (collection_id,))
         return self._db.last_insert_rowid()
 
