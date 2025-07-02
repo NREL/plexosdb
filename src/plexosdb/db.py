@@ -2867,7 +2867,6 @@ class PlexosDB:
         self,
         class_enum: ClassEnum,
         collection_id: int,
-        parent_class: ClassEnum,
         normalized_object_names: list[str] | None,
         normalized_property_names: list[str] | None,
     ) -> list[int]:
@@ -2974,36 +2973,47 @@ class PlexosDB:
         placeholders : str
             SQL placeholders string for the queries
         """
-        text_query = f"""
-        SELECT txt.data_id, GROUP_CONCAT(txt.value, '; ') as text_values
-        FROM t_text txt
-        WHERE txt.data_id IN ({placeholders})
-        GROUP BY txt.data_id
-        """
-        for row in self.query(text_query, tuple(chunk_data_ids)):
-            if row[0] in base_data:
-                base_data[row[0]]["texts"] = row[1] or ""
+        def _update_field_data(query_template: str, field_name: str, params: tuple = ()) -> None:
+            """Execute query and update base_data with results."""
+            query = query_template.format(placeholders=placeholders)
+            query_params = params + tuple(chunk_data_ids) if params else tuple(chunk_data_ids)
+            for row in self.query(query, query_params):
+                if row[0] in base_data:
+                    base_data[row[0]][field_name] = row[1] or ""
 
-        tag_query = f"""
-        SELECT tag.data_id, GROUP_CONCAT(pt.name, '; ') as tag_values
-        FROM t_tag tag
-        JOIN t_property_tag pt ON tag.action_id = pt.tag_id
-        WHERE tag.data_id IN ({placeholders})
-        GROUP BY tag.data_id
-        """
-        for row in self.query(tag_query, tuple(chunk_data_ids)):
-            if row[0] in base_data:
-                base_data[row[0]]["tags"] = row[1] or ""
+        # Update texts
+        _update_field_data(
+            """
+            SELECT txt.data_id, GROUP_CONCAT(txt.value, '; ') as text_values
+            FROM t_text txt
+            WHERE txt.data_id IN ({placeholders})
+            GROUP BY txt.data_id
+            """,
+            "texts"
+        )
 
-        band_query = f"""
-        SELECT band.data_id, GROUP_CONCAT(band.band_id, '; ') as band_values
-        FROM t_band band
-        WHERE band.data_id IN ({placeholders})
-        GROUP BY band.data_id
-        """
-        for row in self.query(band_query, tuple(chunk_data_ids)):
-            if row[0] in base_data:
-                base_data[row[0]]["bands"] = row[1] or ""
+        # Update tags
+        _update_field_data(
+            """
+            SELECT tag.data_id, GROUP_CONCAT(pt.name, '; ') as tag_values
+            FROM t_tag tag
+            JOIN t_property_tag pt ON tag.action_id = pt.tag_id
+            WHERE tag.data_id IN ({placeholders})
+            GROUP BY tag.data_id
+            """,
+            "tags"
+        )
+
+        # Update bands
+        _update_field_data(
+            """
+            SELECT band.data_id, GROUP_CONCAT(band.band_id, '; ') as band_values
+            FROM t_band band
+            WHERE band.data_id IN ({placeholders})
+            GROUP BY band.data_id
+            """,
+            "bands"
+        )
 
         scenario_query = f"""
         SELECT t.data_id, obj.name, cat.name
@@ -3012,10 +3022,9 @@ class PlexosDB:
         JOIN t_object obj ON mem.child_object_id = obj.object_id
         JOIN t_class cls ON mem.child_class_id = cls.class_id
         LEFT JOIN t_category cat ON obj.category_id = cat.category_id
-        WHERE cls.name = '{ClassEnum.Scenario}'
-        AND t.data_id IN ({placeholders})
+        WHERE cls.name = ? AND t.data_id IN ({placeholders})
         """
-        for row in self.query(scenario_query, tuple(chunk_data_ids)):
+        for row in self.query(scenario_query, (ClassEnum.Scenario.value, *chunk_data_ids)):
             if row[0] in base_data:
                 base_data[row[0]]["scenario"] = row[1]
                 base_data[row[0]]["scenario_category"] = row[2]
@@ -3091,7 +3100,7 @@ class PlexosDB:
         )
 
         data_ids = self._get_data_ids(
-            class_enum, collection_id, parent_class, normalized_object_names, normalized_property_names
+            class_enum, collection_id, normalized_object_names, normalized_property_names
         )
 
         if not data_ids:
