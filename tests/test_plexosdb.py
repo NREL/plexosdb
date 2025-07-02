@@ -125,6 +125,24 @@ def test_membership_operations(db_instance_with_schema):
     assert memberships[0]["child"] == child_object_name
     assert memberships[0]["parent"] == parent_object_name
 
+    # Test that collection is enabled after adding membership
+    collections = db.list_collections(parent_class=parent_class, child_class=child_class)
+    target_collection = next((c for c in collections if c["collection_name"] == collection.value), None)
+    assert target_collection is not None
+
+    # Test error handling for duplicate membership
+    with pytest.raises(AssertionError):
+        db.add_membership(parent_class, child_class, parent_object_name, child_object_name, collection)
+
+    # Test with different objects to ensure method works with multiple memberships
+    child_object_name2 = "TestNode2"
+    db.add_object(child_class, child_object_name2)
+    membership_id2 = db.add_membership(
+        parent_class, child_class, parent_object_name, child_object_name2, collection
+    )
+    assert membership_id2 != membership_id
+    assert membership_id2 == db.get_membership_id(parent_object_name, child_object_name2, collection)
+
 
 def test_object_operations(db_instance_with_schema):
     db = db_instance_with_schema
