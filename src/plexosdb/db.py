@@ -3235,10 +3235,10 @@ class PlexosDB:
         >>> # Update name, category, and description
         >>> db.update_object(
         ...     ClassEnum.Generator,
-        ...     "SolarGen", 
+        ...     "SolarGen",
         ...     new_name="SolarGen2",
         ...     new_category="Solar",
-        ...     new_description="Updated from thermal to solar generator"
+        ...     new_description="Updated from thermal to solar generator",
         ... )
         True
         """
