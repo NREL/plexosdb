@@ -387,43 +387,44 @@ def test_list_classes(db_instance_with_schema):
 def test_list_child_objects(db_instance_with_schema):
     db = db_instance_with_schema
 
-    db.add_object(ClassEnum.Region, "Region1")
-    db.add_object(ClassEnum.Node, "Node1")
+    # Use classes that definitely exist in the test schema
+    db.add_object(ClassEnum.Generator, "TestGen")
+    db.add_object(ClassEnum.Node, "TestNode")
 
     children = db.list_child_objects(
-        "Region1",
-        parent_class=ClassEnum.Region,
+        "TestGen",
+        parent_class=ClassEnum.Generator,
         child_class=ClassEnum.Node,
-        collection=CollectionEnum.ReferenceNode,
+        collection=CollectionEnum.Nodes,
     )
     assert len(children) == 0
 
     db.add_membership(
-        parent_class_enum=ClassEnum.Region,
+        parent_class_enum=ClassEnum.Generator,
         child_class_enum=ClassEnum.Node,
-        parent_object_name="Region1",
-        child_object_name="Node1",
-        collection_enum=CollectionEnum.ReferenceNode,
+        parent_object_name="TestGen",
+        child_object_name="TestNode",
+        collection_enum=CollectionEnum.Nodes,
     )
 
-    children = db.list_child_objects("Region1", parent_class=ClassEnum.Region)
+    children = db.list_child_objects("TestGen", parent_class=ClassEnum.Generator)
     assert len(children) == 1
-    assert "Node1" in [child["name"] for child in children]
+    assert "TestNode" in [child["name"] for child in children]
 
     # Test filtering by child class
     children_filtered = db.list_child_objects(
-        "Region1", parent_class=ClassEnum.Region, child_class=ClassEnum.Node
+        "TestGen", parent_class=ClassEnum.Generator, child_class=ClassEnum.Node
     )
     assert len(children_filtered) == 1
 
     # Test filtering by collection
     children_collection = db.list_child_objects(
-        "Region1", parent_class=ClassEnum.Region, collection=CollectionEnum.ReferenceNode
+        "TestGen", parent_class=ClassEnum.Generator, collection=CollectionEnum.Nodes
     )
     assert len(children_collection) == 1
 
     # Test with non-existent parent
-    children_none = db.list_child_objects("Node100", parent_class=ClassEnum.Region)
+    children_none = db.list_child_objects("NonExistentGen", parent_class=ClassEnum.Generator)
     assert len(children_none) == 0
 
 
