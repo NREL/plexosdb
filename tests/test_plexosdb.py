@@ -384,6 +384,113 @@ def test_list_classes(db_instance_with_schema):
 
 
 @pytest.mark.listing
+def test_list_child_objects(db_instance_with_schema):
+    db = db_instance_with_schema
+
+    db.add_object(ClassEnum.Region, "Region1")
+    db.add_object(ClassEnum.Node, "Node1")
+
+    children = db.list_child_objects(
+        "Region1",
+        parent_class=ClassEnum.Region,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.ReferenceNode,
+    )
+    assert len(children) == 0
+
+    db.add_membership(
+        parent_class_enum=ClassEnum.Region,
+        child_class_enum=ClassEnum.Node,
+        parent_object_name="Region1",
+        child_object_name="Node1",
+        collection_enum=CollectionEnum.ReferenceNode,
+    )
+
+    children = db.list_child_objects("Region1", parent_class=ClassEnum.Region)
+    assert len(children) == 1
+    assert "Node1" in [child["name"] for child in children]
+
+    # Test filtering by child class
+    children_filtered = db.list_child_objects(
+        "Region1", parent_class=ClassEnum.Region, child_class=ClassEnum.Node
+    )
+    assert len(children_filtered) == 1
+
+    # Test filtering by collection
+    children_collection = db.list_child_objects(
+        "Region1", parent_class=ClassEnum.Region, collection=CollectionEnum.ReferenceNode
+    )
+    assert len(children_collection) == 1
+
+    # Test with non-existent parent
+    children_none = db.list_child_objects("Node100", parent_class=ClassEnum.Region)
+    assert len(children_none) == 0
+
+
+@pytest.mark.listing
+def test_list_parent_objects(db_instance_with_schema):
+    db = db_instance_with_schema
+
+    db.add_object(ClassEnum.Region, "Region1")
+    db.add_object(ClassEnum.Node, "Node1")
+
+    parents = db.list_parent_objects(
+        "Node1",
+        child_class=ClassEnum.Node,
+        parent_class=ClassEnum.Region,
+        collection=CollectionEnum.ReferenceNode,
+    )
+    assert len(parents) == 0
+
+    db.add_membership(
+        parent_class_enum=ClassEnum.Region,
+        child_class_enum=ClassEnum.Node,
+        parent_object_name="Region1",
+        child_object_name="Node1",
+        collection_enum=CollectionEnum.ReferenceNode,
+    )
+
+    parents = db.list_parent_objects("Node1", child_class=ClassEnum.Node)
+    assert len(parents) == 1
+    assert "Region1" in [parent["name"] for parent in parents]
+
+    # Test filtering by parent class
+    parents_filtered = db.list_parent_objects(
+        "Node1", child_class=ClassEnum.Node, parent_class=ClassEnum.Region
+    )
+    assert len(parents_filtered) == 1
+
+    # Test filtering by collection
+    parents_collection = db.list_parent_objects(
+        "Node1", child_class=ClassEnum.Node, collection=CollectionEnum.ReferenceNode
+    )
+    assert len(parents_collection) == 1
+
+    # Test with non-existent child
+    parents_none = db.list_parent_objects("Node100", child_class=ClassEnum.Node)
+    assert len(parents_none) == 0
+
+    # Test check_membership_exists with non-existent objects
+    membership_with_no_parent = db.check_membership_exists(
+        "Region100",
+        "Node1",
+        parent_class=ClassEnum.Region,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.ReferenceNode,
+    )
+    assert not membership_with_no_parent
+
+    membership_with_no_child = db.check_membership_exists(
+        "Region1",
+        "Node100",
+        parent_class=ClassEnum.Region,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.ReferenceNode,
+    )
+    assert not membership_with_no_child
+
+
+@pytest.mark.listing
 def test_list_collections(db_instance_with_schema):
     db = db_instance_with_schema
     collections = db.list_collections()
