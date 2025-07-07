@@ -3076,8 +3076,110 @@ class PlexosDB:
         parent_class: ClassEnum | None = None,
         collection: CollectionEnum | None = None,
     ) -> list[dict]:
-        """List all parent objects for a given child object."""
-        raise NotImplementedError
+        """List all parent objects for a given child object.
+
+        Retrieves all parent objects that have a membership relationship with the specified
+        child object, optionally filtered by parent class and collection.
+
+        Parameters
+        ----------
+        object_name : str
+            Name of the child object
+        child_class : ClassEnum
+            Class enumeration of the child object
+        parent_class : ClassEnum | None, optional
+            Class enumeration to filter parent objects by, by default None
+        collection : CollectionEnum | None, optional
+            Collection enumeration to filter relationships by, by default None
+
+        Returns
+        -------
+        list[dict]
+            List of dictionaries containing parent object information with keys:
+            - object_id: ID of the parent object
+            - name: Name of the parent object
+            - class_name: Class name of the parent object
+            - collection_name: Name of the collection/relationship type
+            - membership_id: ID of the membership relationship
+
+        Raises
+        ------
+        AssertionError
+            If the child object does not exist
+
+        See Also
+        --------
+        list_child_objects : List child objects for a given parent object
+        get_object_id : Get the ID for an object
+        get_class_id : Get the ID for a class
+        get_collection_id : Get the ID for a collection
+        add_membership : Add a membership between two objects
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_object(ClassEnum.Region, "Region1")
+        >>> db.add_object(ClassEnum.Region, "Region2")
+        >>> db.add_object(ClassEnum.Node, "Node1")
+        >>> db.add_membership(
+        ...     parent_class_enum=ClassEnum.Region,
+        ...     child_class_enum=ClassEnum.Node,
+        ...     parent_object_name="Region1",
+        ...     child_object_name="Node1",
+        ...     collection_enum=CollectionEnum.ReferenceNode,
+        ... )
+        >>> db.add_membership(
+        ...     parent_class_enum=ClassEnum.Region,
+        ...     child_class_enum=ClassEnum.Node,
+        ...     parent_object_name="Region2",
+        ...     child_object_name="Node1",
+        ...     collection_enum=CollectionEnum.ReferenceNode,
+        ... )
+        >>> parents = db.list_parent_objects(
+        ...     "Node1",
+        ...     child_class=ClassEnum.Node,
+        ...     parent_class=ClassEnum.Region,
+        ...     collection=CollectionEnum.ReferenceNode,
+        ... )
+        >>> parents[0]["name"]
+        'Region1'
+        """
+        try:
+            child_object_id = self.get_object_id(child_class, object_name)
+        except AssertionError:
+            return []
+
+        query = """
+        SELECT
+            parent_obj.object_id,
+            parent_obj.name,
+            parent_class.name AS class_name,
+            coll.name AS collection_name,
+            mem.membership_id
+        FROM t_membership mem
+        JOIN t_object parent_obj ON mem.parent_object_id = parent_obj.object_id
+        JOIN t_object child_obj ON mem.child_object_id = child_obj.object_id
+        JOIN t_class parent_class ON mem.parent_class_id = parent_class.class_id
+        JOIN t_class child_class ON mem.child_class_id = child_class.class_id
+        JOIN t_collection coll ON mem.collection_id = coll.collection_id
+        WHERE child_obj.object_id = ?
+        """
+
+        params: list[Any] = [child_object_id]
+
+        if parent_class is not None:
+            query += " AND parent_class.name = ?"
+            params.append(parent_class.name)
+
+        if collection is not None:
+            query += " AND coll.name = ?"
+            params.append(collection.name)
+
+        query += " ORDER BY parent_obj.name"
+
+        result = self._db.fetchall_dict(query, tuple(params))
+        return result
 
     def list_reports(self) -> list[dict]:
         """List all defined reports in the database."""
