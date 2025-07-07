@@ -431,61 +431,82 @@ def test_list_child_objects(db_instance_with_schema):
 def test_list_parent_objects(db_instance_with_schema):
     db = db_instance_with_schema
 
-    db.add_object(ClassEnum.Region, "Region1")
-    db.add_object(ClassEnum.Node, "Node1")
+    # Use classes that are known to exist in the test schema
+    db.add_object(ClassEnum.Generator, "TestGen")
+    db.add_object(ClassEnum.Node, "TestNode")
+
+    # Test check_membership_exists before membership creation
+    membership_exists = db.check_membership_exists(
+        "TestGen",
+        "TestNode",
+        parent_class=ClassEnum.Generator,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.Nodes,
+    )
+    assert not membership_exists
 
     parents = db.list_parent_objects(
-        "Node1",
+        "TestNode",
         child_class=ClassEnum.Node,
-        parent_class=ClassEnum.Region,
-        collection=CollectionEnum.ReferenceNode,
+        parent_class=ClassEnum.Generator,
+        collection=CollectionEnum.Nodes,
     )
     assert len(parents) == 0
 
     db.add_membership(
-        parent_class_enum=ClassEnum.Region,
+        parent_class_enum=ClassEnum.Generator,
         child_class_enum=ClassEnum.Node,
-        parent_object_name="Region1",
-        child_object_name="Node1",
-        collection_enum=CollectionEnum.ReferenceNode,
+        parent_object_name="TestGen",
+        child_object_name="TestNode",
+        collection_enum=CollectionEnum.Nodes,
     )
 
-    parents = db.list_parent_objects("Node1", child_class=ClassEnum.Node)
-    assert len(parents) == 1
-    assert "Region1" in [parent["name"] for parent in parents]
+    # Test check_membership_exists after membership creation
+    membership_exists = db.check_membership_exists(
+        "TestGen",
+        "TestNode",
+        parent_class=ClassEnum.Generator,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.Nodes,
+    )
+    assert membership_exists
+
+    parents = db.list_parent_objects("TestNode", child_class=ClassEnum.Node)
+    assert len(parents) == 2
+    assert "TestGen" in [parent["name"] for parent in parents]
 
     # Test filtering by parent class
     parents_filtered = db.list_parent_objects(
-        "Node1", child_class=ClassEnum.Node, parent_class=ClassEnum.Region
+        "TestNode", child_class=ClassEnum.Node, parent_class=ClassEnum.Generator
     )
     assert len(parents_filtered) == 1
 
     # Test filtering by collection
     parents_collection = db.list_parent_objects(
-        "Node1", child_class=ClassEnum.Node, collection=CollectionEnum.ReferenceNode
+        "TestNode", child_class=ClassEnum.Node, collection=CollectionEnum.Nodes
     )
-    assert len(parents_collection) == 1
+    assert len(parents_collection) == 2
 
     # Test with non-existent child
-    parents_none = db.list_parent_objects("Node100", child_class=ClassEnum.Node)
+    parents_none = db.list_parent_objects("NonExistentNode", child_class=ClassEnum.Node)
     assert len(parents_none) == 0
 
     # Test check_membership_exists with non-existent objects
     membership_with_no_parent = db.check_membership_exists(
-        "Region100",
-        "Node1",
-        parent_class=ClassEnum.Region,
+        "NonExistentGen",
+        "TestNode",
+        parent_class=ClassEnum.Generator,
         child_class=ClassEnum.Node,
-        collection=CollectionEnum.ReferenceNode,
+        collection=CollectionEnum.Nodes,
     )
     assert not membership_with_no_parent
 
     membership_with_no_child = db.check_membership_exists(
-        "Region1",
-        "Node100",
-        parent_class=ClassEnum.Region,
+        "TestGen",
+        "NonExistentNode",
+        parent_class=ClassEnum.Generator,
         child_class=ClassEnum.Node,
-        collection=CollectionEnum.ReferenceNode,
+        collection=CollectionEnum.Nodes,
     )
     assert not membership_with_no_child
 
