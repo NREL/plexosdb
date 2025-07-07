@@ -25,7 +25,7 @@ db.add_membership(
     child_class_enum=ClassEnum.Node,
     parent_object_name="Region1",
     child_object_name="Node1",
-    collection_enum=CollectionEnum.RegionNodes
+    collection_enum=CollectionEnum.ReferenceNode
 )
 
 # Add another node to the region
@@ -34,7 +34,7 @@ db.add_membership(
     child_class_enum=ClassEnum.Node,
     parent_object_name="Region1",
     child_object_name="Node2",
-    collection_enum=CollectionEnum.RegionNodes
+    collection_enum=CollectionEnum.ReferenceNode
 )
 ```
 
@@ -49,7 +49,7 @@ membership_exists = db.check_membership_exists(
     "Node1",
     parent_class=ClassEnum.Region,
     child_class=ClassEnum.Node,
-    collection=CollectionEnum.RegionNodes
+    collection=CollectionEnum.ReferenceNode
 )
 
 if membership_exists:
@@ -67,14 +67,14 @@ Retrieve membership information:
 membership_id = db.get_membership_id(
     "Region1",
     "Node1",
-    CollectionEnum.RegionNodes
+    CollectionEnum.ReferenceNode
 )
 print(f"Membership ID: {membership_id}")
 
 # Get all memberships for an object
 memberships = db.get_object_memberships(
     "Node1",
-    object_class=ClassEnum.Node
+    class_enum=ClassEnum.Node
 )
 
 for membership in memberships:
@@ -94,7 +94,7 @@ child_objects = db.list_child_objects(
     "Region1",
     parent_class=ClassEnum.Region,
     child_class=ClassEnum.Node,
-    collection=CollectionEnum.RegionNodes
+    collection=CollectionEnum.ReferenceNode
 )
 
 print("Nodes in Region1:")
@@ -112,7 +112,7 @@ parent_objects = db.list_parent_objects(
     "Node1",
     child_class=ClassEnum.Node,
     parent_class=ClassEnum.Region,
-    collection=CollectionEnum.RegionNodes
+    collection=CollectionEnum.ReferenceNode
 )
 
 print("Regions containing Node1:")
@@ -133,14 +133,42 @@ membership_records = [
     # Add more relationships as needed
 ]
 
-# Bulk add memberships
-db.add_memberships_from_records(
-    membership_records,
-    parent_class=ClassEnum.Region,
-    child_class=ClassEnum.Node,
-    collection=CollectionEnum.RegionNodes,
-    create_missing_objects=True  # This will create Node3 if it doesn't exist
+# Add objects if they do not exist yet
+try:
+    db.add_object(ClassEnum.Region, "Region1")
+except:
+    pass
+
+for record in membership_records:
+    try:
+        db.add_object(ClassEnum.Node, record["child"])
+    except:
+        pass
+
+db_records = []
+parent_class_id = db.get_class_id(ClassEnum.Region)
+child_class_id = db.get_class_id(ClassEnum.Node)
+collection_id = db.get_collection_id(
+    CollectionEnum.ReferenceNode,
+    ClassEnum.Region,
+    ClassEnum.Node
+
 )
+
+for record in membership_records:
+    parent_object_id = db.get_object_id(ClassEnum.Region, record["parent"])
+    child_object_id = db.get_object_id(ClassEnum.Node, record["child"])
+
+    db_records.append({
+        "parent_class_id": parent_class_id,
+        "parent_object_id": parent_object_id,
+        "collection_id": collection_id,
+        "child_class_id": child_class_id,
+        "child_object_id": child_object_id,
+    })
+
+# Bulk add memberships
+db.add_memberships_from_records(db_records)
 ```
 
 ```{note}
