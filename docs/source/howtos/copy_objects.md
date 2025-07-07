@@ -75,7 +75,7 @@ When copying an object, its memberships are also copied:
 db.add_object(ClassEnum.Region, "Region1")
 db.add_object(ClassEnum.Node, "Node1")
 
-# Add membekrship
+# Add membership
 db.add_membership(
     parent_class_enum=ClassEnum.Region,
     child_class_enum=ClassEnum.Node,

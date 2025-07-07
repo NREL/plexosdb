@@ -152,7 +152,6 @@ collection_id = db.get_collection_id(
     CollectionEnum.ReferenceNode,
     ClassEnum.Region,
     ClassEnum.Node
-
 )
 
 for record in membership_records:

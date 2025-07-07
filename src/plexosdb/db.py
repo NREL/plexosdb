@@ -1228,8 +1228,8 @@ class PlexosDB:
             child_object_id = self.get_object_id(child_class, child_object_name)
             collection_id = self.get_collection_id(collection, parent_class, child_class)
 
-            query = f"""
-            SELECT 1 FROM {Schema.Memberships.name}
+            query = """
+            SELECT 1 FROM t_membership
             WHERE parent_object_id = ?
             AND child_object_id = ?
             AND collection_id = ?
