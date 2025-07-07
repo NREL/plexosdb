@@ -1163,8 +1163,82 @@ class PlexosDB:
         child_class: ClassEnum,
         collection: CollectionEnum,
     ) -> bool:
-        """Check if a membership exists between two objects."""
-        raise NotImplementedError
+        """Check if a membership exists between two objects.
+
+        Determines whether a membership relationship exists between the specified
+        parent and child objects within the given collection.
+
+        Parameters
+        ----------
+        parent_object_name : str
+            Name of the parent object
+        child_object_name : str
+            Name of the child object
+        parent_class : ClassEnum
+            Class enumeration of the parent object
+        child_class : ClassEnum
+            Class enumeration of the child object
+        collection : CollectionEnum
+            Collection enumeration defining the relationship type
+
+        Returns
+        -------
+        bool
+            True if the membership exists, False otherwise
+
+        See Also
+        --------
+        add_membership : Add a membership between two objects
+        get_membership_id : Get the ID for an existing membership
+        get_object_id : Get the ID for an object
+        get_collection_id : Get the ID for a collection
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_object(ClassEnum.Region, "Region1")
+        >>> db.add_object(ClassEnum.Node, "Node1")
+        >>> db.add_membership(
+        ...     parent_class_enum=ClassEnum.Region,
+        ...     child_class_enum=ClassEnum.Node,
+        ...     parent_object_name="Region1",
+        ...     child_object_name="Node1",
+        ...     collection_enum=CollectionEnum.ReferenceNode,
+        ... )
+        >>> db.check_membership_exists(
+        ...     "Region1",
+        ...     "Node1",
+        ...     parent_class=ClassEnum.Region,
+        ...     child_class=ClassEnum.Node,
+        ...     collection=CollectionEnum.ReferenceNode,
+        ... )
+        True
+        >>> db.check_membership_exists(
+        ...     "Region1",
+        ...     "Node100",
+        ...     parent_class=ClassEnum.Region,
+        ...     child_class=ClassEnum.Node,
+        ...     collection=CollectionEnum.ReferenceNode,
+        ... )
+        False
+        """
+        try:
+            parent_object_id = self.get_object_id(parent_class, parent_object_name)
+            child_object_id = self.get_object_id(child_class, child_object_name)
+            collection_id = self.get_collection_id(collection, parent_class, child_class)
+
+            query = f"""
+            SELECT 1 FROM {Schema.Memberships.name}
+            WHERE parent_object_id = ?
+            AND child_object_id = ?
+            AND collection_id = ?
+            """
+            result = self._db.query(query, (parent_object_id, child_object_id, collection_id))
+            return bool(result)
+
+        except AssertionError:
+            return False
 
     def check_object_exists(self, class_enum: ClassEnum, name: str) -> bool:
         """Check if an object exists in the database.
