@@ -17,6 +17,7 @@ from .enums import ClassEnum, CollectionEnum, Schema, get_default_collection, st
 from .exceptions import (
     NameError,
     NoPropertiesError,
+    NotFoundError,
 )
 from .utils import create_membership_record, no_space, normalize_names, prepare_sql_data_params
 from .xml_handler import XMLHandler
@@ -859,9 +860,9 @@ class PlexosDB:
         """
         # Ensure object exist
         if not self.check_object_exists(object_class_enum, object_name):
-            msg = f"Object = `{name}` does not exist on the system. "
+            msg = f"Object = `{object_name}` does not exist on the system. "
             f"Check available objects for class `{object_class_enum}` using `list_objects_by_class`"
-            raise NameError(msg)
+            raise NotFoundError(msg)
         _ = self.get_object_id(object_class_enum, object_name)
 
         if not collection_enum:
@@ -1390,12 +1391,12 @@ class PlexosDB:
         # If we do not find a membership, we just look for the system membership
         if not membership_mapping:
             membership_mapping = {}
-            system_membership_id = self.get_object_memberships(
-                original_object_name, class_enum=object_class, include_system_membership=True
-            )[0]["membership_id"]
-            new_membership_id = self.get_object_memberships(
-                new_object_name, class_enum=object_class, include_system_membership=True
-            )[0]["membership_id"]
+            system_membership_id = self.list_object_memberships(object_class, original_object_name)[0][
+                "membership_id"
+            ]
+            new_membership_id = self.list_object_memberships(object_class, new_object_name)[0][
+                "membership_id"
+            ]
             membership_mapping[system_membership_id] = new_membership_id
 
         data_ids = self.get_object_data_ids(object_class, name=original_object_name)
@@ -1410,11 +1411,13 @@ class PlexosDB:
     def copy_object_memberships(self, object_class, original_name: str, new_name: str) -> dict[int, int]:
         """Copy all existing memberships of old object to the new object."""
         membership_mapping: dict[int, int] = {}
-        all_memberships = self.get_object_memberships(original_name, class_enum=object_class)
+        all_memberships = self.list_object_memberships(
+            object_class, original_name, exclude_system_membership=True
+        )
         for membership in all_memberships:
             membership_mapping = {}
-            parent_name = membership["parent"]
-            child_name = membership["child"]
+            parent_name = membership["parent_name"]
+            child_name = membership["child_name"]
             parent_class = ClassEnum[membership["parent_class_name"]]
             child_class = ClassEnum[membership["child_class_name"]]
             collection = CollectionEnum[membership["collection_name"]]
@@ -1609,9 +1612,18 @@ class PlexosDB:
         """Delete metadata from an entity."""
         raise NotImplementedError
 
-    def delete_object(self, object_name: str, /, *, class_enum: ClassEnum, cascade: bool = True) -> None:
-        """Delete an object from the database."""
-        raise NotImplementedError
+    def delete_object(self, class_enum: ClassEnum, /, *, name: str) -> None:
+        """Delete an object and its memberhips from the database.
+
+        Default behaviour is to remove all the references of the object including memberships and data.
+        """
+        object_id = self.get_object_id(class_enum, name=name)
+        delete_query = "DELETE FROM t_object WHERE object_id = ?"
+
+        # Handle delete in transaction in case an error happens.
+        with self._db.transaction():
+            self._db.execute(delete_query, (object_id,))
+        return
 
     def delete_property(
         self,
@@ -1757,7 +1769,9 @@ class PlexosDB:
         AND t_class.name = ?
         """
         result = self._db.fetchone(query, (name, class_enum))
-        assert result
+        if not result:
+            msg = f"Category = `{name} not found on the database."
+            raise NotFoundError(msg)
         return result[0]
 
     def get_category_max_id(self, class_enum: ClassEnum) -> int:
@@ -1972,36 +1986,34 @@ class PlexosDB:
         assert result
         return result[0]
 
-    def get_object_memberships(
+    def list_object_memberships(
         self,
-        *object_names: Iterable[str] | str,
         class_enum: ClassEnum,
-        parent_class_enum: ClassEnum | None = None,
+        /,
+        name: str,
         category: str | None = None,
-        collection_enum: CollectionEnum | None = None,
-        include_system_membership: bool = False,
+        collection: CollectionEnum | None = None,
+        exclude_system_membership: bool = False,
     ) -> list[dict[str, Any]]:
-        """Retrieve all memberships for the given object(s).
+        """Retrieve all memberships for a given object.
+
+        By default it does not return the system membership.
 
         Parameters
         ----------
-        object_names : str or list[str]
-            Name or list of names of the objects to get their memberships.
-            You can pass multiple string arguments or a single list of strings.
         class_enum : ClassEnum
-            Class of the objects.
-        parent_class_enum : ClassEnum | None, optional
-            Class of the parent object. Defaults to object_class if not provided.
+            Class of the object
+        name : str
+            Name of the object to get its memberships.
         collection : CollectionEnum | None, optional
             Collection to filter memberships.
-        include_system_membership : bool, optional
-            If False (default), exclude system memberships (where parent_class is System).
-            If True, include them.
+        exclude_system_membership : bool, optional
+            If True, exclude system memberships.
 
         Returns
         -------
-        list[tuple]
-            A list of tuples representing memberships. Each tuple is structured as:
+        list[dict]
+            A list of dicts representing memberships. Each tuple is structured as:
             (parent_class_id, child_class_id, parent_object_name, child_object_name, collection_id,
             return self.query(query_string=query_string, params=params)
             parent_class_name, collection_name).
@@ -2011,15 +2023,12 @@ class PlexosDB:
         KeyError
             If any of the object_names do not exist.
         """
-        object_ids = tuple(self.get_objects_id(*object_names, class_enum=class_enum))
+        object_id = self.get_object_id(class_enum, name=name)
         query_string = """
         SELECT
             mem.membership_id,
-            mem.parent_class_id,
-            mem.child_class_id,
-            parent_object.name AS parent,
-            child_object.name AS child,
-            mem.collection_id,
+            parent_object.name AS parent_name,
+            child_object.name AS child_name,
             parent_class.name AS parent_class_name,
             child_class.name AS child_class_name,
             collections.name AS collection_name
@@ -2036,27 +2045,27 @@ class PlexosDB:
         LEFT JOIN
             t_collection AS collections ON mem.collection_id = collections.collection_id
         """
-        conditions = []
-        if not include_system_membership:
-            conditions.append(f"parent_class.name <> '{ClassEnum.System.name}'")
-        if not parent_class_enum:
-            parent_class_enum = class_enum
-        if collection_enum:
-            conditions.append(
-                f"parent_class.name = '{parent_class_enum.value}' "
-                f"and collections.name = '{collection_enum.value}'"
-            )
 
-        object_placeholders = ", ".join("?" * len(object_ids))
-        conditions.append(
-            f"(child_object.object_id in ({object_placeholders}) "
-            f"OR parent_object.object_id in ({object_placeholders}))"
+        query_conditions = []
+        params = {}
+
+        # We first add conditions for looking the object.
+        query_conditions.append(
+            "(child_object.object_id = :object_id OR parent_object.object_id = :object_id)"
         )
-        if conditions:
-            query_string += " WHERE " + " AND ".join(conditions)
-        return self._db.fetchall_dict(
-            query_string, object_ids + object_ids
-        )  #  Passing obth for parent and child
+        params["object_id"] = object_id
+
+        # Query filtering
+        if exclude_system_membership:
+            query_conditions.append("parent_class.name <> :parent_class_name")
+            params["parent_class_name"] = ClassEnum.System.name
+        if collection:
+            query_conditions.append("collections.name = :collection_name")
+            params["collection_name"] = collection.name
+
+        query_string += " WHERE " + " AND ".join(query_conditions)
+
+        return self._db.fetchall_dict(query_string, params=params)
 
     def get_memberships_system(
         self,
@@ -2491,6 +2500,9 @@ class PlexosDB:
             params.append(category_id)
             query += "AND obj.category_id = ?"
         result = self._db.fetchone(query, tuple(params))
+        if not result:
+            msg = f"Object = {name} not found on the database."
+            raise NotFoundError(msg)
         assert result
         return result[0]
 
@@ -3064,7 +3076,6 @@ class PlexosDB:
         class_id = self.get_class_id(class_enum)
         query = f"SELECT name from {Schema.Objects.name} WHERE class_id = ?"
         result = self._db.query(query, (class_id,))
-        assert result
         return [d[0] for d in result]
 
     def list_parent_objects(

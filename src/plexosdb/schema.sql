@@ -307,6 +307,8 @@ CREATE TABLE `t_membership`
     UNIQUE(`parent_object_id`, `collection_id`, `child_object_id`)
     CONSTRAINT PK_t_membership
                PRIMARY KEY (`membership_id`)
+    FOREIGN KEY (`parent_object_id`) REFERENCES `t_object`(`object_id`) ON DELETE CASCADE
+    FOREIGN KEY (`child_object_id`) REFERENCES `t_object`(`object_id`) ON DELETE CASCADE
 );
 
 
@@ -338,8 +340,8 @@ CREATE TABLE `t_data`
     `value` FLOAT NULL,
     `state` INT NULL,
     `uid` BIGINT NULL,
-    CONSTRAINT PK_t_data
-               PRIMARY KEY (`data_id`)
+    CONSTRAINT PK_t_data PRIMARY KEY (`data_id`)
+    FOREIGN KEY (`membership_id`) REFERENCES `t_membership`(`membership_id`) ON DELETE CASCADE
 );
 
 CREATE TABLE `t_date_from`

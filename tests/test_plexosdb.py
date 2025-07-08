@@ -2,7 +2,7 @@ import pytest
 
 from plexosdb.db import PlexosDB
 from plexosdb.enums import ClassEnum, CollectionEnum
-from plexosdb.exceptions import NameError, NoPropertiesError
+from plexosdb.exceptions import NameError, NoPropertiesError, NotFoundError
 
 
 def test_smoke_test():
@@ -118,12 +118,12 @@ def test_membership_operations(db_instance_with_schema):
     )
     assert membership_id == db.get_membership_id(parent_object_name, child_object_name, collection)
 
-    memberships = db.get_object_memberships(child_object_name, class_enum=child_class)
+    memberships = db.list_object_memberships(child_class, child_object_name, exclude_system_membership=True)
     assert memberships
     assert len(memberships) == 1
     assert memberships[0]["membership_id"] == membership_id
-    assert memberships[0]["child"] == child_object_name
-    assert memberships[0]["parent"] == parent_object_name
+    assert memberships[0]["child_name"] == child_object_name
+    assert memberships[0]["parent_name"] == parent_object_name
 
     # Test that collection is enabled after adding membership
     collections = db.list_collections(parent_class=parent_class, child_class=child_class)
@@ -220,10 +220,10 @@ def test_update_object(db_instance_with_schema):
     assert result[0][1] == "Solar"
     assert result[0][2] == "Updated generator"
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(NotFoundError):
         db.update_object(ClassEnum.Generator, "NonexistentGen", new_name="NewName")
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(NotFoundError):
         db.update_object(ClassEnum.Generator, "FinalGen", new_name="Test", new_category="BadCategory")
 
 
@@ -234,7 +234,7 @@ def test_add_property_to_object(db_instance_with_schema):
     test_property_name = "Max Capacity"
     test_property_value = 100.0
 
-    with pytest.raises(NameError):
+    with pytest.raises(NotFoundError):
         _ = db.add_property(ClassEnum.Generator, test_object_name, test_property_name, test_property_value)
 
     _ = db.add_object(ClassEnum.Generator, test_object_name)
