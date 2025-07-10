@@ -384,6 +384,135 @@ def test_list_classes(db_instance_with_schema):
 
 
 @pytest.mark.listing
+def test_list_child_objects(db_instance_with_schema):
+    db = db_instance_with_schema
+
+    # Use classes that definitely exist in the test schema
+    db.add_object(ClassEnum.Generator, "TestGen")
+    db.add_object(ClassEnum.Node, "TestNode")
+
+    children = db.list_child_objects(
+        "TestGen",
+        parent_class=ClassEnum.Generator,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.Nodes,
+    )
+    assert len(children) == 0
+
+    db.add_membership(
+        parent_class_enum=ClassEnum.Generator,
+        child_class_enum=ClassEnum.Node,
+        parent_object_name="TestGen",
+        child_object_name="TestNode",
+        collection_enum=CollectionEnum.Nodes,
+    )
+
+    children = db.list_child_objects("TestGen", parent_class=ClassEnum.Generator)
+    assert len(children) == 1
+    assert "TestNode" in [child["name"] for child in children]
+
+    # Test filtering by child class
+    children_filtered = db.list_child_objects(
+        "TestGen", parent_class=ClassEnum.Generator, child_class=ClassEnum.Node
+    )
+    assert len(children_filtered) == 1
+
+    # Test filtering by collection
+    children_collection = db.list_child_objects(
+        "TestGen", parent_class=ClassEnum.Generator, collection=CollectionEnum.Nodes
+    )
+    assert len(children_collection) == 1
+
+    # Test with non-existent parent
+    children_none = db.list_child_objects("NonExistentGen", parent_class=ClassEnum.Generator)
+    assert len(children_none) == 0
+
+
+@pytest.mark.listing
+def test_list_parent_objects(db_instance_with_schema):
+    db = db_instance_with_schema
+
+    # Use classes that are known to exist in the test schema
+    db.add_object(ClassEnum.Generator, "TestGen")
+    db.add_object(ClassEnum.Node, "TestNode")
+
+    # Test check_membership_exists before membership creation
+    membership_exists = db.check_membership_exists(
+        "TestGen",
+        "TestNode",
+        parent_class=ClassEnum.Generator,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.Nodes,
+    )
+    assert not membership_exists
+
+    parents = db.list_parent_objects(
+        "TestNode",
+        child_class=ClassEnum.Node,
+        parent_class=ClassEnum.Generator,
+        collection=CollectionEnum.Nodes,
+    )
+    assert len(parents) == 0
+
+    db.add_membership(
+        parent_class_enum=ClassEnum.Generator,
+        child_class_enum=ClassEnum.Node,
+        parent_object_name="TestGen",
+        child_object_name="TestNode",
+        collection_enum=CollectionEnum.Nodes,
+    )
+
+    # Test check_membership_exists after membership creation
+    membership_exists = db.check_membership_exists(
+        "TestGen",
+        "TestNode",
+        parent_class=ClassEnum.Generator,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.Nodes,
+    )
+    assert membership_exists
+
+    parents = db.list_parent_objects("TestNode", child_class=ClassEnum.Node)
+    assert len(parents) == 2
+    assert "TestGen" in [parent["name"] for parent in parents]
+
+    # Test filtering by parent class
+    parents_filtered = db.list_parent_objects(
+        "TestNode", child_class=ClassEnum.Node, parent_class=ClassEnum.Generator
+    )
+    assert len(parents_filtered) == 1
+
+    # Test filtering by collection
+    parents_collection = db.list_parent_objects(
+        "TestNode", child_class=ClassEnum.Node, collection=CollectionEnum.Nodes
+    )
+    assert len(parents_collection) == 2
+
+    # Test with non-existent child
+    parents_none = db.list_parent_objects("NonExistentNode", child_class=ClassEnum.Node)
+    assert len(parents_none) == 0
+
+    # Test check_membership_exists with non-existent objects
+    membership_with_no_parent = db.check_membership_exists(
+        "NonExistentGen",
+        "TestNode",
+        parent_class=ClassEnum.Generator,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.Nodes,
+    )
+    assert not membership_with_no_parent
+
+    membership_with_no_child = db.check_membership_exists(
+        "TestGen",
+        "NonExistentNode",
+        parent_class=ClassEnum.Generator,
+        child_class=ClassEnum.Node,
+        collection=CollectionEnum.Nodes,
+    )
+    assert not membership_with_no_child
+
+
+@pytest.mark.listing
 def test_list_collections(db_instance_with_schema):
     db = db_instance_with_schema
     collections = db.list_collections()

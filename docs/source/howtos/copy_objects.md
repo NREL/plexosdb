@@ -13,6 +13,22 @@ from plexosdb.enums import ClassEnum
 # Initialize database
 db = PlexosDB.from_xml("/path/to/model.xml")
 
+db.add_property(
+    ClassEnum.Generator,
+    object_name="Generator1",
+    name="Max Capacity",
+    value=100.0,
+    scenario="Base Case"
+)
+
+db.add_property(
+    ClassEnum.Generator,
+    object_name="Generator1",
+    name="Min Stable Level",
+    value=20.0,
+    scenario="Base Case"
+)
+
 # Copy a generator with all its properties
 new_object_id = db.copy_object(
     object_class=ClassEnum.Generator,
@@ -29,11 +45,23 @@ print(f"Created new object with ID: {new_object_id}")
 You can also copy just the object structure without its properties:
 
 ```python
+# Add Generator object
+db.add_object(ClassEnum.Generator, "Generator1")
+
+# Add property
+db.add_property(
+    ClassEnum.Generator,
+    object_name="Generator1",
+    name="Max Capacity",
+    value=20.0,
+    scenario="Base Case"
+)
+
 # Copy object structure only
 new_object_id = db.copy_object(
     object_class=ClassEnum.Generator,
-    original_object_name="Generator2",
-    new_object_name="Generator2_Skeleton",
+    original_object_name="Generator1",
+    new_object_name="Generator1_Skeleton",
     copy_properties=False
 )
 ```
@@ -46,23 +74,35 @@ When copying an object, its memberships are also copied:
 # First create some objects with memberships
 db.add_object(ClassEnum.Region, "Region1")
 db.add_object(ClassEnum.Node, "Node1")
+
+# Add membership
 db.add_membership(
     parent_class_enum=ClassEnum.Region,
     child_class_enum=ClassEnum.Node,
     parent_object_name="Region1",
     child_object_name="Node1",
-    collection_enum=CollectionEnum.RegionNodes
+    collection_enum=CollectionEnum.ReferenceNode
+)
+
+# Add property
+db.add_property(
+    ClassEnum.Node,
+    object_name="Node1",
+    name="Voltage",  # Common node property
+    value=138.0,
+    scenario="Base Case"
 )
 
 # Now copy the node with its memberships
 new_object_id = db.copy_object(
     object_class=ClassEnum.Node,
     original_object_name="Node1",
-    new_object_name="Node1_Copy"
+    new_object_name="Node1_Copy",
+    copy_properties=False
 )
 
 # Check the memberships of the new object
-memberships = db.get_memberships(
+memberships = db.get_memberships_system(
     "Node1_Copy",
     object_class=ClassEnum.Node
 )
@@ -74,6 +114,17 @@ print(f"New object has {len(memberships)} memberships")
 You can also manually copy specific memberships:
 
 ```python
+db.add_object(ClassEnum.Node, "Node1")
+db.add_object(ClassEnum.Generator, "Generator1")
+
+db.add_membership(
+    parent_class_enum=ClassEnum.Generator,
+    child_class_enum=ClassEnum.Node,
+    parent_object_name="Generator1",
+    child_object_name="Node1",
+    collection_enum=CollectionEnum.Nodes
+)
+
 membership_mapping = db.copy_object_memberships(
     object_class=ClassEnum.Generator,
     original_name="Generator1",
@@ -90,15 +141,31 @@ This example shows how to duplicate a group of related objects:
 ```python
 # Create a function to copy a generator and all its connections
 def duplicate_generator_with_connections(db, original_name, new_name):
+    # Add Generator object
+    db.add_object(ClassEnum.Generator, original_name)
+
+    # Add Generator property
+    db.add_property(
+        ClassEnum.Generator,
+        object_name=original_name,
+        name="Max Capacity",  # Common node property
+        value=138.0,
+        scenario="Base Case"
+    )
+
     # Copy the generator itself
     db.copy_object(
         object_class=ClassEnum.Generator,
         original_object_name=original_name,
-        new_object_name=new_name
+        new_object_name=new_name,
+        copy_properties=False
     )
 
     # Find and copy all connections
-    memberships = db.get_memberships(original_name, object_class=ClassEnum.Generator)
+    memberships = db.get_memberships_system(
+        original_name,
+        object_class=ClassEnum.Generator
+    )
 
     # Process each membership to maintain the network structure
     for membership in memberships:

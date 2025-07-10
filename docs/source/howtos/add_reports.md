@@ -60,6 +60,9 @@ for prop in properties:
 Before adding a report, you can check which properties are valid for reporting:
 
 ```python
+# Make sure the object is added
+db.add_object(ClassEnum.Report, "Generator Report")
+
 # List valid properties available for reporting
 valid_properties = db.list_valid_properties_report(
     CollectionEnum.Generators,
