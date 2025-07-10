@@ -424,12 +424,12 @@ def test_list_child_objects(db_instance_with_schema):
     assert len(children_collection) == 1
 
     # Test with non-existent parent
-    children_none = db.list_child_objects("NonExistentGen", parent_class=ClassEnum.Generator)
-    assert len(children_none) == 0
+    with pytest.raises(NotFoundError):
+        _ = db.list_child_objects("NonExistentGen", parent_class=ClassEnum.Generator)
 
 
 @pytest.mark.listing
-def test_list_parent_objects(db_instance_with_schema):
+def test_list_parent_objects(db_instance_with_schema: PlexosDB):
     db = db_instance_with_schema
 
     # Use classes that are known to exist in the test schema
@@ -489,8 +489,8 @@ def test_list_parent_objects(db_instance_with_schema):
     assert len(parents_collection) == 2
 
     # Test with non-existent child
-    parents_none = db.list_parent_objects("NonExistentNode", child_class=ClassEnum.Node)
-    assert len(parents_none) == 0
+    with pytest.raises(NotFoundError):
+        _ = db.list_parent_objects("NonExistentNode", child_class=ClassEnum.Node)
 
     # Test check_membership_exists with non-existent objects
     membership_with_no_parent = db.check_membership_exists(

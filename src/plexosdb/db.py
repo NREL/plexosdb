@@ -1235,18 +1235,17 @@ class PlexosDB:
             parent_object_id = self.get_object_id(parent_class, parent_object_name)
             child_object_id = self.get_object_id(child_class, child_object_name)
             collection_id = self.get_collection_id(collection, parent_class, child_class)
-
-            query = """
-            SELECT 1 FROM t_membership
-            WHERE parent_object_id = ?
-            AND child_object_id = ?
-            AND collection_id = ?
-            """
-            result = self._db.query(query, (parent_object_id, child_object_id, collection_id))
-            return bool(result)
-
-        except AssertionError:
+        except NotFoundError:
             return False
+
+        query = """
+        SELECT 1 FROM t_membership
+        WHERE parent_object_id = ?
+        AND child_object_id = ?
+        AND collection_id = ?
+        """
+        result = self._db.query(query, (parent_object_id, child_object_id, collection_id))
+        return bool(result)
 
     def check_object_exists(self, class_enum: ClassEnum, name: str) -> bool:
         """Check if an object exists in the database.
