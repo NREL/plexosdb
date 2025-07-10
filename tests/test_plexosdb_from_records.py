@@ -32,8 +32,8 @@ def test_bulk_insert_properties_from_records(db_instance_with_schema):
     assert properties[0]["scenario"] == "Base Case"
 
 
-def test_bulk_insert_memberships_from_records(db_instance_with_schema):
-    db: PlexosDB = db_instance_with_schema
+def test_bulk_insert_memberships_from_records(db_instance_with_schema: PlexosDB):
+    db = db_instance_with_schema
 
     # Create the objects first
     objects = list(f"Generator_{i}" for i in range(5))
@@ -66,13 +66,12 @@ def test_bulk_insert_memberships_from_records(db_instance_with_schema):
     ]
     db.add_memberships_from_records(memberships)
 
-    db_memberships = db.get_object_memberships(
-        objects,
-        class_enum=ClassEnum.Node,
-        parent_class_enum=ClassEnum.Generator,
-        collection_enum=CollectionEnum.Nodes,
+    db_memberships = db.list_object_memberships(
+        ClassEnum.Node,
+        objects[0],
+        collection=CollectionEnum.Nodes,
     )
-    assert len(db_memberships) == 5
+    assert len(db_memberships) == 2  # 1 + system membership
 
     memberships = [
         {
