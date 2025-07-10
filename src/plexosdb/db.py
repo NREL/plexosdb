@@ -1997,7 +1997,7 @@ class PlexosDB:
     ) -> list[dict[str, Any]]:
         """Retrieve all memberships for a given object.
 
-        By default it does not return the system membership.
+        By default it returns the system membership.
 
         Parameters
         ----------
@@ -2047,7 +2047,7 @@ class PlexosDB:
         """
 
         query_conditions = []
-        params = {}
+        params: dict[str, int | float | str] = {}
 
         # We first add conditions for looking the object.
         query_conditions.append(

@@ -52,3 +52,7 @@ def test_delete_object_with_properties(db_instance_with_schema, caplog):
     db.delete_object(object_class, name=object_name)
     with pytest.raises(NoPropertiesError):
         assert not db.get_object_properties(object_class, object_name)
+
+
+def test_delete_properties(db_instance_with_schema: PlexosDB):
+    pass
