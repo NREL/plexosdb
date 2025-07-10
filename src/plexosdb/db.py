@@ -135,6 +135,10 @@ class PlexosDB:
 
         instance = cls(new_db=True, **kwargs)
         instance.create_schema(schema=schema)
+
+        # Temporarily disable foreign key constraints for bulk XML import
+        instance._db.execute("PRAGMA foreign_keys = OFF")
+
         xml_handler = XMLHandler.parse(fpath=xml_path)
         xml_tags = set([e.tag for e in xml_handler.root])  # Extract set of valid tags from xml
         for tag in xml_tags:
@@ -168,6 +172,9 @@ class PlexosDB:
                 insert_result = instance._db.executemany(query, records)
                 if not insert_result:
                     logger.warning(f"No rows inserted for {tag} with columns {column_names}")
+
+        # Re-enable foreign key constraints after import
+        instance._db.execute("PRAGMA foreign_keys = ON")
 
         return instance
 
@@ -1408,7 +1415,9 @@ class PlexosDB:
 
         return new_object_id
 
-    def copy_object_memberships(self, object_class, original_name: str, new_name: str) -> dict[int, int]:
+    def copy_object_memberships(
+        self, object_class: ClassEnum, original_name: str, new_name: str
+    ) -> dict[int, int]:
         """Copy all existing memberships of old object to the new object."""
         membership_mapping: dict[int, int] = {}
         all_memberships = self.list_object_memberships(
@@ -1627,17 +1636,140 @@ class PlexosDB:
 
     def delete_property(
         self,
-        property_name: str,
+        object_class: ClassEnum,
+        object_name: str,
         /,
         *,
-        object_name: str,
-        object_class: ClassEnum,
-        collection: CollectionEnum,
+        property_name: str,
+        collection: CollectionEnum | None = None,
         parent_class: ClassEnum | None = None,
         scenario: str | None = None,
     ) -> None:
-        """Delete a property from an object."""
-        raise NotImplementedError
+        """Delete a property from an object.
+
+        Removes a specific property from an object, including all associated data
+        such as tags (scenarios), text data, and date ranges. If a scenario is
+        specified, only the property data associated with that scenario is deleted.
+
+        Parameters
+        ----------
+        object_class : ClassEnum
+            Class enumeration of the object
+        object_name : str
+            Name of the object containing the property
+        property_name : str
+            Name of the property to delete
+        collection : CollectionEnum | None, optional
+            Collection enumeration for the property. If None, uses the default
+            collection for the object class, by default None
+        parent_class : ClassEnum | None, optional
+            Parent class enumeration for the property. If None, defaults to
+            ClassEnum.System, by default None
+        scenario : str | None, optional
+            Name of the scenario to filter by. If specified, only deletes
+            property data associated with this scenario, by default None
+
+        Raises
+        ------
+        NotFoundError
+            If the object does not exist
+            If the property does not exist for the object
+            If the specified scenario does not exist
+
+        See Also
+        --------
+        delete_object : Delete an entire object and its properties
+        add_property : Add a property to an object
+        get_object_properties : Get properties for an object
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.add_object(ClassEnum.Generator, "Generator1")
+        >>> db.add_property(ClassEnum.Generator, "Generator1", "Max Capacity", 100.0)
+        >>> db.delete_property(ClassEnum.Generator, "Generator1", property_name="Max Capacity")
+        """
+        # Ensure object exists
+        if not self.check_object_exists(object_class, object_name):
+            msg = f"Object = `{object_name}` does not exist for class `{object_class}`."
+            raise NotFoundError(msg)
+
+        # Set defaults
+        collection = collection or get_default_collection(object_class)
+        parent_class = parent_class or ClassEnum.System
+
+        # Validate property exists for this collection
+        valid_properties = self.list_valid_properties(
+            collection, child_class_enum=object_class, parent_class_enum=parent_class
+        )
+        if property_name not in valid_properties:
+            msg = (
+                f"Property '{property_name}' does not exist for collection: {collection}. "
+                f"Run `self.list_valid_properties({collection})` to verify valid properties."
+            )
+            raise NameError(msg)
+
+        # Get IDs for the property lookup
+        property_id = self.get_property_id(
+            property_name,
+            parent_class_enum=parent_class,
+            child_class_enum=object_class,
+            collection_enum=collection,
+        )
+
+        # For parent object name, default to "System" if not specified
+        parent_object_name = "System"  # This matches the pattern used in add_property
+        membership_id = self.get_membership_id(parent_object_name, object_name, collection)
+
+        # Build the delete query
+        if scenario is not None:
+            # Delete only property data associated with the specific scenario
+            if not self.check_scenario_exists(scenario):
+                msg = f"Scenario '{scenario}' does not exist."
+                raise NotFoundError(msg)
+
+            scenario_id = self.get_scenario_id(scenario)
+
+            # Find data_ids that match the property and are tagged with the scenario
+            find_data_query = """
+            SELECT d.data_id
+            FROM t_data d
+            JOIN t_tag t ON d.data_id = t.data_id
+            WHERE d.membership_id = ? AND d.property_id = ? AND t.object_id = ?
+            """
+            data_results = self._db.fetchall(find_data_query, (membership_id, property_id, scenario_id))
+
+            if not data_results:
+                msg = f"Property '{property_name}' with scenario '{scenario}' "
+                msg += f"not found for object '{object_name}'."
+                raise NotFoundError(msg)
+
+            # Delete the data records (cascade will handle related tables)
+            data_ids = [row[0] for row in data_results]
+            placeholders = ",".join("?" * len(data_ids))
+            delete_query = f"DELETE FROM t_data WHERE data_id IN ({placeholders})"
+
+            with self._db.transaction():
+                self._db.execute(delete_query, tuple(data_ids))
+        else:
+            # Delete all property data for this object/property combination
+            find_data_query = """
+            SELECT d.data_id
+            FROM t_data d
+            WHERE d.membership_id = ? AND d.property_id = ?
+            """
+            data_results = self._db.fetchall(find_data_query, (membership_id, property_id))
+
+            if not data_results:
+                msg = f"Property '{property_name}' not found for object '{object_name}'."
+                raise NotFoundError(msg)
+
+            # Delete the data records (cascade will handle related tables)
+            delete_query = "DELETE FROM t_data WHERE membership_id = ? AND property_id = ?"
+
+            with self._db.transaction():
+                self._db.execute(delete_query, (membership_id, property_id))
 
     def delete_text(
         self,
@@ -3024,7 +3156,7 @@ class PlexosDB:
         result = self._db.iter_dicts(query_string + where_clause, tuple(params))
         return list(result)
 
-    def list_objects_by_class(self, class_enum: ClassEnum, /, *, category: str | None = None) -> list[dict]:
+    def list_objects_by_class(self, class_enum: ClassEnum, /, *, category: str | None = None) -> list[str]:
         """Return all objects of a specific class.
 
         Retrieves names of all objects belonging to the specified class,
@@ -3277,7 +3409,7 @@ class PlexosDB:
         assert result
         return [d[0] for d in result]
 
-    def list_units(self) -> list[dict]:
+    def list_units(self) -> list[dict[int, str]]:
         """List all available units in the database."""
         query_string = "SELECT unit_id, value from t_unit"
         result = self.query(query_string)
@@ -3382,7 +3514,7 @@ class PlexosDB:
         assert result
         return [d[0] for d in result]
 
-    def query(self, query_string: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list:
+    def query(self, query_string: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list[Any]:
         """Execute a read-only query and return all results.
 
         Executes a SQL SELECT query against the database and returns the results.

@@ -316,7 +316,7 @@ class SQLiteManager:
         query: str,
         params: tuple[Any, ...] | dict[str, Any] | None = None,
         batch_size: int = 1000,
-    ) -> Iterator:
+    ) -> Iterator[Any]:
         """Execute a read-only query and return an iterator of results.
 
         This is memory-efficient for large result sets. Use only for SELECT statements.
@@ -417,7 +417,7 @@ class SQLiteManager:
             logger.error("Database optimization failed: {}", error)
             return False
 
-    def query(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list:
+    def query(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list[Any]:
         """Execute a read-only query and return all results.
 
         Note: This method should ONLY be used for SELECT statements.
@@ -450,7 +450,7 @@ class SQLiteManager:
         finally:
             cursor.close()
 
-    def fetchall(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list:
+    def fetchall(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list[Any]:
         """Execute a query and return all results as a list of rows.
 
         This method is a standard DB-API style alias for query().
@@ -539,7 +539,7 @@ class SQLiteManager:
 
     def fetchmany(
         self, query: str, size: int = 1000, params: tuple[Any, ...] | dict[str, Any] | None = None
-    ) -> list:
+    ) -> list[Any]:
         """Execute a query and return a specified number of rows.
 
         Parameters
