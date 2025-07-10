@@ -1620,7 +1620,7 @@ class PlexosDB:
         raise NotImplementedError
 
     def delete_object(self, class_enum: ClassEnum, /, *, name: str) -> None:
-        """Delete an object and its memberhips from the database.
+        """Delete an object and its memberships from the database.
 
         Default behaviour is to remove all the references of the object including memberships and data.
         """
