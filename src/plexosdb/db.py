@@ -1902,7 +1902,7 @@ class PlexosDB:
         """
         result = self._db.fetchone(query, (name, class_enum))
         if not result:
-            msg = f"Category = `{name} not found on the database."
+            msg = f"Category = `{name}` not found on the database."
             raise NotFoundError(msg)
         return result[0]
 
