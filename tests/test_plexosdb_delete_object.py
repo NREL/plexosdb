@@ -29,7 +29,7 @@ def test_delete_object_with_no_properties(db_instance_with_schema: PlexosDB, cap
     with pytest.raises(NotFoundError):
         db.list_object_memberships(object_class, object_name)
 
-    # Checck there is no object_id
+    # Check there is no object_id
     with pytest.raises(NotFoundError):
         _ = db.get_object_id(object_class, object_name)
 
