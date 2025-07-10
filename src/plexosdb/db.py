@@ -1424,7 +1424,6 @@ class PlexosDB:
             object_class, original_name, exclude_system_membership=True
         )
         for membership in all_memberships:
-            membership_mapping = {}
             parent_name = membership["parent_name"]
             child_name = membership["child_name"]
             parent_class = ClassEnum[membership["parent_class_name"]]
