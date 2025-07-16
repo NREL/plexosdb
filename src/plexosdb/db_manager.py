@@ -72,9 +72,6 @@ class SQLiteManager(Generic[T]):
                 self._con = sqlite3.connect(str(file_path), isolation_level=None)
                 self._config = config or SQLiteConfig.for_file_database()
             case sqlite3.Connection():
-                if initialize is None:
-                    msg = "initialize argument is required when passing a sqlite3.Connection"
-                    raise ValueError(msg)
                 logger.info("Using existing connection for the database.")
                 self._con = fpath_or_conn
                 self._config = config or SQLiteConfig.for_file_database()
