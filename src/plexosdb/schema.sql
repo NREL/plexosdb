@@ -62,9 +62,15 @@ CREATE TABLE `t_message`
 (
     `number` INT NOT NULL,
     `severity` INT NULL,
-    `default_action` INT NULL, `action` INT NULL, `description` VARCHAR(512) NULL,
+    `default_action` INT NULL,
+    `action` INT NULL,
+    `description` VARCHAR(512) NULL,
     CONSTRAINT PK_t_message
-               PRIMARY KEY (`number`)
+               PRIMARY KEY (`number`),
+    CONSTRAINT FK_t_message_default_action
+               FOREIGN KEY (`default_action`) REFERENCES `t_action`(`action_id`),
+    CONSTRAINT FK_t_message_action
+               FOREIGN KEY (`action`) REFERENCES `t_action`(`action_id`)
 );
 
 CREATE TABLE `t_property_tag`
@@ -79,11 +85,12 @@ CREATE TABLE `t_custom_rule`
 (
     `number` INT AUTO_INCREMENT NOT NULL,
     `condition` VARCHAR(512) NULL,
-
     `action_id` INT NULL,
     `message` VARCHAR(512) NULL,
     CONSTRAINT PK_t_custom_rule
-               PRIMARY KEY (`number`)
+               PRIMARY KEY (`number`),
+    CONSTRAINT FK_t_custom_rule_action
+               FOREIGN KEY (`action_id`) REFERENCES `t_action`(`action_id`)
 );
 
 CREATE TABLE `t_class`
@@ -97,7 +104,11 @@ CREATE TABLE `t_class`
     `state` INT NULL,
     `inherits_from` INT NULL,
     CONSTRAINT PK_t_class
-               PRIMARY KEY (`class_id`)
+               PRIMARY KEY (`class_id`),
+    CONSTRAINT FK_t_class_group
+               FOREIGN KEY (`class_group_id`) REFERENCES `t_class_group`(`class_group_id`),
+    CONSTRAINT FK_t_class_inherits
+               FOREIGN KEY (`inherits_from`) REFERENCES `t_class`(`class_id`)
 );
 
 CREATE TABLE `t_collection`
@@ -118,7 +129,11 @@ CREATE TABLE `t_collection`
     `complement_description` VARCHAR(255) NULL,
     `rank` INT NULL,
     CONSTRAINT PK_t_collection
-               PRIMARY KEY (`collection_id`)
+               PRIMARY KEY (`collection_id`),
+    CONSTRAINT FK_t_collection_parent_class
+               FOREIGN KEY (`parent_class_id`) REFERENCES `t_class`(`class_id`),
+    CONSTRAINT FK_t_collection_child_class
+               FOREIGN KEY (`child_class_id`) REFERENCES `t_class`(`class_id`)
 );
 
 CREATE TABLE `t_collection_report`
@@ -130,7 +145,17 @@ CREATE TABLE `t_collection_report`
     `rule_right_collection_id` INT NULL,
     `rule_id` INT NULL,
     CONSTRAINT PK_t_collection_report
-               PRIMARY KEY (`collection_id`, `left_collection_id`, `right_collection_id`)
+               PRIMARY KEY (`collection_id`, `left_collection_id`, `right_collection_id`),
+    CONSTRAINT FK_t_collection_report_collection
+               FOREIGN KEY (`collection_id`) REFERENCES `t_collection`(`collection_id`),
+    CONSTRAINT FK_t_collection_report_left
+               FOREIGN KEY (`left_collection_id`) REFERENCES `t_collection`(`collection_id`),
+    CONSTRAINT FK_t_collection_report_right
+               FOREIGN KEY (`right_collection_id`) REFERENCES `t_collection`(`collection_id`),
+    CONSTRAINT FK_t_collection_report_rule_left
+               FOREIGN KEY (`rule_left_collection_id`) REFERENCES `t_collection`(`collection_id`),
+    CONSTRAINT FK_t_collection_report_rule_right
+               FOREIGN KEY (`rule_right_collection_id`) REFERENCES `t_collection`(`collection_id`)
 );
 
 CREATE TABLE `t_property`
@@ -158,7 +183,13 @@ CREATE TABLE `t_property`
     `tag` VARCHAR(512) NULL,
     `is_visible` BIT NULL,
     CONSTRAINT PK_t_property
-               PRIMARY KEY (`property_id`)
+               PRIMARY KEY (`property_id`),
+    CONSTRAINT FK_t_property_collection
+               FOREIGN KEY (`collection_id`) REFERENCES `t_collection`(`collection_id`),
+    CONSTRAINT FK_t_property_group
+               FOREIGN KEY (`property_group_id`) REFERENCES `t_property_group`(`property_group_id`),
+    CONSTRAINT FK_t_property_unit
+               FOREIGN KEY (`unit_id`) REFERENCES `t_unit`(`unit_id`)
 );
 
 CREATE TABLE `t_property_report`
@@ -184,7 +215,15 @@ CREATE TABLE `t_property_report`
     `description` VARCHAR(255) NULL,
     `is_visible` BIT NULL,
     CONSTRAINT PK_t_property_report
-               PRIMARY KEY (`property_id`)
+               PRIMARY KEY (`property_id`),
+    CONSTRAINT FK_t_property_report_collection
+               FOREIGN KEY (`collection_id`) REFERENCES `t_collection`(`collection_id`),
+    CONSTRAINT FK_t_property_report_group
+               FOREIGN KEY (`property_group_id`) REFERENCES `t_property_group`(`property_group_id`),
+    CONSTRAINT FK_t_property_report_unit
+               FOREIGN KEY (`unit_id`) REFERENCES `t_unit`(`unit_id`),
+    CONSTRAINT FK_t_property_report_summary_unit
+               FOREIGN KEY (`summary_unit_id`) REFERENCES `t_unit`(`unit_id`)
 );
 
 CREATE TABLE `t_custom_column`
@@ -195,7 +234,9 @@ CREATE TABLE `t_custom_column`
     `position` INT NULL,
     `GUID` CHAR(36) NULL,
     CONSTRAINT PK_t_custom_column
-               PRIMARY KEY (`column_id`)
+               PRIMARY KEY (`column_id`),
+    CONSTRAINT FK_t_custom_column_class
+               FOREIGN KEY (`class_id`) REFERENCES `t_class`(`class_id`)
 );
 
 CREATE TABLE `t_attribute`
@@ -215,7 +256,11 @@ CREATE TABLE `t_attribute`
     `tag` VARCHAR(512) NULL,
     `is_visible` BIT NULL,
     CONSTRAINT PK_t_attribute
-               PRIMARY KEY (`attribute_id`)
+               PRIMARY KEY (`attribute_id`),
+    CONSTRAINT FK_t_attribute_class
+               FOREIGN KEY (`class_id`) REFERENCES `t_class`(`class_id`),
+    CONSTRAINT FK_t_attribute_unit
+               FOREIGN KEY (`unit_id`) REFERENCES `t_unit`(`unit_id`)
 );
 
 CREATE TABLE `t_category`
@@ -225,9 +270,11 @@ CREATE TABLE `t_category`
     `rank` INT NOT NULL,
     `name` VARCHAR(512) NULL,
     `state` INT NULL,
-    UNIQUE (`class_id`, `name`)
+    UNIQUE (`class_id`, `name`),
     CONSTRAINT PK_t_category
-               PRIMARY KEY (`category_id`)
+               PRIMARY KEY (`category_id`),
+    CONSTRAINT FK_t_category_class
+               FOREIGN KEY (`class_id`) REFERENCES `t_class`(`class_id`)
 );
 
 CREATE TABLE `t_object`
@@ -242,12 +289,14 @@ CREATE TABLE `t_object`
     `X` INT NULL,
     `Y` INT NULL,
     `Z` INT NULL,
-    UNIQUE (`class_id`, `name`)
+    UNIQUE (`class_id`, `name`),
     CONSTRAINT PK_t_object
-               PRIMARY KEY (`object_id`)
+               PRIMARY KEY (`object_id`),
+    CONSTRAINT FK_t_object_class
+               FOREIGN KEY (`class_id`) REFERENCES `t_class`(`class_id`),
+    CONSTRAINT FK_t_object_category
+               FOREIGN KEY (`category_id`) REFERENCES `t_category`(`category_id`)
 );
-
-
 
 CREATE TABLE `t_memo_object`
 (
@@ -256,7 +305,11 @@ CREATE TABLE `t_memo_object`
     `value` VARCHAR(512) NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_memo_object
-               PRIMARY KEY (`object_id`, `column_id`)
+               PRIMARY KEY (`object_id`, `column_id`),
+    CONSTRAINT FK_t_memo_object_object
+               FOREIGN KEY (`object_id`) REFERENCES `t_object`(`object_id`) ON DELETE CASCADE,
+    CONSTRAINT FK_t_memo_object_column
+               FOREIGN KEY (`column_id`) REFERENCES `t_custom_column`(`column_id`)
 );
 
 CREATE TABLE `t_report`
@@ -271,7 +324,11 @@ CREATE TABLE `t_report`
     `write_flat_files` BIT NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_report
-               PRIMARY KEY (`object_id`, `property_id`, `phase_id`)
+               PRIMARY KEY (`object_id`, `property_id`, `phase_id`),
+    CONSTRAINT FK_t_report_object
+               FOREIGN KEY (`object_id`) REFERENCES `t_object`(`object_id`) ON DELETE CASCADE,
+    CONSTRAINT FK_t_report_property
+               FOREIGN KEY (`property_id`) REFERENCES `t_property_report`(`property_id`)
 );
 
 CREATE TABLE `t_object_meta`
@@ -282,7 +339,9 @@ CREATE TABLE `t_object_meta`
     `value` VARCHAR(512) NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_object_meta
-               PRIMARY KEY (`object_id`, `class`, `property`)
+               PRIMARY KEY (`object_id`, `class`, `property`),
+    CONSTRAINT FK_t_object_meta_object
+               FOREIGN KEY (`object_id`) REFERENCES `t_object`(`object_id`) ON DELETE CASCADE
 );
 
 CREATE TABLE `t_attribute_data`
@@ -292,7 +351,11 @@ CREATE TABLE `t_attribute_data`
     `value` FLOAT NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_attribute_data
-               PRIMARY KEY (`object_id`, `attribute_id`)
+               PRIMARY KEY (`object_id`, `attribute_id`),
+    CONSTRAINT FK_t_attribute_data_object
+               FOREIGN KEY (`object_id`) REFERENCES `t_object`(`object_id`) ON DELETE CASCADE,
+    CONSTRAINT FK_t_attribute_data_attribute
+               FOREIGN KEY (`attribute_id`) REFERENCES `t_attribute`(`attribute_id`)
 );
 
 CREATE TABLE `t_membership`
@@ -304,11 +367,20 @@ CREATE TABLE `t_membership`
     `child_class_id` INT NULL,
     `child_object_id` INT NULL,
     `state` INT NULL,
-    UNIQUE(`parent_object_id`, `collection_id`, `child_object_id`)
+    UNIQUE(`parent_object_id`, `collection_id`, `child_object_id`),
     CONSTRAINT PK_t_membership
-               PRIMARY KEY (`membership_id`)
+               PRIMARY KEY (`membership_id`),
+    CONSTRAINT FK_t_membership_parent_class
+               FOREIGN KEY (`parent_class_id`) REFERENCES `t_class`(`class_id`),
+    CONSTRAINT FK_t_membership_parent_object
+               FOREIGN KEY (`parent_object_id`) REFERENCES `t_object`(`object_id`) ON DELETE CASCADE,
+    CONSTRAINT FK_t_membership_collection
+               FOREIGN KEY (`collection_id`) REFERENCES `t_collection`(`collection_id`),
+    CONSTRAINT FK_t_membership_child_class
+               FOREIGN KEY (`child_class_id`) REFERENCES `t_class`(`class_id`),
+    CONSTRAINT FK_t_membership_child_object
+               FOREIGN KEY (`child_object_id`) REFERENCES `t_object`(`object_id`) ON DELETE CASCADE
 );
-
 
 CREATE TABLE `t_memo_membership`
 (
@@ -316,7 +388,9 @@ CREATE TABLE `t_memo_membership`
     `value` VARCHAR(512) NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_memo_membership
-               PRIMARY KEY (`membership_id`)
+               PRIMARY KEY (`membership_id`),
+    CONSTRAINT FK_t_memo_membership_membership
+               FOREIGN KEY (`membership_id`) REFERENCES `t_membership`(`membership_id`) ON DELETE CASCADE
 );
 
 CREATE TABLE `t_membership_meta`
@@ -327,7 +401,9 @@ CREATE TABLE `t_membership_meta`
     `value` VARCHAR(512) NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_membership_meta
-               PRIMARY KEY (`membership_id`, `class`, `property`)
+               PRIMARY KEY (`membership_id`, `class`, `property`),
+    CONSTRAINT FK_t_membership_meta_membership
+               FOREIGN KEY (`membership_id`) REFERENCES `t_membership`(`membership_id`) ON DELETE CASCADE
 );
 
 CREATE TABLE `t_data`
@@ -339,7 +415,11 @@ CREATE TABLE `t_data`
     `state` INT NULL,
     `uid` BIGINT NULL,
     CONSTRAINT PK_t_data
-               PRIMARY KEY (`data_id`)
+               PRIMARY KEY (`data_id`),
+    CONSTRAINT FK_t_data_membership
+               FOREIGN KEY (`membership_id`) REFERENCES `t_membership`(`membership_id`) ON DELETE CASCADE,
+    CONSTRAINT FK_t_data_property
+               FOREIGN KEY (`property_id`) REFERENCES `t_property`(`property_id`)
 );
 
 CREATE TABLE `t_date_from`
@@ -348,7 +428,9 @@ CREATE TABLE `t_date_from`
     `date` DATETIME NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_date_from
-               PRIMARY KEY (`data_id`)
+               PRIMARY KEY (`data_id`),
+    CONSTRAINT FK_t_date_from_data
+               FOREIGN KEY (`data_id`) REFERENCES `t_data`(`data_id`) ON DELETE CASCADE
 );
 
 CREATE TABLE `t_date_to`
@@ -357,7 +439,9 @@ CREATE TABLE `t_date_to`
     `date` DATETIME NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_date_to
-               PRIMARY KEY (`data_id`)
+               PRIMARY KEY (`data_id`),
+    CONSTRAINT FK_t_date_to_data
+               FOREIGN KEY (`data_id`) REFERENCES `t_data`(`data_id`) ON DELETE CASCADE
 );
 
 CREATE TABLE `t_tag`
@@ -367,7 +451,13 @@ CREATE TABLE `t_tag`
     `state` INT NULL,
     `action_id` INT NULL,
     CONSTRAINT PK_t_tag
-               PRIMARY KEY (`data_id`, `object_id`)
+               PRIMARY KEY (`data_id`, `object_id`),
+    CONSTRAINT FK_t_tag_data
+               FOREIGN KEY (`data_id`) REFERENCES `t_data`(`data_id`) ON DELETE CASCADE,
+    CONSTRAINT FK_t_tag_object
+               FOREIGN KEY (`object_id`) REFERENCES `t_object`(`object_id`) ON DELETE CASCADE,
+    CONSTRAINT FK_t_tag_action
+               FOREIGN KEY (`action_id`) REFERENCES `t_action`(`action_id`)
 );
 
 CREATE TABLE `t_text`
@@ -378,7 +468,13 @@ CREATE TABLE `t_text`
     `state` INT NULL,
     `action_id` INT NULL,
     CONSTRAINT PK_t_text
-               PRIMARY KEY (`data_id`, `class_id`)
+               PRIMARY KEY (`data_id`, `class_id`),
+    CONSTRAINT FK_t_text_data
+               FOREIGN KEY (`data_id`) REFERENCES `t_data`(`data_id`) ON DELETE CASCADE,
+    CONSTRAINT FK_t_text_class
+               FOREIGN KEY (`class_id`) REFERENCES `t_class`(`class_id`),
+    CONSTRAINT FK_t_text_action
+               FOREIGN KEY (`action_id`) REFERENCES `t_action`(`action_id`)
 );
 
 CREATE TABLE `t_memo_data`
@@ -387,7 +483,9 @@ CREATE TABLE `t_memo_data`
     `value` VARCHAR(512) NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_memo_data
-               PRIMARY KEY (`data_id`)
+               PRIMARY KEY (`data_id`),
+    CONSTRAINT FK_t_memo_data_data
+               FOREIGN KEY (`data_id`) REFERENCES `t_data`(`data_id`) ON DELETE CASCADE
 );
 
 CREATE TABLE `t_data_meta`
@@ -398,7 +496,9 @@ CREATE TABLE `t_data_meta`
     `value` VARCHAR(512) NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_data_meta
-               PRIMARY KEY (`data_id`, `class`, `property`)
+               PRIMARY KEY (`data_id`, `class`, `property`),
+    CONSTRAINT FK_t_data_meta_data
+               FOREIGN KEY (`data_id`) REFERENCES `t_data`(`data_id`) ON DELETE CASCADE
 );
 
 CREATE TABLE `t_band`
@@ -407,5 +507,7 @@ CREATE TABLE `t_band`
     `band_id` INT NULL,
     `state` INT NULL,
     CONSTRAINT PK_t_band
-               PRIMARY KEY (`data_id`)
+               PRIMARY KEY (`data_id`),
+    CONSTRAINT FK_t_band_data
+               FOREIGN KEY (`data_id`) REFERENCES `t_data`(`data_id`) ON DELETE CASCADE
 );

@@ -1,48 +1,72 @@
-# plexosdb Documentation
+# PlexosDB Documentation
 
-plexosdb is a Python library for working with PLEXOS energy market simulation models.
+PlexosDB is a Python library for working with PLEXOS energy market simulation models.
 
 ```{toctree}
 :maxdepth: 2
 :hidden:
 
 installation
+tutorial
 howtos/index
 api/index
 CHANGELOG
 ```
 
-## Features
+## About PlexosDB
 
-- Complete API for creating and manipulating energy system models with support
-for generators, regions, lines, and other PLEXOS components
-- Optimized SQLite backend with transaction support, bulk operations, and
-memory-efficient iterators for large datasets
-- Seamless conversion between PLEXOS XML format and database representation for
-compatibility with PLEXOS
-- Built-in support for creating multiple scenarios and analyzing differences
-between model configurations
+PlexosDB provides a Python interface for working with PLEXOS energy market simulation models. The library converts PLEXOS XML files into SQLite databases and offers a comprehensive API for creating, querying, and manipulating energy system models.
 
-## Quick Start
+### Key Features
 
-```python
-from plexosdb import PlexosDB
-from plexosdb.enums import ClassEnum
+PlexosDB offers the following capabilities:
 
-# Create a database from an XML file
-db = PlexosDB.from_xml("/path/to/plexos_model.xml")
+- Complete support for PLEXOS model components including generators, regions, lines, and transmission networks
+- Optimized SQLite backend with transaction support and bulk operations for handling large datasets efficiently
+- Seamless bidirectional conversion between PLEXOS XML format and database representation
+- Scenario management system for creating and comparing different model configurations
+- Memory-efficient iterators and chunked processing for working with large models
 
-# List all generators in the model
-generators = db.list_objects_by_class(ClassEnum.Generator)
-print(f"Found {len(generators)} generators")
+## Getting Started
 
-# Get properties for a specific generator
-gen_props = db.get_object_properties(ClassEnum.Generator, generators[0])
-for prop in gen_props:
-    print(f"{prop['property']}: {prop['value']} {prop['unit'] or ''}")
+To begin using PlexosDB, start with the installation guide and then follow the step-by-step tutorial:
+
+```{toctree}
+:maxdepth: 1
+
+installation
+tutorial
 ```
 
+## How-to Guides
 
+Task-oriented guides for specific workflows:
+
+```{toctree}
+:maxdepth: 1
+
+howtos/index
+```
+
+## Reference
+
+Complete API documentation:
+
+```{toctree}
+:maxdepth: 2
+
+api/index
+```
+
+## Release Notes
+
+Track changes and updates:
+
+```{toctree}
+:maxdepth: 1
+
+CHANGELOG
+```
 
 ## Indices and Tables
 
