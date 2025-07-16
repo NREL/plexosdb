@@ -50,7 +50,7 @@ class PlexosDB:
             Additional keyword arguments for the backend.
         """
         sqlite_kwargs = {key: value for key, value in kwargs.items() if key in SQLITE_BACKEND_KWARGS}
-        self._db = SQLiteManager(fpath_or_conn=fpath_or_conn, **sqlite_kwargs)
+        self._db: SQLiteManager = SQLiteManager(fpath_or_conn=fpath_or_conn, **sqlite_kwargs)
         self._db.add_collation("NOSPACE", no_space)
 
         self._version = None
@@ -2863,6 +2863,189 @@ class PlexosDB:
         """Import data from CSV files into the database."""
         raise NotImplementedError
 
+    def _get_data_ids(
+        self,
+        class_enum: ClassEnum,
+        collection_id: int,
+        normalized_object_names: list[str] | None,
+        normalized_property_names: list[str] | None,
+    ) -> list[int]:
+        """Get data IDs that match the given criteria.
+
+        Parameters
+        ----------
+        class_enum : ClassEnum
+            Class enumeration to filter by
+        collection_id : int
+            ID of the collection to search in
+        parent_class : ClassEnum
+            Parent class enumeration
+        normalized_object_names : list[str] | None
+            List of normalized object names to filter by
+        normalized_property_names : list[str] | None
+            List of normalized property names to filter by
+
+        Returns
+        -------
+        list[int]
+            List of matching data IDs
+        """
+        params: list[Any] = []
+        filters = ["c.name = ?"]
+        params.append(str(class_enum.value))
+
+        if normalized_object_names:
+            object_placeholders = ", ".join(["?"] * len(normalized_object_names))
+            filters.append(f"o.name IN ({object_placeholders})")
+            params.extend(normalized_object_names)
+
+        if normalized_property_names:
+            prop_placeholders = ", ".join(["?"] * len(normalized_property_names))
+            filters.append(f"p.name IN ({prop_placeholders})")
+            params.extend(normalized_property_names)
+
+        filters.append("p.collection_id = ?")
+        params.append(collection_id)
+
+        query = f"""
+        SELECT d.data_id
+        FROM t_object o
+        JOIN t_class c ON o.class_id = c.class_id
+        JOIN t_membership m ON m.child_object_id = o.object_id
+        JOIN t_data d ON d.membership_id = m.membership_id
+        JOIN t_property p ON d.property_id = p.property_id
+        WHERE {" AND ".join(filters)}
+        ORDER BY o.name, p.name
+        """
+        return [row[0] for row in self.query(query, tuple(params))]
+
+    def _get_base_data(self, chunk_data_ids: list[int], placeholders: str) -> dict[int, dict]:
+        """Get base data for the given chunk of data IDs.
+
+        Parameters
+        ----------
+        chunk_data_ids : list[int]
+            List of data IDs to retrieve data for
+        placeholders : str
+            SQL placeholders string for the query
+
+        Returns
+        -------
+        dict[int, dict]
+            Dictionary mapping data IDs to their base data records
+        """
+        query = f"""
+        SELECT d.data_id, o.name, p.name, d.value, u.value
+        FROM t_data d
+        JOIN t_property p ON d.property_id = p.property_id
+        JOIN t_membership m ON d.membership_id = m.membership_id
+        JOIN t_object o ON m.child_object_id = o.object_id
+        LEFT JOIN t_unit u ON p.unit_id = u.unit_id
+        WHERE d.data_id IN ({placeholders})
+        """
+
+        return {
+            row[0]: {
+                "name": row[1],
+                "property": row[2],
+                "value": row[3],
+                "unit": row[4],
+                "texts": "",
+                "tags": "",
+                "bands": "",
+                "scenario": None,
+                "scenario_category": None,
+            }
+            for row in self.query(query, tuple(chunk_data_ids))
+        }
+
+    def _update_field_data(
+        self,
+        base_data: dict[int, dict],
+        chunk_data_ids: list[int],
+        placeholders: str,
+        query_template: str,
+        field_name: str,
+        params: tuple = (),
+    ) -> None:
+        """Execute query and update base_data with results."""
+        query = query_template.format(placeholders=placeholders)
+        query_params = params + tuple(chunk_data_ids) if params else tuple(chunk_data_ids)
+        for row in self.query(query, query_params):
+            if row[0] in base_data:
+                base_data[row[0]][field_name] = row[1] or ""
+
+    def _update_chunk_data(
+        self, base_data: dict[int, dict], chunk_data_ids: list[int], placeholders: str
+    ) -> None:
+        """Update chunk data with additional information from related tables.
+
+        Parameters
+        ----------
+        base_data : dict[int, dict]
+            Dictionary of base data to update
+        chunk_data_ids : list[int]
+            List of data IDs in this chunk
+        placeholders : str
+            SQL placeholders string for the queries
+        """
+        # Update texts
+        self._update_field_data(
+            base_data,
+            chunk_data_ids,
+            placeholders,
+            """
+            SELECT txt.data_id, GROUP_CONCAT(txt.value, '; ') as text_values
+            FROM t_text txt
+            WHERE txt.data_id IN ({placeholders})
+            GROUP BY txt.data_id
+            """,
+            "texts",
+        )
+
+        # Update tags
+        self._update_field_data(
+            base_data,
+            chunk_data_ids,
+            placeholders,
+            """
+            SELECT tag.data_id, GROUP_CONCAT(pt.name, '; ') as tag_values
+            FROM t_tag tag
+            JOIN t_property_tag pt ON tag.action_id = pt.tag_id
+            WHERE tag.data_id IN ({placeholders})
+            GROUP BY tag.data_id
+            """,
+            "tags",
+        )
+
+        # Update bands
+        self._update_field_data(
+            base_data,
+            chunk_data_ids,
+            placeholders,
+            """
+            SELECT band.data_id, GROUP_CONCAT(band.band_id, '; ') as band_values
+            FROM t_band band
+            WHERE band.data_id IN ({placeholders})
+            GROUP BY band.data_id
+            """,
+            "bands",
+        )
+
+        scenario_query = f"""
+        SELECT t.data_id, obj.name, cat.name
+        FROM t_tag t
+        JOIN t_membership mem ON t.object_id = mem.child_object_id
+        JOIN t_object obj ON mem.child_object_id = obj.object_id
+        JOIN t_class cls ON mem.child_class_id = cls.class_id
+        LEFT JOIN t_category cat ON obj.category_id = cat.category_id
+        WHERE cls.name = ? AND t.data_id IN ({placeholders})
+        """
+        for row in self.query(scenario_query, (ClassEnum.Scenario.value, *chunk_data_ids)):
+            if row[0] in base_data:
+                base_data[row[0]]["scenario"] = row[1]
+                base_data[row[0]]["scenario_category"] = row[2]
+
     def iterate_properties(
         self,
         class_enum: ClassEnum,
@@ -2874,8 +3057,79 @@ class PlexosDB:
         collection: CollectionEnum | None = None,
         chunk_size: int = 1000,
     ) -> Iterator[dict]:
-        """Iterate through properties with chunked processing to handle large datasets efficiently."""
-        raise NotImplementedError
+        """Iterate through properties with chunked processing to handle large datasets efficiently.
+
+        This method efficiently retrieves properties for multiple objects of the specified class,
+        processing data in chunks to minimize memory usage. Results are yielded one at a time
+        as dictionaries.
+
+        Parameters
+        ----------
+        class_enum : ClassEnum
+            Class enumeration of the objects to retrieve properties for
+        object_names : str | Iterable[str] | None, optional
+            Names of specific objects to retrieve properties for. If None, gets properties
+            for all objects of the specified class
+        property_names : str | Iterable[str] | None, optional
+            Names of specific properties to retrieve. If None, gets all properties
+        parent_class : ClassEnum | None, optional
+            Parent class enumeration for filtering properties, defaults to ClassEnum.System
+        collection : CollectionEnum | None, optional
+            Collection enumeration to filter properties by
+        chunk_size : int, optional
+            Number of records to process in each database query chunk, by default 1000
+
+        Yields
+        ------
+        dict
+            Dictionary containing property information with keys:
+            - name: Object name
+            - property: Property name
+            - value: Property value
+            - unit: Unit of measurement
+            - texts: Associated text data
+            - tags: Associated tags
+            - bands: Associated bands
+            - scenario: Associated scenario name
+            - scenario_category: Category of the associated scenario
+
+        Raises
+        ------
+        NameError
+            If a specified property does not exist for the collection
+        """
+        parent_class = parent_class or ClassEnum.System
+        collection = collection or get_default_collection(class_enum)
+        normalized_object_names = normalize_names(object_names) if object_names else None
+        normalized_property_names = normalize_names(property_names) if property_names else None
+
+        if normalized_property_names and not self.check_property_exists(
+            collection, class_enum, normalized_property_names, parent_class=parent_class
+        ):
+            msg = (
+                f"Invalid property {normalized_property_names} for {collection=}. "
+                "Use `list_valid_properties` to check property requested."
+            )
+            raise NameError(msg)
+
+        collection_id = self.get_collection_id(
+            collection, parent_class_enum=parent_class, child_class_enum=class_enum
+        )
+
+        data_ids = self._get_data_ids(
+            class_enum, collection_id, normalized_object_names, normalized_property_names
+        )
+
+        if not data_ids:
+            return
+
+        for chunk_start in range(0, len(data_ids), chunk_size):
+            chunk_data_ids = data_ids[chunk_start : chunk_start + chunk_size]
+            placeholders = ",".join("?" * len(chunk_data_ids))
+            base_data = self._get_base_data(chunk_data_ids, placeholders)
+            self._update_chunk_data(base_data, chunk_data_ids, placeholders)
+
+            yield from base_data.values()
 
     def list_attributes(self, class_enum: ClassEnum) -> list[str]:
         """Get all attributes for a specific class.
@@ -3627,8 +3881,8 @@ class PlexosDB:
 
         # We remove the row factory for simpler digestion to XML as list of tuples instead of having to
         # process them individually.
-        previous_row_factory = self._db.conn.row_factory
-        self._db.conn.row_factory = None
+        previous_row_factory = self._db.connection.row_factory
+        self._db.connection.row_factory = None
 
         tables = [
             table[0] for table in self._db.iter_query("SELECT name from sqlite_master WHERE type='table'")
@@ -3645,7 +3899,7 @@ class PlexosDB:
         xml_handler.to_xml(target_path)
 
         # Reset row factory
-        self._db.conn.row_factory = previous_row_factory
+        self._db.connection.row_factory = previous_row_factory
         return True
 
     def update_attribute(

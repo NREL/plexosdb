@@ -3,86 +3,93 @@
 import sqlite3
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Generic, TypeVar, overload
 
 from loguru import logger
 
-
-def create_sqlite_connection(
-    fpath_or_conn: str | Path | sqlite3.Connection | None = None,
-    in_memory: bool = False,
-) -> sqlite3.Connection:
-    """Create a SQLite database connection.
-
-    Parameters
-    ----------
-    fpath_or_conn : str, sqlite4.Connection, optional
-        Path to the SQLite database file or None for in-memory database
-    in_memory : bool, default=False
-        Whether to create an in-memory database regardless of database path
-
-    Returns
-    -------
-    sqlite3.Connection
-        A new SQLite connection
-    """
-    if in_memory and fpath_or_conn is None:
-        return sqlite3.connect(":memory:")
-    if isinstance(fpath_or_conn, str):
-        fpath_or_conn = Path(fpath_or_conn)
-    if isinstance(fpath_or_conn, Path):
-        if not fpath_or_conn.exists():
-            logger.info("Database {} does not exists. Creating it.", fpath_or_conn)
-        return sqlite3.connect(str(fpath_or_conn), isolation_level=None)
-    if fpath_or_conn is None:
-        msg = "fpath, connections or in_memory are required to create the SQLite connection."
-        raise NotImplementedError(msg)
-    return fpath_or_conn
+T = TypeVar("T")
 
 
-class SQLiteManager:
+@dataclass(slots=True)
+class SQLiteConfig:
+    """SQLite database configuration."""
+
+    cache_size_mb: int = 20
+    mmap_size_gb: int = 30
+    synchronous: str = "NORMAL"
+    journal_mode: str = "WAL"
+    foreign_keys: bool = True
+    temp_store: str = "MEMORY"
+
+    @classmethod
+    def for_in_memory(cls) -> "SQLiteConfig":
+        """Create optimized config for in-memory databases."""
+        return cls(
+            cache_size_mb=50,
+            mmap_size_gb=0,
+            synchronous="OFF",
+            journal_mode="MEMORY",
+            foreign_keys=True,
+            temp_store="MEMORY",
+        )
+
+    @classmethod
+    def for_file_database(cls) -> "SQLiteConfig":
+        """Create optimized config for file-based databases."""
+        return cls(
+            cache_size_mb=20,
+            mmap_size_gb=2,
+            synchronous="NORMAL",
+            journal_mode="WAL",
+            foreign_keys=True,
+            temp_store="MEMORY",
+        )
+
+
+class SQLiteManager(Generic[T]):
     """SQLite database manager with optimized transaction support."""
 
-    _conn: sqlite3.Connection | None = None
+    _con: sqlite3.Connection | None = None
 
     def __init__(
         self,
         fpath_or_conn: str | Path | sqlite3.Connection | None = None,
-        conn: sqlite3.Connection | None = None,
-        in_memory: bool = True,
+        *,
+        config: SQLiteConfig | None = None,
+        initialize: bool = True,
     ) -> None:
-        """Initialize the database manager.
-
-        Parameters
-        ----------
-        db_path : str or Path, optional
-            Path to the SQLite database file or None for in-memory database
-        db_schema_contents : Path or str, optional
-            Path to SQL schema file to initialize the database structure
-        conn : sqlite3.Connection, optional
-            Existing SQLite connection to use instead of creating a new one
-        use_named_tuples : bool
-            Whether to return named tuples for query results. Default = False
-        initialize: bool
-            Whether to initialize a new schema for the database. Default = True
-        in_memory: bool
-            Force in-memory database regardless of db_path. Default True
-
-        See Also
-        --------
-        no_space Collation function for searching withouth spaces.
-        """
-        self._in_memory = in_memory
-        conn = create_sqlite_connection(fpath_or_conn=fpath_or_conn, in_memory=self._in_memory)
-        self._conn = conn
-        self._set_sqlite_configuration()
+        match fpath_or_conn:
+            case None:
+                logger.info("Creating in-memory database.")
+                self._con = sqlite3.connect(":memory:")
+                self._config = config or SQLiteConfig.for_in_memory()
+            case str() | Path():
+                file_path = Path(fpath_or_conn)
+                if not file_path.exists():
+                    logger.info("Database {} does not exist. Creating it.", file_path)
+                self._con = sqlite3.connect(str(file_path), isolation_level=None)
+                self._config = config or SQLiteConfig.for_file_database()
+            case sqlite3.Connection():
+                logger.info("Using existing connection for the database.")
+                self._con = fpath_or_conn
+                self._config = config or SQLiteConfig.for_file_database()
+            case _:
+                raise TypeError
+        if initialize:
+            self._set_sqlite_configuration(config=self._config)
 
     @property
-    def conn(self) -> sqlite3.Connection:
+    def connection(self) -> sqlite3.Connection:
         """SQLite connection."""
-        assert self._conn is not None, "Database connection is not initialized"
-        return self._conn
+        assert self._con is not None, "Database connection is not initialized"
+        return self._con
+
+    @property
+    def config(self) -> SQLiteConfig:
+        """SQLite configuration."""
+        return self._config
 
     @property
     def sqlite_version(self) -> int:
@@ -91,26 +98,34 @@ class SQLiteManager:
 
     @property
     def tables(self) -> list[str]:
-        """SQLite version."""
+        """List of table names."""
         return self.list_table_names()
 
-    def _set_sqlite_configuration(self) -> None:
-        """Configure SQLite for optimal performance."""
-        self.execute("PRAGMA foreign_keys = ON")
-        if self._in_memory:
-            # In-memory optimizations
-            self.execute("PRAGMA synchronous = NORMAL;")
-            self.execute("PRAGMA journal_mode = WAL;")
-            self.execute("PRAGMA temp_store = MEMORY")
-            self.execute("PRAGMA mmap_size = 30000000000")  # 30GB
-            self.execute("PRAGMA cache_size = -20000")  # ~20MB
-            return
-        # File-based optimizations for durability
-        self.execute("PRAGMA synchronous = FULL;")
-        self.execute("PRAGMA journal_mode = DELETE;")  # More compatible
-        self.execute("PRAGMA temp_store = MEMORY")
-        self.execute("PRAGMA cache_size = -2000")  # ~2MB (smaller for disk)
+    def _set_sqlite_configuration(self, config: SQLiteConfig) -> None:
+        """Apply configuration based on a configuration object."""
+        foreign_keys_setting = "ON" if config.foreign_keys else "OFF"
+        self.execute(f"PRAGMA foreign_keys = {foreign_keys_setting}")
+
+        self.execute(f"PRAGMA synchronous = {config.synchronous}")
+        self.execute(f"PRAGMA journal_mode = {config.journal_mode}")
+        self.execute(f"PRAGMA temp_store = {config.temp_store}")
+
+        cache_size_kb = -abs(self._config.cache_size_mb * 1024)
+        self.execute(f"PRAGMA cache_size = {cache_size_kb}")
+
+        mmap_size_bytes = config.mmap_size_gb * 1024 * 1024 * 1024
+        self.execute(f"PRAGMA mmap_size = {mmap_size_bytes}")
+
+        if self._is_in_memory():
+            self.execute("PRAGMA locking_mode = EXCLUSIVE")
+        else:
+            self.execute("PRAGMA auto_vacuum = INCREMENTAL")
         return
+
+    def _is_in_memory(self) -> bool:
+        """Check if the connection is to an in-memory database."""
+        result = self.query("PRAGMA database_list")
+        return result[0][2] == ""  # Empty file path indicates in-memory
 
     def add_collation(self, name: str, callable_func: Callable[[str, str], int]) -> bool:
         """Register a collation function.
@@ -128,7 +143,7 @@ class SQLiteManager:
             True if creation succeeded, False if it failed
         """
         try:
-            self.conn.create_collation(name, callable_func)
+            self.connection.create_collation(name, callable_func)
             return True
         except sqlite3.Error:
             return False
@@ -153,13 +168,13 @@ class SQLiteManager:
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Commit any pending changes before backup
-            self.conn.commit()
+            self.connection.commit()
 
             # Perform backup with proper connection handling
             # The key is using a separate connection with context manager
             with sqlite3.connect(str(target_path)) as dest_conn:
                 # Use smaller pages for better reliability
-                self.conn.backup(dest_conn)
+                self.connection.backup(dest_conn)
 
             return True
         except (sqlite3.Error, OSError) as e:
@@ -169,27 +184,27 @@ class SQLiteManager:
     def close(self) -> None:
         """Close the database connection and release resources."""
         # Skip if already closed
-        if self._conn is None:
+        if self._con is None:
             return
 
         try:
             # First try to release any locks and pending transactions
-            if self._conn.in_transaction:
+            if self._con.in_transaction:
                 try:
-                    self._conn.rollback()
+                    self._con.rollback()
                 except sqlite3.Error:
                     logger.debug("Rollback failed during close")
 
             # For file databases, try to flush data
             try:
-                if not self._in_memory:
-                    self._conn.commit()
-                self._conn.close()
+                if not self._is_in_memory():
+                    self._con.commit()
+                self._con.close()
             except sqlite3.Error as e:
                 logger.warning(f"Error closing database connection: {e}")
         finally:
             # Always null the connection reference
-            self._conn = None
+            self._con = None
 
     def execute(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> bool:
         """Execute a SQL statement that doesn't return results.
@@ -213,16 +228,16 @@ class SQLiteManager:
         sqlite3.Error
             If a database error occurs within a transaction
         """
-        in_transaction = self.conn.in_transaction
+        in_transaction = self.connection.in_transaction
         try:
             logger.trace(query)
             if params:
-                self.conn.execute(query, params)
+                self.connection.execute(query, params)
             else:
-                self.conn.execute(query)
+                self.connection.execute(query)
 
             if not in_transaction:
-                self.conn.commit()
+                self.connection.commit()
             return True
 
         except sqlite3.Error as e:
@@ -230,7 +245,7 @@ class SQLiteManager:
             if in_transaction:
                 raise
             try:
-                self.conn.rollback()
+                self.connection.rollback()
             except sqlite3.Error as rb_error:
                 logger.error(f"Rollback error: {rb_error}")
             return False
@@ -255,19 +270,19 @@ class SQLiteManager:
         sqlite3.Error
             If a database error occurs within a transaction
         """
-        in_transaction = self.conn.in_transaction
+        in_transaction = self.connection.in_transaction
         try:
             logger.trace(query)
-            self.conn.executemany(query, params_seq)
+            self.connection.executemany(query, params_seq)
             if not in_transaction:
-                self.conn.commit()
+                self.connection.commit()
             return True
         except sqlite3.Error as e:
             logger.error(f"SQL execute error: {e}")
             if in_transaction:
                 raise
             try:
-                self.conn.rollback()
+                self.connection.rollback()
             except sqlite3.Error as rb_error:
                 logger.error(f"Rollback error: {rb_error}")
             return False
@@ -287,25 +302,25 @@ class SQLiteManager:
         """
         statements = [stmt.strip() for stmt in script.split(";") if stmt.strip()]
         cursor = None
-        in_transaction = self.conn.in_transaction
+        in_transaction = self.connection.in_transaction
         try:
             if not in_transaction:
-                self.conn.execute("BEGIN IMMEDIATE TRANSACTION")
+                self.connection.execute("BEGIN IMMEDIATE TRANSACTION")
 
-            cursor = self.conn.cursor()
+            cursor = self.connection.cursor()
 
             for statement in statements:
                 if statement:  # Skip empty statements
                     cursor.execute(statement)
 
             if not in_transaction:
-                self.conn.commit()
+                self.connection.commit()
 
             return True
         except sqlite3.Error as error:
             logger.error("SQL script execution failed: {}", error)
-            if not in_transaction and self.conn:
-                self.conn.rollback()
+            if not in_transaction and self.connection:
+                self.connection.rollback()
             return False
         finally:
             if cursor:
@@ -316,7 +331,7 @@ class SQLiteManager:
         query: str,
         params: tuple[Any, ...] | dict[str, Any] | None = None,
         batch_size: int = 1000,
-    ) -> Iterator[Any]:
+    ) -> Iterator[tuple[Any, ...]]:
         """Execute a read-only query and return an iterator of results.
 
         This is memory-efficient for large result sets. Use only for SELECT statements.
@@ -340,7 +355,7 @@ class SQLiteManager:
         sqlite3.Error
             If a database error occurs
         """
-        cursor = self.conn.cursor()
+        cursor = self.connection.cursor()
 
         try:
             # Execute query
@@ -383,7 +398,7 @@ class SQLiteManager:
             # This shouldn't happen with last_insert_rowid() but handle it anyway
             return 0
 
-    def list_table_names(self):
+    def list_table_names(self) -> list[str]:
         """Return a list of current table names on the database."""
         sql = "SELECT name FROM sqlite_master WHERE type ='table'"
         return [r[0] for r in self.fetchall(sql)]
@@ -405,19 +420,37 @@ class SQLiteManager:
             self.execute("ANALYZE")
 
             # VACUUM requires special handling - can't be in transaction
-            if self.conn.in_transaction:
+            if self.connection.in_transaction:
                 logger.warning("Committing transaction before VACUUM - optimization may not be atomic")
-                self.conn.commit()
+                self.connection.commit()
 
             # Execute VACUUM directly on the connection
-            self.conn.execute("VACUUM")
+            self.connection.execute("VACUUM")
 
             return True
         except sqlite3.Error as error:
             logger.error("Database optimization failed: {}", error)
             return False
 
-    def query(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list[Any]:
+    def _validate_query_type(self, query: str) -> None:
+        """Validate that query is read-only for query methods."""
+        query_upper = query.strip().upper()
+        write_keywords = {"INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER"}
+        first_word = query_upper.split()[0] if query_upper.split() else ""
+
+        if first_word in write_keywords:
+            raise ValueError(f"Use execute() for {first_word} statements, not query()")
+
+    # Add generic type support for query results
+    @overload
+    def query(self, query: str, params: None = None) -> list[tuple[Any, ...]]: ...
+
+    @overload
+    def query(self, query: str, params: tuple[Any, ...] | dict[str, Any]) -> list[tuple[Any, ...]]: ...
+
+    def query(
+        self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[tuple[Any, ...]]:
         """Execute a read-only query and return all results.
 
         Note: This method should ONLY be used for SELECT statements.
@@ -440,7 +473,8 @@ class SQLiteManager:
         sqlite3.Error
             If a database error occurs
         """
-        cursor = self.conn.cursor()
+        self._validate_query_type(query)
+        cursor = self.connection.cursor()
         try:
             cursor.execute(query, params or tuple())
             return cursor.fetchall()
@@ -450,7 +484,9 @@ class SQLiteManager:
         finally:
             cursor.close()
 
-    def fetchall(self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None) -> list[Any]:
+    def fetchall(
+        self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[tuple[Any, ...]]:
         """Execute a query and return all results as a list of rows.
 
         This method is a standard DB-API style alias for query().
@@ -526,7 +562,7 @@ class SQLiteManager:
         >>> print(f"User {user['id']}: {user['name']}")
         User 1: Alice
         """
-        cursor = self.conn.cursor()
+        cursor = self.connection.cursor()
         try:
             cursor.execute(query, params or tuple())
             columns = [desc[0] for desc in cursor.description]
@@ -539,7 +575,7 @@ class SQLiteManager:
 
     def fetchmany(
         self, query: str, size: int = 1000, params: tuple[Any, ...] | dict[str, Any] | None = None
-    ) -> list[Any]:
+    ) -> list[tuple[Any, ...]]:
         """Execute a query and return a specified number of rows.
 
         Parameters
@@ -577,7 +613,7 @@ class SQLiteManager:
         >>> len(first_batch)
         10
         """
-        cursor = self.conn.cursor()
+        cursor = self.connection.cursor()
         try:
             cursor.execute(query, params or tuple())
             return cursor.fetchmany(size)
@@ -624,7 +660,7 @@ class SQLiteManager:
         >>> user is None
         True
         """
-        cursor = self.conn.cursor()
+        cursor = self.connection.cursor()
         try:
             cursor.execute(query, params or tuple())
             return cursor.fetchone()
@@ -670,7 +706,7 @@ class SQLiteManager:
         >>> print(f"{user['name']}'s email is {user['email']}")
         Alice's email is alice@example.com
         """
-        cursor = self.conn.cursor()
+        cursor = self.connection.cursor()
         try:
             cursor.execute(query, params or tuple())
             row = cursor.fetchone()
@@ -728,7 +764,7 @@ class SQLiteManager:
         >>> for user in db.iter_dicts("SELECT * FROM users"):
         ...     print(f"Processing user {user['name']}")
         """
-        cursor = self.conn.cursor()
+        cursor = self.connection.cursor()
         try:
             cursor.execute(query, params or tuple())
             columns = [desc[0] for desc in cursor.description]
@@ -769,19 +805,76 @@ class SQLiteManager:
             If a database error occurs during transaction
         """
         try:
-            self.conn.execute("BEGIN")
+            self.connection.execute("BEGIN")
             yield self
         except sqlite3.Error:
-            self.conn.rollback()
+            self.connection.rollback()
             raise
         else:
-            self.conn.commit()
+            self.connection.commit()
+
+    def insert_records(
+        self,
+        table_name: str,
+        records: dict[str, Any] | list[dict[str, Any]],
+    ) -> bool:
+        """Insert records into a table using dictionaries with column names as keys.
+
+        Fails if duplicate records exist (uses INSERT without OR REPLACE).
+
+        Parameters
+        ----------
+        table_name : str
+            Name of the table to insert records into
+        records : dict or list of dicts
+            Dictionary or list of dictionaries with column names as keys
+
+        Returns
+        -------
+        bool
+            True if insertion succeeded, False if it failed
+
+        Raises
+        ------
+        ValueError
+            If table doesn't exist, records are empty, or have inconsistent keys
+        sqlite3.Error
+            If a database error occurs within a transaction or duplicate records exist
+        """
+        if not records:
+            msg = "Records cannot be empty"
+            raise ValueError(msg)
+
+        if table_name not in self.tables:
+            msg = f"Table '{table_name}' does not exist"
+            raise ValueError(msg)
+
+        records_list = [records] if isinstance(records, dict) else records
+
+        if not records_list or not records_list[0]:
+            msg = "Records cannot be empty"
+            raise ValueError(msg)
+
+        first_keys = set(records_list[0].keys())
+        if not all(set(record.keys()) == first_keys for record in records_list):
+            msg = "All records must have the same keys to be inserted."
+            raise KeyError(msg)
+
+        columns = list(first_keys)
+        placeholders = ", ".join("?" * len(columns))
+        columns_str = ", ".join(columns)
+        query = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+
+        values_list = [tuple(record[col] for col in columns) for record in records_list]
+
+        return self.executemany(query, values_list)
 
     def __enter__(self):
         """Support using SQLiteManager as a context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any
+    ) -> None:
         """Automatically close connection when exiting context."""
         self.close()
-        return False  # Don't suppress exceptions from the with block
