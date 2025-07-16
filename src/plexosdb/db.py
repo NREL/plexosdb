@@ -50,7 +50,7 @@ class PlexosDB:
             Additional keyword arguments for the backend.
         """
         sqlite_kwargs = {key: value for key, value in kwargs.items() if key in SQLITE_BACKEND_KWARGS}
-        self._db = SQLiteManager(fpath_or_conn=fpath_or_conn, **sqlite_kwargs)
+        self._db: SQLiteManager = SQLiteManager(fpath_or_conn=fpath_or_conn, **sqlite_kwargs)
         self._db.add_collation("NOSPACE", no_space)
 
         self._version = None
@@ -3881,8 +3881,8 @@ class PlexosDB:
 
         # We remove the row factory for simpler digestion to XML as list of tuples instead of having to
         # process them individually.
-        previous_row_factory = self._db.conn.row_factory
-        self._db.conn.row_factory = None
+        previous_row_factory = self._db.connection.row_factory
+        self._db.connection.row_factory = None
 
         tables = [
             table[0] for table in self._db.iter_query("SELECT name from sqlite_master WHERE type='table'")
@@ -3899,7 +3899,7 @@ class PlexosDB:
         xml_handler.to_xml(target_path)
 
         # Reset row factory
-        self._db.conn.row_factory = previous_row_factory
+        self._db.connection.row_factory = previous_row_factory
         return True
 
     def update_attribute(

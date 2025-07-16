@@ -147,7 +147,8 @@ markers = [
     "adders: Functions that add data",
     "empty_database: Functions for test empty database",
     "export: Functions that export the database.",
-    "listing: Functions that list elements of the  database."
+    "listing: Functions that list elements of the  database.",
+    "object_operations: Operations to objects in the database."
 ]
 
 [tool.coverage.run]

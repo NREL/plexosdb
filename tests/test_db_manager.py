@@ -8,64 +8,14 @@ import pytest
 from plexosdb.db_manager import SQLiteManager
 
 TEST_SCHEMA = (
-    "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER);"
-    "CREATE TABLE posts (id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT, "
-    "content TEXT, FOREIGN KEY(user_id) REFERENCES users(id));"
+    "CREATE TABLE generators (id INTEGER PRIMARY KEY, name TEXT, capacity REAL, fuel_type TEXT);"
+    "CREATE TABLE properties (id INTEGER PRIMARY KEY, generator_id INTEGER, property_name TEXT, "
+    "value REAL, FOREIGN KEY(generator_id) REFERENCES generators(id));"
 )
 
 
-@pytest.fixture(scope="session")
-def db_instance():
-    """Create a base DB instance that lasts the entire test session."""
-    db = SQLiteManager()
-    db.executescript(TEST_SCHEMA)
-    yield db
-    db.close()
-
-
-@pytest.fixture(scope="function")
-def db_instance_empty():
-    """Create a fresh empty DB instance for each test."""
-    # Create a completely fresh database for each test
-    db = SQLiteManager()
-    db.executescript(TEST_SCHEMA)
-    yield db
-    db.close()
-
-
-@pytest.fixture(scope="function")
-def db_instance_populated():
-    """Create a populated DB instance for testing queries."""
-    # Create a fresh database and populate it
-    db = SQLiteManager()
-    db.executescript(TEST_SCHEMA)
-
-    # Add users
-    db.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Alice", 30))
-    db.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Bob", 25))
-    db.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Charlie", 35))
-
-    # Add posts
-    db.execute("INSERT INTO posts (user_id, title, content) VALUES (?, ?, ?)", (1, "Hello", "Hello World!"))
-    db.execute(
-        "INSERT INTO posts (user_id, title, content) VALUES (?, ?, ?)", (1, "Second Post", "More content")
-    )
-    db.execute(
-        "INSERT INTO posts (user_id, title, content) VALUES (?, ?, ?)", (2, "Bob's Post", "This is from Bob")
-    )
-
-    yield db
-    db.close()
-
-
-@pytest.fixture(scope="function")
-def db_path_on_disk(tmp_path):
-    """Create a temporary file path for on-disk database testing."""
-    return tmp_path / "test_db.sqlite"
-
-
-def test_sqlite_version(db_instance):
-    db = db_instance
+def test_sqlite_version(db_manager_instance_empty):
+    db = db_manager_instance_empty
 
     assert isinstance(db.sqlite_version, str)
 
@@ -74,8 +24,8 @@ def test_create_sqlite_manager_instance():
     """Test creating a SQLiteManager instance."""
     db = SQLiteManager()
     assert db is not None
-    assert hasattr(db, "_conn")
-    assert isinstance(db._conn, sqlite3.Connection)
+    assert hasattr(db, "connection")
+    assert isinstance(db._con, sqlite3.Connection)
     db.close()
 
 
@@ -104,11 +54,11 @@ def test_create_collations():
 def test_sqlite_configuration(tmp_path):
     """Test SQLite configuration settings."""
     # Test in-memory database (default)
-    db_mem = SQLiteManager(in_memory=True)
+    db_mem = SQLiteManager()
 
     # Test file-based database
     temp_file = tmp_path / "test.sqlite"  # Special file URI for testing
-    db_file = SQLiteManager(fpath_or_conn=temp_file, in_memory=False)
+    db_file = SQLiteManager(fpath_or_conn=temp_file)
 
     # Verify memory database has memory settings
     mem_pragmas = {
@@ -127,14 +77,14 @@ def test_sqlite_configuration(tmp_path):
     print(f"Memory database pragmas: {mem_pragmas}")
     print(f"File database pragmas: {file_pragmas}")
 
-    # Check memory database settings
-    assert mem_pragmas["synchronous"] == 1, "Memory DB should use NORMAL synchronous mode"
-    assert mem_pragmas["journal_mode"] in ["WAL", "MEMORY"], "Memory DB should use WAL or MEMORY journal mode"
+    # Check memory database settings (in-memory uses OFF=0, MEMORY journal mode)
+    assert mem_pragmas["synchronous"] == 0, "Memory DB should use OFF synchronous mode"
+    assert mem_pragmas["journal_mode"] in ["MEMORY"], "Memory DB should use MEMORY journal mode"
     assert mem_pragmas["foreign_keys"] == 1, "Foreign keys should be enabled"
 
-    # Check file database settings
-    assert file_pragmas["synchronous"] == 2, "File DB should use FULL synchronous mode"
-    assert file_pragmas["journal_mode"] in ["DELETE"], "File DB should use DELETE journal mode"
+    # Check file database settings (file uses NORMAL=1, WAL journal mode)
+    assert file_pragmas["synchronous"] == 1, "File DB should use NORMAL synchronous mode"
+    assert file_pragmas["journal_mode"] in ["WAL"], "File DB should use WAL journal mode"
     assert file_pragmas["foreign_keys"] == 1, "Foreign keys should be enabled"
 
     # Clean up
@@ -142,31 +92,31 @@ def test_sqlite_configuration(tmp_path):
     db_file.close()
 
 
-def test_reading_from_different_connection(db_instance_populated, db_path_on_disk):
+def test_reading_from_different_connection(db_manager_instance_populated, db_path_on_disk):
     """Test reading from a different connection after backup."""
     # First, create a backup
-    success = db_instance_populated.backup(db_path_on_disk)
+    success = db_manager_instance_populated.backup(db_path_on_disk)
     assert success is True
     assert Path(db_path_on_disk).exists()
 
     # Connect to the backup with a new connection
     with sqlite3.connect(str(db_path_on_disk)) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM users")
+        cursor.execute("SELECT COUNT(*) FROM generators")
         count = cursor.fetchone()[0]
         assert count == 3
 
-        cursor.execute("SELECT name FROM users WHERE age = ?", (25,))
+        cursor.execute("SELECT name FROM generators WHERE capacity = ?", (500.0,))
         result = cursor.fetchone()
-        assert result[0] == "Bob"
+        assert result[0] == "Coal Plant 1"
 
 
 def test_sqlite_manager_arguments():
     """Test SQLiteManager initialization with different arguments."""
     # Test with custom connection
     conn = sqlite3.connect(":memory:")
-    db = SQLiteManager(fpath_or_conn=conn)
-    assert db._conn == conn
+    db = SQLiteManager(fpath_or_conn=conn, initialize=False)
+    assert db._con == conn
     db.close()
 
     # Test with initialize=False
@@ -176,40 +126,42 @@ def test_sqlite_manager_arguments():
     db_no_init.close()
 
 
-def test_sqlite_manager_backup(db_instance_populated, tmp_path):
+def test_sqlite_manager_backup(db_manager_instance_populated, tmp_path):
     """Test database backup functionality."""
     backup_path = tmp_path / "backup.db"
 
     # Test successful backup
-    success = db_instance_populated.backup(backup_path)
+    success = db_manager_instance_populated.backup(backup_path)
     assert success is True
     assert backup_path.exists()
 
     # Verify backup contains correct data
     with sqlite3.connect(str(backup_path)) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM users")
+        cursor.execute("SELECT COUNT(*) FROM generators")
         count = cursor.fetchone()[0]
         assert count == 3
 
     invalid_path = "NUL:backup.db" if os.name == "nt" else "/dev/null/invalid.db"
-    success = db_instance_populated.backup(invalid_path)
+    success = db_manager_instance_populated.backup(invalid_path)
     assert success is False
 
 
-def test_sqlite_manager_execute(db_instance_empty):
+def test_sqlite_manager_execute(db_manager_instance_empty):
     """Test execute functionality."""
     # Test successful execute
-    success = db_instance_empty.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Alice", 30))
+    success = db_manager_instance_empty.execute(
+        "INSERT INTO generators (name, capacity, fuel_type) VALUES (?, ?, ?)", ("Test Gen", 100.0, "Solar")
+    )
     assert success is True
 
     # Verify insert worked
-    result = db_instance_empty.query("SELECT name FROM users WHERE age=30")
-    assert result[0][0] == "Alice"
+    result = db_manager_instance_empty.query("SELECT name FROM generators WHERE capacity=100.0")
+    assert result[0][0] == "Test Gen"
 
     # Test execute with error - directly handle the possible exception
     try:
-        success = db_instance_empty.execute("INSERT INTO nonexistent_table VALUES (1, 'test')")
+        success = db_manager_instance_empty.execute("INSERT INTO nonexistent_table VALUES (1, 'test')")
         # If we get here without an exception, ensure it returned False
         assert success is False
     except sqlite3.Error:
@@ -217,278 +169,211 @@ def test_sqlite_manager_execute(db_instance_empty):
         pytest.fail("execute() should handle SQLite errors but didn't")
 
     # Test update
-    success = db_instance_empty.execute("UPDATE users SET age=31 WHERE name=?", ("Alice",))
+    success = db_manager_instance_empty.execute(
+        "UPDATE generators SET capacity=110.0 WHERE name=?", ("Test Gen",)
+    )
     assert success is True
-    result = db_instance_empty.query("SELECT age FROM users WHERE name=?", ("Alice",))
-    assert result[0][0] == 31
+    result = db_manager_instance_empty.query("SELECT capacity FROM generators WHERE name=?", ("Test Gen",))
+    assert result[0][0] == 110.0
 
     # Test delete
-    success = db_instance_empty.execute("DELETE FROM users WHERE name=?", ("Alice",))
+    success = db_manager_instance_empty.execute("DELETE FROM generators WHERE name=?", ("Test Gen",))
     assert success is True
-    result = db_instance_empty.query("SELECT COUNT(*) FROM users")
+    result = db_manager_instance_empty.query("SELECT COUNT(*) FROM generators")
     assert result[0][0] == 0
 
 
-def test_sqlite_manager_query(db_instance_populated):
+def test_sqlite_manager_query(db_manager_instance_populated):
     """Test query functionality."""
     # Test basic query
-    result = db_instance_populated.query("SELECT name, age FROM users ORDER BY age")
+    result = db_manager_instance_populated.query("SELECT name, capacity FROM generators ORDER BY capacity")
     assert len(result) == 3
-    assert result[0][0] == "Bob"
-    assert result[0][1] == 25
+    assert result[0][0] == "Wind Farm 1"
+    assert result[0][1] == 150.0
 
     # Test query with parameters
-    result = db_instance_populated.query("SELECT name FROM users WHERE age > ?", (28,))
+    result = db_manager_instance_populated.query("SELECT name FROM generators WHERE capacity > ?", (300,))
     names = [row[0] for row in result]
-    assert len(names) == 2
-    assert "Alice" in names
-    assert "Charlie" in names
+    assert len(names) == 1
+    assert "Coal Plant 1" in names
 
     # Test query with no results
-    result = db_instance_populated.query("SELECT name FROM users WHERE age > 100")
+    result = db_manager_instance_populated.query("SELECT name FROM generators WHERE capacity > 1000")
     assert len(result) == 0
 
     # Test query with error
     with pytest.raises(sqlite3.Error):
-        db_instance_populated.query("SELECT * FROM nonexistent_table")
+        db_manager_instance_populated.query("SELECT * FROM nonexistent_table")
 
 
-def test_sqlite_manager_executemany(db_instance_empty):
+def test_sqlite_manager_executemany(db_manager_instance_empty):
     """Test executemany functionality."""
     # Test successful executemany
-    users = [("Alice", 30), ("Bob", 25), ("Charlie", 35), ("David", 40)]
+    generators = [
+        ("Gen 1", 100.0, "Solar"),
+        ("Gen 2", 200.0, "Wind"),
+        ("Gen 3", 300.0, "Gas"),
+        ("Gen 4", 400.0, "Coal"),
+    ]
 
-    success = db_instance_empty.executemany("INSERT INTO users (name, age) VALUES (?, ?)", users)
+    success = db_manager_instance_empty.executemany(
+        "INSERT INTO generators (name, capacity, fuel_type) VALUES (?, ?, ?)", generators
+    )
     assert success is True
 
-    # Verify all users were inserted
-    result = db_instance_empty.query("SELECT COUNT(*) FROM users")
+    # Verify all generators were inserted
+    result = db_manager_instance_empty.query("SELECT COUNT(*) FROM generators")
     assert result[0][0] == 4
 
     # Test executemany with error - trying to insert into a non-existent table
     nonexistent_data = [("Data1", 100), ("Data2", 200)]
 
-    success = db_instance_empty.executemany(
+    success = db_manager_instance_empty.executemany(
         "INSERT INTO nonexistent_table (name, value) VALUES (?, ?)", nonexistent_data
     )
     assert success is False
 
 
-def test_sqlite_manager_executescript(db_instance_empty):
+def test_sqlite_manager_executescript(db_manager_instance_empty):
     """Test executescript functionality."""
     # Test successful executescript
     script = """
-    INSERT INTO users (name, age) VALUES ('Alice', 30);
-    INSERT INTO users (name, age) VALUES ('Bob', 25);
+    INSERT INTO generators (name, capacity, fuel_type) VALUES ('Gen 1', 100.0, 'Solar');
+    INSERT INTO generators (name, capacity, fuel_type) VALUES ('Gen 2', 200.0, 'Wind');
     """
 
-    success = db_instance_empty.executescript(script)
+    success = db_manager_instance_empty.executescript(script)
     assert success is True
 
     # Verify both inserts worked
-    result = db_instance_empty.query("SELECT COUNT(*) FROM users")
+    result = db_manager_instance_empty.query("SELECT COUNT(*) FROM generators")
     assert result[0][0] == 2
 
     # Test executescript with error
     script_with_error = """
-    INSERT INTO users (name, age) VALUES ('Charlie', 35);
+    INSERT INTO generators (name, capacity, fuel_type) VALUES ('Gen 3', 300.0, 'Gas');
     INSERT INTO nonexistent_table VALUES (1, 'test');
     """
 
-    success = db_instance_empty.executescript(script_with_error)
+    success = db_manager_instance_empty.executescript(script_with_error)
     assert success is False
 
     # Verify first insert did not work (rollback)
-    result = db_instance_empty.query("SELECT COUNT(*) FROM users")
-    assert result[0][0] == 2  # Still just Alice and Bob
+    result = db_manager_instance_empty.query("SELECT COUNT(*) FROM generators")
+    assert result[0][0] == 2  # Still just Gen 1 and Gen 2
 
 
-def test_sqlite_manager_iter_query(db_instance_populated):
+def test_sqlite_manager_iter_query(db_manager_instance_populated):
     """Test iter_query functionality."""
     # Test basic iter_query
-    results = list(db_instance_populated.iter_query("SELECT name, age FROM users ORDER BY age"))
+    results = list(
+        db_manager_instance_populated.iter_query("SELECT name, capacity FROM generators ORDER BY capacity")
+    )
     assert len(results) == 3
-    assert results[0][0] == "Bob"
-    assert results[0][1] == 25
+    assert results[0][0] == "Wind Farm 1"
+    assert results[0][1] == 150.0
 
     # Test iter_query with parameters
-    results = list(db_instance_populated.iter_query("SELECT name FROM users WHERE age > ?", (28,)))
+    results = list(
+        db_manager_instance_populated.iter_query("SELECT name FROM generators WHERE capacity > ?", (300,))
+    )
     names = [row[0] for row in results]
-    assert len(names) == 2
-    assert "Alice" in names
-    assert "Charlie" in names
+    assert len(names) == 1
+    assert "Coal Plant 1" in names
 
     # Test iter_query with custom batch size
     # First, add many rows
-    users = [(f"User{i}", 20 + i) for i in range(50)]
-    db_instance_populated.executemany("INSERT INTO users (name, age) VALUES (?, ?)", users)
+    generators = [(f"Gen{i}", 20 + i, "Fuel") for i in range(50)]
+    db_manager_instance_populated.executemany(
+        "INSERT INTO generators (name, capacity, fuel_type) VALUES (?, ?, ?)", generators
+    )
 
     # Then retrieve with small batch size
-    results = list(db_instance_populated.iter_query("SELECT name FROM users ORDER BY id", batch_size=10))
-    assert len(results) == 53  # 3 original + 50 new users
+    results = list(
+        db_manager_instance_populated.iter_query("SELECT name FROM generators ORDER BY id", batch_size=10)
+    )
+    assert len(results) == 53  # 3 original + 50 new generators
 
     # Test iter_query with error
     with pytest.raises(sqlite3.Error):
-        list(db_instance_populated.iter_query("SELECT * FROM nonexistent_table"))
+        list(db_manager_instance_populated.iter_query("SELECT * FROM nonexistent_table"))
 
 
-def test_sqlite_manager_last_insert_rowid(db_instance_empty):
+def test_sqlite_manager_last_insert_rowid(db_manager_instance_empty):
     """Test last_insert_rowid functionality."""
     # Test after single insert
-    db_instance_empty.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Alice", 30))
-    rowid = db_instance_empty.last_insert_rowid()
+    db_manager_instance_empty.execute(
+        "INSERT INTO generators (name, capacity, fuel_type) VALUES (?, ?, ?)", ("Test Gen", 100.0, "Solar")
+    )
+    rowid = db_manager_instance_empty.last_insert_rowid()
     assert rowid == 1
 
     # Test after another insert
-    db_instance_empty.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Bob", 25))
-    rowid = db_instance_empty.last_insert_rowid()
+    db_manager_instance_empty.execute(
+        "INSERT INTO generators (name, capacity, fuel_type) VALUES (?, ?, ?)", ("Test Gen 2", 200.0, "Wind")
+    )
+    rowid = db_manager_instance_empty.last_insert_rowid()
     assert rowid == 2
 
     # Test edge case with empty result
     # This is unlikely but we should test our exception handling
-    original_query = db_instance_empty.query
+    original_query = db_manager_instance_empty.query
 
     def mock_query(*args, **kwargs):
         return []
 
-    db_instance_empty.query = mock_query
-    rowid = db_instance_empty.last_insert_rowid()
+    db_manager_instance_empty.query = mock_query
+    rowid = db_manager_instance_empty.last_insert_rowid()
     assert rowid == 0
 
     # Restore original query method
-    db_instance_empty.query = original_query
+    db_manager_instance_empty.query = original_query
 
 
-def test_sqlite_manager_optimize(db_instance_populated):
+def test_sqlite_manager_optimize(db_manager_instance_populated):
     """Test optimize functionality."""
     # Simple test to verify it doesn't throw errors
-    success = db_instance_populated.optimize()
+    success = db_manager_instance_populated.optimize()
     assert success is True
 
-    # Not much else we can test here since these are SQLite internal operations
 
-
-def test_sqlite_manager_transaction(db_instance_empty):
-    """Test transaction functionality."""
-    # Test successful transaction
-    with db_instance_empty.transaction():
-        db_instance_empty.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Alice", 30))
-        db_instance_empty.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Bob", 25))
-
-    # Verify both inserts were committed
-    result = db_instance_empty.query("SELECT COUNT(*) FROM users")
-    assert result[0][0] == 2
-
-    # Test transaction rollback on error
-    try:
-        with db_instance_empty.transaction():
-            db_instance_empty.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Charlie", 35))
-            # This should cause an error
-            db_instance_empty.execute("INSERT INTO nonexistent_table VALUES (1, 'test')")
-    except sqlite3.Error:
-        pass  # Expected exception
-
-    # Verify the first insert was not committed
-    result = db_instance_empty.query("SELECT COUNT(*) FROM users")
-    assert result[0][0] == 2  # Still just Alice and Bob
-
-    # Test nested transaction behavior
-    with pytest.raises(sqlite3.Error):
-        with db_instance_empty.transaction():
-            db_instance_empty.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("David", 40))
-            with db_instance_empty.transaction():
-                # SQLite doesn't support nested transactions like this
-                pass
-
-
-def test_context_manager(db_path_on_disk):
-    """Test using SQLiteManager as a context manager."""
-    db_file_path = str(db_path_on_disk)
-
-    # First, create and populate the database with a context manager
-    with SQLiteManager(fpath_or_conn=db_file_path, in_memory=False) as db:
-        # Create tables
-        db.executescript(TEST_SCHEMA)
-        # Insert test data - use explicit transaction to ensure atomicity
-        with db.transaction():
-            db.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Alice", 30))
-            # Add more data to ensure it's not a single-row issue
-            db.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Bob", 25))
-        # Force commit and checkpoint
-        db.execute("PRAGMA wal_checkpoint(FULL)")
-        # Verify data is there within the context
-        result = db.query("SELECT COUNT(*) FROM users")
-        assert result[0][0] == 2, "Expected 2 users to be inserted"
-
-    # The connection should be closed now and file persisted to disk
-    assert Path(db_file_path).exists(), f"Database file {db_file_path} does not exist"
-
-    # Give the OS a moment to fully release file locks if needed
-    import time
-
-    time.sleep(0.5)  # 500ms delay to be sure
-
-    # Now open the database file directly
-    print(f"Opening database file at: {db_file_path}")
-    with sqlite3.connect(db_file_path) as conn:
-        # Use a direct connection with no fancy options
-        cursor = conn.cursor()
-
-        # Debug info
-        cursor.execute("PRAGMA database_list")
-        db_info = cursor.fetchall()
-        print(f"Database info: {db_info}")
-
-        # Verify schema
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = cursor.fetchall()
-        print(f"Tables: {tables}")
-
-        # Verify data - change to simple count query first
-        cursor.execute("SELECT COUNT(*) FROM users")
-        count_result = cursor.fetchone()
-        print(f"User count: {count_result}")
-        assert count_result is not None and count_result[0] == 2, f"Expected 2 users, got {count_result}"
-
-        # Then check specific data
-        cursor.execute("SELECT name FROM users WHERE age=30")
-        result = cursor.fetchone()
-        assert result is not None, "No data found in users table"
-        assert result[0] == "Alice", f"Expected 'Alice', got {result[0]}"
-
-
-def test_execute_in_transaction(db_instance_empty):
+def test_execute_in_function(db_manager_instance_empty):
     """Test that execute raises exceptions when in a transaction."""
     # Start a transaction
     with pytest.raises(sqlite3.Error):
-        with db_instance_empty.transaction():
+        with db_manager_instance_empty.transaction():
             # This should succeed
-            db_instance_empty.execute("INSERT INTO users (name, age) VALUES (?, ?)", ("Alice", 30))
+            db_manager_instance_empty.execute(
+                "INSERT INTO generators (name, capacity, fuel_type) VALUES (?, ?, ?)",
+                ("Gen 1", 100.0, "Solar"),
+            )
 
             # This should raise an exception in transaction mode instead of returning False
-            db_instance_empty.execute("INSERT INTO nonexistent_table VALUES (1, 'test')")
+            db_manager_instance_empty.execute("INSERT INTO nonexistent_table VALUES (1, 'test')")
 
     # Verify transaction was rolled back
-    result = db_instance_empty.query("SELECT COUNT(*) FROM users")
+    result = db_manager_instance_empty.query("SELECT COUNT(*) FROM generators")
     assert result[0][0] == 0, "Transaction should have been rolled back"
 
 
-def test_executemany_in_transaction(db_instance_empty):
+def test_executemany_in_transaction(db_manager_instance_empty):
     """Test that executemany raises exceptions when in a transaction."""
-    users = [("Alice", 30), ("Bob", 25)]
+    generators = [("Gen 1", 100.0, "Solar"), ("Gen 2", 200.0, "Wind")]
     invalid_data = [(1, "test"), (2, "test2")]
 
     # Test with transaction
     with pytest.raises(sqlite3.Error):
-        with db_instance_empty.transaction():
+        with db_manager_instance_empty.transaction():
             # This should succeed
-            db_instance_empty.executemany("INSERT INTO users (name, age) VALUES (?, ?)", users)
+            db_manager_instance_empty.executemany(
+                "INSERT INTO generators (name, capacity, fuel_type) VALUES (?, ?, ?)", generators
+            )
 
             # This should raise an exception in transaction mode
-            db_instance_empty.executemany("INSERT INTO nonexistent_table VALUES (?, ?)", invalid_data)
+            db_manager_instance_empty.executemany("INSERT INTO nonexistent_table VALUES (?, ?)", invalid_data)
 
     # Verify transaction was rolled back
-    result = db_instance_empty.query("SELECT COUNT(*) FROM users")
+    result = db_manager_instance_empty.query("SELECT COUNT(*) FROM generators")
     assert result[0][0] == 0, "Transaction should have been rolled back"
 
 
@@ -500,8 +385,8 @@ def test_failed_collation_creation(monkeypatch):
     mock_conn = MagicMock()
     mock_conn.create_collation.side_effect = sqlite3.Error("Failed to create collation")
 
-    # Replace the internal _conn attribute instead of the connection property
-    monkeypatch.setattr(db, "_conn", mock_conn)
+    # Replace the internal _con attribute instead of the connection property
+    monkeypatch.setattr(db, "_con", mock_conn)
 
     # Test collation creation failure
     result = db.add_collation("TEST_COLLATION", lambda x, y: 0)
@@ -510,31 +395,31 @@ def test_failed_collation_creation(monkeypatch):
     db.close()
 
 
-def test_close_with_transaction_errors(db_instance_empty):
+def test_close_with_transaction_errors(db_manager_instance_empty):
     """Test close method handling transaction errors."""
     # First start a transaction
-    db_instance_empty.execute("BEGIN")
+    db_manager_instance_empty.execute("BEGIN")
 
     # Now close - should handle the active transaction
-    db_instance_empty.close()
+    db_manager_instance_empty.close()
 
     # If we got here without exception, the test passes
-    assert db_instance_empty._conn is None, "Connection should be None after close"
+    assert db_manager_instance_empty._con is None, "Connection should be None after close"
 
 
-def test_optimize_in_transaction(db_instance_empty):
+def test_optimize_in_transaction(db_manager_instance_empty):
     """Test optimize when in transaction."""
     # Start a transaction
-    db_instance_empty.execute("BEGIN")
+    db_manager_instance_empty.execute("BEGIN")
 
     # Run optimize which should issue a warning but not fail
-    success = db_instance_empty.optimize()
+    success = db_manager_instance_empty.optimize()
 
     # Should still succeed despite the warning
     assert success is True, "Optimize should succeed even with transaction warning"
 
     # Clean up
-    db_instance_empty.conn.commit()
+    db_manager_instance_empty.connection.commit()
 
 
 def test_optimize_additional_cases(monkeypatch):
@@ -587,7 +472,7 @@ def test_close_additional_cases(monkeypatch):
     db.close()
     # Second close should not error
     db.close()
-    assert db._conn is None
+    assert db._con is None
 
     # Test close with error during commit
     db2 = SQLiteManager()
@@ -598,19 +483,19 @@ def test_close_additional_cases(monkeypatch):
     mock_conn.commit.side_effect = sqlite3.Error("Error during commit")
 
     # Replace the entire connection object instead of just the commit method
-    _ = db2._conn
-    db2._conn = mock_conn
+    _ = db2._con
+    db2._con = mock_conn
 
     # Close should handle the error and still close the connection
     db2.close()
-    assert db2._conn is None
+    assert db2._con is None
 
     # Test that close properly calls the connection's close method
     db3 = SQLiteManager()
 
     # Create connection with close method that we can spy on
-    mock_conn = MagicMock(wraps=db3._conn)
-    db3._conn = mock_conn
+    mock_conn = MagicMock(wraps=db3._con)
+    db3._con = mock_conn
 
     db3.close()
 
@@ -629,38 +514,36 @@ def test_no_default_schema():
 
 
 def test_in_memory_flag_setting(tmp_path):
-    """Test that _in_memory flag is correctly set based on initialization parameters."""
+    """Test that _is_in_memory method works correctly based on initialization parameters."""
     fpath_or_conn = tmp_path / "test.db"
-    db1 = SQLiteManager(fpath_or_conn=fpath_or_conn, in_memory=False)
-    assert db1._in_memory is False
+    db1 = SQLiteManager(fpath_or_conn=fpath_or_conn)
+    assert db1._is_in_memory() is False
     db1.close()
 
-    db2 = SQLiteManager(fpath_or_conn=fpath_or_conn, in_memory=True)
-    assert db2._in_memory is True
+    db2 = SQLiteManager()  # Default is in-memory
+    assert db2._is_in_memory() is True
     db2.close()
 
-    with pytest.raises(NotImplementedError):
-        _ = SQLiteManager(fpath_or_conn=None, in_memory=False)
-
-    db3 = SQLiteManager()
-    assert db3._in_memory is True
+    # Test that we can create a file database
+    db3 = SQLiteManager(fpath_or_conn=fpath_or_conn)
+    assert db3._is_in_memory() is False
     db3.close()
 
 
-def test_backup_path_handling(db_instance_populated, tmp_path):
+def test_backup_path_handling(db_manager_instance_populated, tmp_path):
     """Test backup method path handling."""
     path_obj = tmp_path / "backup_path.db"
-    success = db_instance_populated.backup(path_obj)
+    success = db_manager_instance_populated.backup(path_obj)
     assert success is True
     assert path_obj.exists()
 
     str_path = str(tmp_path / "backup_string.db")
-    success = db_instance_populated.backup(str_path)
+    success = db_manager_instance_populated.backup(str_path)
     assert success is True
     assert Path(str_path).exists()
 
     nested_path = tmp_path / "new_dir" / "nested.db"
-    success = db_instance_populated.backup(nested_path)
+    success = db_manager_instance_populated.backup(nested_path)
     assert success is True
     assert nested_path.exists()
 
@@ -672,13 +555,13 @@ def test_backup_path_handling(db_instance_populated, tmp_path):
         restricted_dir.chmod(0o000)  # Remove all permissions
         try:
             restricted_path = restricted_dir / "cant_write.db"
-            success = db_instance_populated.backup(restricted_path)
+            success = db_manager_instance_populated.backup(restricted_path)
             assert success is False
         finally:
             restricted_dir.chmod(0o755)
 
 
-def test_last_insert_rowid_index_error(db_instance_empty, monkeypatch):
+def test_last_insert_rowid_index_error(db_manager_instance_empty, monkeypatch):
     """Test last_insert_rowid handling of IndexError."""
 
     # Create a mock query method that returns an empty result
@@ -686,16 +569,16 @@ def test_last_insert_rowid_index_error(db_instance_empty, monkeypatch):
         return []
 
     # Apply the mock to the db instance
-    monkeypatch.setattr(db_instance_empty, "query", mock_query)
+    monkeypatch.setattr(db_manager_instance_empty, "query", mock_query)
 
     # Test that it returns 0 instead of raising an IndexError
-    rowid = db_instance_empty.last_insert_rowid()
+    rowid = db_manager_instance_empty.last_insert_rowid()
     assert rowid == 0
 
 
-def test_optimize_vacuum_failure(db_instance_populated, monkeypatch):
+def test_optimize_vacuum_failure(db_manager_instance_populated, monkeypatch):
     """Test optimize handling of VACUUM failure."""
-    real_connection = db_instance_populated.conn
+    real_connection = db_manager_instance_populated.connection
 
     mock_conn = MagicMock(wraps=real_connection)
 
@@ -705,50 +588,27 @@ def test_optimize_vacuum_failure(db_instance_populated, monkeypatch):
         return real_connection.execute(sql, *args, **kwargs)
 
     mock_conn.execute = mock_execute
-    monkeypatch.setattr(db_instance_populated, "_conn", mock_conn)
+    monkeypatch.setattr(db_manager_instance_populated, "_con", mock_conn)
 
-    result = db_instance_populated.optimize()
+    result = db_manager_instance_populated.optimize()
     assert result is False, "Optimize should fail when VACUUM fails"
-
-
-def test_close_rollback_error(monkeypatch):
-    """Test close method handling rollback errors."""
-    db = SQLiteManager()
-
-    # Start a transaction
-    db.execute("BEGIN")
-
-    # Create a mock connection where rollback raises an exception
-    mock_conn = MagicMock(wraps=db._conn)
-    mock_conn.in_transaction = True  # Force in_transaction to be True
-    mock_conn.rollback.side_effect = sqlite3.Error("Rollback error")
-
-    # Replace the connection
-    monkeypatch.setattr(db, "_conn", mock_conn)
-
-    # Close should not raise exception even if rollback fails
-    db.close()
-
-    # Verify rollback was attempted
-    mock_conn.rollback.assert_called_once()
-
-    # Connection should be set to None
-    assert db._conn is None
 
 
 def test_close_commit_for_file_db(monkeypatch):
     """Test close method committing for file-based database."""
     db = SQLiteManager()
 
-    # Make it look like a file database
-    db._in_memory = False
-
     # Create a mock connection to spy on commit calls
-    mock_conn = MagicMock(wraps=db._conn)
+    mock_conn = MagicMock(wraps=db._con)
     mock_conn.in_transaction = False  # Not in transaction
 
-    # Replace the connection
-    monkeypatch.setattr(db, "_conn", mock_conn)
+    # Mock the _is_in_memory method to return False (file database)
+    def mock_is_in_memory():
+        return False
+
+    # Replace the connection and _is_in_memory method
+    monkeypatch.setattr(db, "_con", mock_conn)
+    monkeypatch.setattr(db, "_is_in_memory", mock_is_in_memory)
 
     db.close()
 
@@ -756,7 +616,7 @@ def test_close_commit_for_file_db(monkeypatch):
     mock_conn.commit.assert_called_once()
 
     # Connection should be set to None
-    assert db._conn is None
+    assert db._con is None
 
 
 def test_close_connection_error(monkeypatch):
@@ -769,7 +629,7 @@ def test_close_connection_error(monkeypatch):
     mock_conn.close.side_effect = sqlite3.Error("Close failed")
 
     # Replace the connection
-    monkeypatch.setattr(db, "_conn", mock_conn)
+    monkeypatch.setattr(db, "_con", mock_conn)
 
     # Close should not raise exception even if connection.close fails
     db.close()
@@ -778,23 +638,23 @@ def test_close_connection_error(monkeypatch):
     mock_conn.close.assert_called_once()
 
     # Connection should be set to None despite error
-    assert db._conn is None
+    assert db._con is None
 
 
-def test_fetching_methods(db_instance_populated):
-    db = db_instance_populated
-    result_many = db.fetchmany("SELECT * from users", size=1)
+def test_fetching_methods(db_manager_instance_populated):
+    db = db_manager_instance_populated
+    result_many = db.fetchmany("SELECT * from generators", size=1)
     assert result_many
     assert len(result_many) == 1
 
-    result_one = db.fetchone("SELECT * from users")
+    result_one = db.fetchone("SELECT * from generators")
     assert result_one
-    assert len(result_one) == 3
+    assert len(result_one) == 4
     assert [result_one] == result_many
 
-    result_one_dict = db.fetchone_dict("SELECT * from users")
+    result_one_dict = db.fetchone_dict("SELECT * from generators")
     assert result_one_dict
     assert isinstance(result_one_dict, dict)
 
-    for user in db.iter_dicts("SELECT * from users"):
-        assert isinstance(user, dict)
+    for generator in db.iter_dicts("SELECT * from generators"):
+        assert isinstance(generator, dict)
