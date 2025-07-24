@@ -761,7 +761,7 @@ class PlexosDB:
 
         if not memberships:
             raise KeyError(
-                "Objects do not exist in the database. "
+                "Object do not exists on the database yet."
                 "Make sure you use `add_object` before adding properties."
             )
 
