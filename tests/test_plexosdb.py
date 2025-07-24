@@ -316,7 +316,7 @@ def test_add_properties_from_records_with_text(db_instance_with_schema):
         {"name": missing_object_name, test_property_name: 999.0, "text": "/wrong_path/max_active_power.csv"}
     ]
 
-    with pytest.raises(NotFoundError, match="Object = NonExistentGen not found on the database."):
+    with pytest.raises(KeyError, match="Object = NonExistentGen not found on the database."):
         db.add_properties_from_records(
             missing_records,
             object_class=ClassEnum.Generator,
