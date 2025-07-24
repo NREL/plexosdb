@@ -311,6 +311,21 @@ def test_add_properties_from_records_with_text(db_instance_with_schema):
     assert any(p["property"] == test_property_name and p["value"] == test_property_value for p in props)
     assert any("texts" in p and test_text in str(p["texts"]) for p in props)
 
+    missing_object_name = "NonExistentGen"
+    missing_records = [
+        {"name": missing_object_name, test_property_name: 999.0, "text": "/wrong_path/max_active_power.csv"}
+    ]
+
+    with pytest.raises(NotFoundError, match="Object = NonExistentGen not found on the database."):
+        db.add_properties_from_records(
+            missing_records,
+            object_class=ClassEnum.Generator,
+            collection=CollectionEnum.Generators,
+            scenario="BulkScenario",
+            text_class=ClassEnum.DataFile,
+            text_field="text",
+        )
+
 
 def test_add_property_to_object_with_text(db_instance_with_schema):
     db = db_instance_with_schema

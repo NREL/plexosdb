@@ -760,7 +760,7 @@ class PlexosDB:
         memberships = self.get_memberships_system(component_names, object_class=object_class)
 
         if not memberships:
-            raise KeyError(
+            raise NotFoundError(
                 "Object do not exists on the database yet."
                 "Make sure you use `add_object` before adding properties."
             )
