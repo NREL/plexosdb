@@ -3689,10 +3689,7 @@ class PlexosDB:
         >>> db.list_scenarios_by_model("Model1")
         ['Scenario1']
         """
-        try:
-            parent_object_id = self.get_object_id(ClassEnum.Model, model_name)
-        except Exception:
-            return []
+        parent_object_id = self.get_object_id(ClassEnum.Model, model_name)
 
         query = """
         SELECT t_object.name
