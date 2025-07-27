@@ -3660,6 +3660,49 @@ class PlexosDB:
         result = self.query(query_string, (ClassEnum.Model,))
         assert result
         return [d[0] for d in result]
+    
+    def list_scenarios_by_model(self, model_name: str) -> list[str]:
+        """
+        List all scenarios associated with a given model.
+
+        Parameters
+        ----------
+        model_name : str
+            Name of the model to list scenarios for.
+
+        Returns
+        -------
+        list[str]
+            List of scenario names associated with the model. Returns an empty list if none found.
+
+        Examples
+        --------
+        >>> db.add_object(ClassEnum.Model, "Model1")
+        >>> db.add_object(ClassEnum.Scenario, "Scenario1")
+        >>> db.add_membership(
+        ...     parent_class_enum=ClassEnum.Model,
+        ...     child_class_enum=ClassEnum.Scenario,
+        ...     parent_object_name="Model1",
+        ...     child_object_name="Scenario1",
+        ...     collection_enum=CollectionEnum.Scenarios,
+        ... )
+        >>> db.list_scenarios_by_model("Model1")
+        ['Scenario1']
+        """
+        try:
+            parent_object_id = self.get_object_id(ClassEnum.Model, model_name)
+        except Exception:
+            return []
+
+        query = """
+        SELECT t_object.name
+        FROM t_membership as membership
+        LEFT JOIN t_object on t_object.object_id = membership.child_object_id
+        LEFT JOIN t_class on t_object.class_id = t_class.class_id
+        WHERE membership.parent_object_id = ? and t_class.name = ?
+        """
+        result = self.query(query, (parent_object_id, ClassEnum.Scenario))
+        return [row[0] for row in result] if result else []
 
     def list_units(self) -> list[dict[int, str]]:
         """List all available units in the database."""
