@@ -423,6 +423,33 @@ def test_list_units(db_instance_with_schema):
 
 
 @pytest.mark.listing
+def test_list_scenarios_by_model(db_instance_with_schema):
+    db = db_instance_with_schema
+
+    model_name = "TestModelA"
+    scenario_name = "TestScenarioA"
+    db.add_object(ClassEnum.Model, model_name)
+    db.add_object(ClassEnum.Scenario, scenario_name)
+
+    db.add_membership(
+        parent_class_enum=ClassEnum.Model,
+        child_class_enum=ClassEnum.Scenario,
+        parent_object_name=model_name,
+        child_object_name=scenario_name,
+        collection_enum=CollectionEnum.Scenarios,
+    )
+
+    scenarios = db.list_scenarios_by_model(model_name)
+    assert isinstance(scenarios, list)
+    assert scenario_name in scenarios
+    assert len(scenarios) == 1
+
+    db.add_object(ClassEnum.Model, "EmptyModel")
+    empty_scenarios = db.list_scenarios_by_model("EmptyModel")
+    assert empty_scenarios == []
+
+
+@pytest.mark.listing
 def test_list_classes(db_instance_with_schema):
     db = db_instance_with_schema
     classes = db.list_classes()
