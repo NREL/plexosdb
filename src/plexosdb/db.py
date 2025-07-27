@@ -3660,7 +3660,7 @@ class PlexosDB:
         result = self.query(query_string, (ClassEnum.Model,))
         assert result
         return [d[0] for d in result]
-    
+
     def list_scenarios_by_model(self, model_name: str) -> list[str]:
         """
         List all scenarios associated with a given model.
