@@ -121,6 +121,11 @@ def db_instance_with_schema() -> PlexosDB:
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (2,'MWh')")
         db._db.execute("INSERT INTO t_unit(unit_id, value) VALUES (3,'%')")
         db._db.execute(
+            "INSERT INTO t_collection(collection_id, parent_class_id, child_class_id, name) "
+            "VALUES (?, ?, ?, ?)",
+            (9, 8, 4, "Scenarios"),
+        )
+        db._db.execute(
             "INSERT INTO t_property(property_id, collection_id, unit_id, name) VALUES (1,1,1, 'Max Capacity')"
         )
         db._db.execute(
