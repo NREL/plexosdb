@@ -1391,19 +1391,16 @@ class PlexosDB:
         category = self.query("SELECT name from t_category WHERE category_id = ?", (category_id[0][0],))
         new_object_id = self.add_object(object_class, new_object_name, category=category[0][0])
         membership_mapping = self.copy_object_memberships(
-            object_class=object_class, original_name=new_object_name, new_name=new_object_name
+            object_class=object_class, original_name=original_object_name, new_name=new_object_name
         )
 
-        # If we do not find a membership, we just look for the system membership
-        if not membership_mapping:
-            membership_mapping = {}
-            system_membership_id = self.list_object_memberships(object_class, original_object_name)[0][
-                "membership_id"
-            ]
-            new_membership_id = self.list_object_memberships(object_class, new_object_name)[0][
-                "membership_id"
-            ]
-            membership_mapping[system_membership_id] = new_membership_id
+        system_membership_id = self.list_object_memberships(object_class, original_object_name)[0][
+            "membership_id"
+        ]
+        new_membership_id = self.list_object_memberships(object_class, new_object_name)[0][
+            "membership_id"
+        ]
+        membership_mapping[system_membership_id] = new_membership_id
 
         data_ids = self.get_object_data_ids(object_class, name=original_object_name)
         if not data_ids and copy_properties:
@@ -1427,6 +1424,10 @@ class PlexosDB:
             child_name = membership["child_name"]
             parent_class = ClassEnum[membership["parent_class_name"]]
             child_class = ClassEnum[membership["child_class_name"]]
+            if membership["collection_name"] == 'Nodes*':
+                continue
+            if membership["collection_name"] == 'Start Fuels':
+                membership["collection_name"] = "StartFuels"
             collection = CollectionEnum[membership["collection_name"]]
 
             # Determine if original object was parent or child
