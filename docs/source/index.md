@@ -29,44 +29,19 @@ PlexosDB offers the following capabilities:
 
 ## Getting Started
 
-To begin using PlexosDB, start with the installation guide and then follow the step-by-step tutorial:
-
-```{toctree}
-:maxdepth: 1
-
-installation
-tutorial
-```
+To begin using PlexosDB, start with the [installation guide](installation) and then follow the step-by-step [tutorial](tutorial).
 
 ## How-to Guides
 
-Task-oriented guides for specific workflows:
-
-```{toctree}
-:maxdepth: 1
-
-howtos/index
-```
+Task-oriented guides for specific workflows can be found in the [How-to Guides](howtos/index) section.
 
 ## Reference
 
-Complete API documentation:
-
-```{toctree}
-:maxdepth: 2
-
-api/index
-```
+Complete API documentation is available in the [API Reference](api/index) section.
 
 ## Release Notes
 
-Track changes and updates:
-
-```{toctree}
-:maxdepth: 1
-
-CHANGELOG
-```
+Track changes and updates in the [Release Notes](CHANGELOG).
 
 ## Indices and Tables
 
