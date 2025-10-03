@@ -142,7 +142,7 @@ def test_sqlite_manager_backup(db_manager_instance_populated, tmp_path):
         count = cursor.fetchone()[0]
         assert count == 3
 
-    invalid_path = "NUL:backup.db" if os.name == "nt" else "/dev/null/invalid.db"
+    invalid_path = "NUL" if os.name == "nt" else "/dev/null/invalid.db"
     success = db_manager_instance_populated.backup(invalid_path)
     assert success is False
 
