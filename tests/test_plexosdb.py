@@ -287,6 +287,31 @@ def test_add_property_to_object(db_instance_with_schema):
         _ = db.get_object_data_ids(ClassEnum.Generator, test_object_name, category="bad_category")
 
 
+def test_add_properties_from_records_with_text(db_instance_with_schema):
+    db = db_instance_with_schema
+    test_object_name = "Gen1"
+    test_property_name = "Max Capacity"
+    test_property_value = 100.0
+    test_text = "/path_to_file/max_active_power.csv"
+
+    db.add_object(ClassEnum.Generator, test_object_name)
+    records = [{"name": test_object_name, test_property_name: test_property_value, "text": test_text}]
+
+    db.add_properties_from_records(
+        records,
+        object_class=ClassEnum.Generator,
+        collection=CollectionEnum.Generators,
+        scenario="BulkScenario",
+        text_class=ClassEnum.DataFile,
+        text_field="text",
+    )
+
+    props = db.get_object_properties(ClassEnum.Generator, test_object_name)
+    assert props
+    assert any(p["property"] == test_property_name and p["value"] == test_property_value for p in props)
+    assert any("texts" in p and test_text in str(p["texts"]) for p in props)
+
+
 def test_add_property_to_object_with_text(db_instance_with_schema):
     db = db_instance_with_schema
     test_object_name = "TestGen"

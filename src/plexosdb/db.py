@@ -639,6 +639,19 @@ class PlexosDB:
         self.add_memberships_from_records(membership_records)
         return
 
+    def _add_texts_for_properties(
+        self,
+        params: list[tuple],
+        data_id_map: dict,
+        text_map: dict,
+        text_class: ClassEnum,
+    ) -> None:
+        """Bulk add text data for each property record."""
+        for membership_id, property_id, value in params:
+            data_id, obj_name = data_id_map.get((membership_id, property_id, value), (None, None))
+            if data_id and obj_name and text_map.get(obj_name):
+                self.add_text(text_class, text_map[obj_name], data_id)
+
     def add_properties_from_records(
         self,
         records: list[dict],
@@ -646,17 +659,21 @@ class PlexosDB:
         *,
         object_class: ClassEnum,
         parent_class: ClassEnum = ClassEnum.System,
-        parent_object_name: str = "System",
         collection: CollectionEnum,
         scenario: str,
+        text_class: ClassEnum | None = None,
+        text_field: str = "text",
         chunksize: int = 10_000,
     ) -> None:
-        """Bulk insert multiple properties from a list of records.
+        """Bulk insert multiple properties from a list of records, with optional text data.
 
         Efficiently adds multiple properties to multiple objects in batches using
         transactions, which is significantly faster than calling add_property repeatedly.
 
         Each record should contain an 'object_name' field and property-value pairs.
+        If a text field is present and text_class is provided, text data will be attached
+        to the property data records.
+
         All properties are automatically marked as dynamic and enabled in the database.
 
         Parameters
@@ -669,12 +686,14 @@ class PlexosDB:
             Class enumeration of the objects (e.g., ClassEnum.Generator)
         parent_class : ClassEnum, optional
             Parent class enumeration, by default ClassEnum.System
-        parent_object_name : str, optional
-            Name of the parent object, by default "System"
         collection : CollectionEnum
-            Collection enumeration for the properties (e.g., CollectionEnum.GeneratorProperties)
+            Collection enumeration for the properties (e.g., CollectionEnum.Generators)
         scenario : str
             Scenario name to associate with all properties
+        text_class : ClassEnum | None, optional
+            ClassEnum for the text data (e.g., ClassEnum.File). If None, text is ignored.
+        text_field : str, optional
+            Name of the field in each record containing the text data, by default "text"
         chunksize : int, optional
             Number of records to process in each batch to control memory usage,
             by default 10_000
@@ -714,19 +733,21 @@ class PlexosDB:
         >>> db.add_object(ClassEnum.Generator, "Generator2")
         >>> # Prepare property records
         >>> records = [
-        ...     {"name": "Generator1", "Max Capacity": 100.0, "Min Stable Level": 20.0},
-        ...     {"name": "Generator2", "Max Capacity": 150.0, "Min Stable Level": 30.0},
+        ...     {"name": "Generator1", "Max Capacity": 100.0, "text": "/path_to_file/gen1.txt"},
+        ...     {"name": "Generator2", "Max Capacity": 150.0, "text": "/path_to_file/gen2.txt"},
         ... ]
         >>> # Add properties in bulk
         >>> db.add_properties_from_records(
         ...     records,
         ...     object_class=ClassEnum.Generator,
-        ...     collection=CollectionEnum.GeneratorProperties,
+        ...     collection=CollectionEnum.Generators,
         ...     scenario="Base Case",
+        ...     text_class=ClassEnum.DataFile,
+        ...     text_field="text",
         ... )
         """
         if not records:
-            logger.warning("No records provided for bulk property insertion")
+            logger.warning("No records provided for bulk property and text insertion")
             return
 
         collection_id = self.get_collection_id(
@@ -740,7 +761,7 @@ class PlexosDB:
 
         if not memberships:
             raise KeyError(
-                "Object do not exists on the database yet. "
+                "Object do not exists on the database yet."
                 "Make sure you use `add_object` before adding properties."
             )
 
@@ -748,7 +769,9 @@ class PlexosDB:
             records, memberships=memberships, property_mapping=collection_properties
         )
 
-        # We perform everything on a single transaction to roll back if a mistake happens
+        # Map object name to text value for quick lookup
+        text_map = {rec["name"]: rec.get(text_field) for rec in records}
+
         with self._db.transaction():
             filter_property_ids = [d[1] for d in params]
             for property_id in filter_property_ids:
@@ -759,6 +782,20 @@ class PlexosDB:
                 "INSERT into t_data(membership_id, property_id, value) values (?,?,?)", params
             )
 
+            data_ids_query = """
+                SELECT d.data_id, o.name
+                FROM t_data d
+                JOIN t_membership m ON d.membership_id = m.membership_id
+                JOIN t_object o ON m.child_object_id = o.object_id
+                WHERE d.membership_id = ? AND d.property_id = ? AND d.value = ?
+            """
+            data_id_map = {}
+            for membership_id, property_id, value in params:
+                result = self._db.fetchone(data_ids_query, (membership_id, property_id, value))
+                if result:
+                    data_id_map[(membership_id, property_id, value)] = (result[0], result[1])
+
+            # Insert scenario tags
             if scenario is not None:
                 if not self.check_scenario_exists(scenario):
                     scenario_id = self.add_scenario(scenario)
@@ -766,18 +803,22 @@ class PlexosDB:
                     scenario_id = self.get_scenario_id(scenario)
                 for batch in batched(params, chunksize):
                     batched_list = list(batch)
-                    # place_holders = ", ".join(["(?, ?, ?)"] * len(batch)
                     scenario_query = f"""
                         INSERT into t_tag(data_id, object_id)
                         SELECT
-                            data_id as data_id,
+                            d.data_id as data_id,
                             {scenario_id} as object_id
                         FROM
-                          t_data
-                        WHERE membership_id = ? AND property_id = ? AND value = ?
+                          t_data d
+                        WHERE d.membership_id = ? AND d.property_id = ? AND d.value = ?
                     """
                     self._db.executemany(scenario_query, batched_list)
-        logger.debug(f"Successfully processed {len(records)} property records in batches")
+
+            # Insert text data for each property record using a helper
+            if text_class:
+                self._add_texts_for_properties(params, data_id_map, text_map, text_class)
+
+        logger.debug(f"Successfully processed {len(records)} property and text records in batches")
         return
 
     def add_property(
@@ -2708,7 +2749,7 @@ class PlexosDB:
         >>> db.create_schema()
         >>> db.get_property_id(
         ...     "Max Capacity",
-        ...     collection_enum=CollectionEnum.GeneratorProperties,
+        ...     collection_enum=CollectionEnum.Generators,
         ...     child_class_enum=ClassEnum.Generator,
         ...     parent_class_enum=ClassEnum.System,
         ... )
@@ -3749,7 +3790,7 @@ class PlexosDB:
         >>> db = PlexosDB()
         >>> db.create_schema()
         >>> db.list_valid_properties(
-        ...     CollectionEnum.GeneratorProperties,
+        ...     CollectionEnum.Generators,
         ...     parent_class_enum=ClassEnum.System,
         ...     child_class_enum=ClassEnum.Generator,
         ... )
