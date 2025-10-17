@@ -32,6 +32,8 @@ def test_copy_object(db_instance_with_schema, caplog):
     for old_property in old_properties:
         if old_property == "name":
             assert new_properties[old_property] == new_object_name
+        elif old_property == "object_id":
+            assert new_properties[old_property] != original_object_id
         else:
             assert old_properties[old_property] == new_properties[old_property]
 

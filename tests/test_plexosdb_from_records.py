@@ -29,7 +29,7 @@ def test_bulk_insert_properties_from_records(db_instance_with_schema):
     properties = db.get_object_properties(ClassEnum.Generator, name="Generator1")
     assert properties
     assert properties[0]["property"] == "Max Capacity"
-    assert properties[0]["scenario"] == "Base Case"
+    assert properties[0]["scenario_name"] == "Base Case"
 
 
 def test_bulk_insert_memberships_from_records(db_instance_with_schema: PlexosDB):
