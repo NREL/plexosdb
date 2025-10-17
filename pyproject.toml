@@ -31,6 +31,8 @@ classifiers = [
   "Topic :: Software Development :: Build Tools",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 
 
@@ -143,6 +145,7 @@ pythonpath = [
   "src"
 ]
 markers = [
+    "checks: Functions that check existence of database entities",
     "getters: Functions that get data",
     "adders: Functions that add data",
     "empty_database: Functions for test empty database",

@@ -6,12 +6,12 @@ import uuid
 from collections.abc import Iterable, Iterator
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Literal
+from string import Template
+from typing import Any, Literal, TypedDict, cast
 
 from loguru import logger
 
-from plexosdb.checks import check_memberships_from_records
-
+from .checks import check_memberships_from_records
 from .db_manager import SQLiteManager
 from .enums import ClassEnum, CollectionEnum, Schema, get_default_collection, str2enum
 from .exceptions import (
@@ -28,7 +28,59 @@ else:
     from .utils import batched
 
 SQLITE_BACKEND_KWARGS = {"in_memory"}
+CHECK_QUERY = "SELECT 1 FROM ${schema} ${where_clause}"
 PLEXOS_DEFAULT_SCHEMA = fpath = files("plexosdb").joinpath("schema.sql").read_text(encoding="utf-8-sig")
+PROPERTY_QUERY = files("plexosdb.queries").joinpath("object_properties.sql").read_text(encoding="utf-8-sig")
+
+
+class PropertyRecord(TypedDict, total=False):
+    """Type definition for property records returned by iterate_properties.
+
+    Attributes
+    ----------
+    parent_class : str
+        Name of the parent class
+    child_class : str
+        Name of the child class
+    parent_id : int
+        ID of the parent object
+    object_id : int
+        ID of the child object
+    name : str
+        Name of the object
+    category : str
+        Category name of the object
+    property : str
+        Property name
+    unit : str
+        Unit of measurement
+    value : float | str | None
+        Property value
+    band : int
+        Band ID (defaults to 1)
+    date_from : str | None
+        Start date for the property
+    date_to : str | None
+        End date for the property
+    text : str | None
+        Associated text data
+    text_class_name : str | None
+        Class name of the text
+    timeslice_id : str | None
+        Name of associated timeslice
+    datafile_name : str | None
+        Name of associated data file
+    datafile_id : int | None
+        ID of associated data file
+    variable_name : str | None
+        Name of associated variable
+    variable_id : int | None
+        ID of associated variable
+    action : str | None
+        Action symbol
+    scenario_name : str | None
+        Name of associated scenario
+    """
 
 
 class PlexosDB:
@@ -1175,7 +1227,7 @@ class PlexosDB:
         ----------
         class_enum : ClassEnum
             Class enumeration to check the category for
-        category : str
+        name : str
             Name of the category to check
 
         Returns
@@ -1183,10 +1235,17 @@ class PlexosDB:
         bool
             True if the category exists, False otherwise
 
+        Raises
+        ------
+        NotFoundError
+            If class_enum does not exist in the database. This indicates a programming
+            error - you cannot check categories for a non-existent class.
+
         See Also
         --------
         get_class_id : Get the ID for a class
         add_category : Add a new category
+        check_class_exists : Check if a class exists
 
         Examples
         --------
@@ -1198,9 +1257,147 @@ class PlexosDB:
         >>> db.check_category_exists(ClassEnum.Generator, "nonexistent")
         False
         """
+        # Validate class exists first
+        if not self.check_class_exists(class_enum):
+            msg = (
+                f"Class '{class_enum}' does not exist. "
+                "Cannot check category for non-existent class. "
+                "Use `list_classes()` to see available classes."
+            )
+            raise NotFoundError(msg)
+
         query = f"SELECT 1 FROM {Schema.Categories.name} WHERE name = ? AND class_id = ?"
         class_id = self.get_class_id(class_enum)
         return bool(self._db.query(query, (name, class_id)))
+
+    def check_class_exists(self, class_enum: ClassEnum) -> bool:
+        """Check if a class exists in the database.
+
+        Determines whether a class with the given enumeration exists in the schema.
+
+        Parameters
+        ----------
+        class_enum : ClassEnum
+            Class enumeration to check
+
+        Returns
+        -------
+        bool
+            True if the class exists, False otherwise
+
+        See Also
+        --------
+        get_class_id : Get the ID for a class
+        list_classes : List all available classes
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.check_class_exists(ClassEnum.Generator)
+        True
+        >>> db.check_class_exists(ClassEnum.Generator)
+        True
+        """
+        query = f"SELECT 1 FROM {Schema.Class.name} WHERE name = ?"
+        return bool(self._db.query(query, (class_enum,)))
+
+    def check_collection_exists(
+        self,
+        collection_enum: CollectionEnum,
+        /,
+        *,
+        parent_class: ClassEnum | None = None,
+        child_class: ClassEnum | None = None,
+    ) -> bool:
+        """Check if a collection exists in the database.
+
+        Determines whether a collection with the given enumeration exists, optionally
+        filtered by parent and/or child class.
+
+        Parameters
+        ----------
+        collection_enum : CollectionEnum
+            Collection enumeration to check
+        parent_class : ClassEnum | None, optional
+            Parent class enumeration to filter by, by default None
+        child_class : ClassEnum | None, optional
+            Child class enumeration to filter by, by default None
+
+        Returns
+        -------
+        bool
+            True if the collection exists (matching all specified criteria), False otherwise
+
+        Raises
+        ------
+        NotFoundError
+            If parent_class or child_class is specified but does not exist in the database.
+            This indicates a programming error - you cannot search for a collection
+            associated with a non-existent class.
+
+        See Also
+        --------
+        get_collection_id : Get the ID for a collection
+        list_collections : List all available collections
+        check_class_exists : Check if a class exists
+
+        Notes
+        -----
+        The method returns False only when the collection itself doesn't exist or doesn't
+        match the specified parent/child class criteria. If you explicitly pass a parent_class
+        or child_class that doesn't exist, it raises NotFoundError because this is a
+        programming error - you cannot look for a collection for a non-existing class.
+
+        Examples
+        --------
+        >>> db = PlexosDB()
+        >>> db.create_schema()
+        >>> db.check_collection_exists(CollectionEnum.Generators)
+        True
+        >>> db.check_collection_exists(
+        ...     CollectionEnum.Generators, parent_class=ClassEnum.System, child_class=ClassEnum.Generator
+        ... )
+        True
+        >>> # This returns False - collection exists but not for this combination
+        >>> db.check_collection_exists(CollectionEnum.Generators, parent_class=ClassEnum.Region)
+        False
+        >>> # This raises NotFoundError - the class itself doesn't exist
+        >>> db.check_collection_exists(CollectionEnum.Generators, parent_class=ClassEnum.InvalidClass)
+        NotFoundError: Parent class 'InvalidClass' does not exist
+        """
+        conditions = ["name = ?"]
+        params: list[str | int] = [str(collection_enum)]
+
+        if parent_class and not self.check_class_exists(parent_class):
+            msg = (
+                f"Parent class '{parent_class}' does not exist. "
+                "Cannot search for collection with non-existent parent class. "
+                "Use `list_classes()` to see available classes."
+            )
+            raise NotFoundError(msg)
+
+        if parent_class:
+            parent_class_id = self.get_class_id(parent_class)
+            conditions.append("parent_class_id = ?")
+            params.append(parent_class_id)
+
+        if child_class is not None and not self.check_class_exists(child_class):
+            msg = (
+                f"Child class '{child_class}' does not exist. "
+                "Cannot search for collection with non-existent child class. "
+                "Use `list_classes()` to see available classes."
+            )
+            raise NotFoundError(msg)
+
+        if child_class:
+            child_class_id = self.get_class_id(child_class)
+            conditions.append("child_class_id = ?")
+            params.append(child_class_id)
+
+        where_clause = " AND ".join(conditions)
+        query = f"SELECT 1 FROM {Schema.Collection.name} WHERE {where_clause}"
+        return bool(self._db.query(query, tuple(params)))
 
     def check_membership_exists(
         self,
@@ -1272,12 +1469,37 @@ class PlexosDB:
         ... )
         False
         """
-        try:
-            parent_object_id = self.get_object_id(parent_class, parent_object_name)
-            child_object_id = self.get_object_id(child_class, child_object_name)
-            collection_id = self.get_collection_id(collection, parent_class, child_class)
-        except NotFoundError:
-            return False
+        # Validate classes and collection exist - raise NotFoundError if not
+        # This is a programming error if passing non-existent classes
+        if not self.check_class_exists(parent_class):
+            msg = (
+                f"Parent class '{parent_class}' does not exist. "
+                "Cannot check membership for non-existent parent class. "
+                "Use `list_classes()` to see available classes."
+            )
+            raise NotFoundError(msg)
+
+        if not self.check_class_exists(child_class):
+            msg = (
+                f"Child class '{child_class}' does not exist. "
+                "Cannot check membership for non-existent child class. "
+                "Use `list_classes()` to see available classes."
+            )
+            raise NotFoundError(msg)
+
+        if not self.check_collection_exists(collection, parent_class=parent_class, child_class=child_class):
+            msg = (
+                f"Collection '{collection}' does not exist for "
+                f"parent_class={parent_class} and child_class={child_class}. "
+                "Check available collections using `list_collections()`"
+            )
+            raise NotFoundError(msg)
+
+        # Now try to get object IDs - if objects don't exist, return False
+        # (that's what we're checking for)
+        parent_object_id = self.get_object_id(parent_class, parent_object_name)
+        child_object_id = self.get_object_id(child_class, child_object_name)
+        collection_id = self.get_collection_id(collection, parent_class, child_class)
 
         query = """
         SELECT 1 FROM t_membership
@@ -1285,13 +1507,16 @@ class PlexosDB:
         AND child_object_id = ?
         AND collection_id = ?
         """
-        result = self._db.query(query, (parent_object_id, child_object_id, collection_id))
+        result = bool(self._db.query(query, (parent_object_id, child_object_id, collection_id)))
         return bool(result)
 
-    def check_object_exists(self, class_enum: ClassEnum, name: str) -> bool:
+    def check_object_exists(
+        self, class_enum: ClassEnum, /, name: str, *, category: str | None = None
+    ) -> bool:
         """Check if an object exists in the database.
 
-        Determines whether an object with the given name and class exists.
+        Determines whether an object with the given name and class exists,
+        optionally filtered by category.
 
         Parameters
         ----------
@@ -1299,17 +1524,27 @@ class PlexosDB:
             Class enumeration of the object
         name : str
             Name of the object to check
+        category : str | None, optional
+            Category name to filter by, by default None
 
         Returns
         -------
         bool
-            True if the object exists, False otherwise
+            True if the object exists (and matches category if specified), False otherwise
+
+        Raises
+        ------
+        NotFoundError
+            If class_enum does not exist in the database. This indicates a programming
+            error - you cannot check objects for a non-existent class.
 
         See Also
         --------
         get_class_id : Get the ID for a class
         get_object_id : Get the ID for an object
         add_object : Add an object to the database
+        check_class_exists : Check if a class exists
+        check_category_exists : Check if a category exists
 
         Examples
         --------
@@ -1320,10 +1555,37 @@ class PlexosDB:
         True
         >>> db.check_object_exists(ClassEnum.Generator, "NonExistent")
         False
+        >>> # Check with category
+        >>> db.add_object(ClassEnum.Generator, "Gen2", category="Thermal")
+        >>> db.check_object_exists(ClassEnum.Generator, "Gen2", category="Thermal")
+        True
+        >>> db.check_object_exists(ClassEnum.Generator, "Gen2", category="Hydro")
+        False
         """
-        query = f"SELECT 1 FROM {Schema.Objects.name} WHERE name = ? AND class_id = ?"
+        if not self.check_class_exists(class_enum):
+            msg = (
+                f"Class '{class_enum}' does not exist. "
+                "Cannot check object for non-existent class. "
+                "Use `list_classes()` to see available classes."
+            )
+            raise NotFoundError(msg)
+
         class_id = self.get_class_id(class_enum)
-        return bool(self._db.query(query, (name, class_id)))
+
+        # Build query based on whether category is specified
+        if category is None:
+            query = f"SELECT 1 FROM {Schema.Objects.name} WHERE name = ? AND class_id = ?"
+            params: tuple[str, int] | tuple[str, int, str] = (name, class_id)
+        else:
+            # If category is specified, join with categories table
+            query = f"""
+            SELECT 1 FROM {Schema.Objects.name} obj
+            JOIN {Schema.Categories.name} cat ON obj.category_id = cat.category_id
+            WHERE obj.name = ? AND obj.class_id = ? AND cat.name = ?
+            """
+            params = (name, class_id, category)
+
+        return bool(self._db.query(query, params))
 
     def check_property_exists(
         self,
@@ -1373,6 +1635,35 @@ class PlexosDB:
         >>> db.check_property_exists(CollectionEnum.Generators, ClassEnum.Generator, ["Invalid Property"])
         False
         """
+        # Validate parent class exists (if specified)
+        if parent_class and not self.check_class_exists(parent_class):
+            msg = (
+                f"Parent class '{parent_class}' does not exist. "
+                "Cannot check properties for non-existent parent class. "
+                "Use `list_classes()` to see available classes."
+            )
+            raise NotFoundError(msg)
+
+        # Validate object class exists
+        if not self.check_class_exists(object_class):
+            msg = (
+                f"Child class '{object_class}' does not exist. "
+                "Cannot check properties for non-existent child class. "
+                "Use `list_classes()` to see available classes."
+            )
+            raise NotFoundError(msg)
+
+        # Validate collection exists
+        if not self.check_collection_exists(
+            collection_enum, parent_class=parent_class or ClassEnum.System, child_class=object_class
+        ):
+            msg = (
+                f"Collection '{collection_enum}' does not exist for "
+                f"parent_class={parent_class or ClassEnum.System} and child_class={object_class}. "
+                "Check available collections using `list_collections()`"
+            )
+            raise NotFoundError(msg)
+
         property_names = normalize_names(property_names)
         valid_props = self.list_valid_properties(
             collection_enum,
@@ -2423,7 +2714,7 @@ class PlexosDB:
         assert result
         return [row[0] for row in result]
 
-    def get_object_properties(  # noqa: C901
+    def get_object_properties(
         self,
         class_enum: ClassEnum,
         /,
@@ -2433,12 +2724,11 @@ class PlexosDB:
         parent_class_enum: ClassEnum | None = None,
         collection_enum: CollectionEnum | None = None,
         category: str | None = None,
-        chunk_size: int = 1000,
-    ) -> list[dict]:
-        """Retrieve properties for a specific object with efficient memory handling.
+    ) -> list[PropertyRecord]:
+        """Retrieve properties for a specific object.
 
-        Gets properties for the specified object, with support for chunked processing
-        to prevent memory issues when dealing with large datasets.
+        Gets all properties for the specified object, optionally filtered by
+        property names, collection, and category.
 
         Parameters
         ----------
@@ -2456,25 +2746,18 @@ class PlexosDB:
             (if not specified, the default collection for the class is used)
         category : str | None, optional
             Category to filter by, by default None
-        chunk_size : int, optional
-            Number of data IDs to process in each chunk, by default 1000
 
         Returns
         -------
-        list[dict]
-            List of dictionaries containing property information with keys:
-            - name: Object name
-            - property: Property name
-            - value: Property value
-            - unit: Unit of measurement
-            - texts: Associated text data
-            - tags: Associated tags
-            - bands: Associated bands
-            - scenario: Associated scenario name
-            - scenario_category: Category of the associated scenario
+        list[PropertyRecord]
+            List of dictionaries containing property information.
+            See PropertyRecord TypedDict for full field definitions including:
+            name, property, value, unit, category, scenario_name, etc.
 
         Raises
         ------
+        NoPropertiesError
+            If the specified object does not have any properties
         NameError
             If the specified property does not exist for the collection
         KeyError
@@ -2482,9 +2765,10 @@ class PlexosDB:
 
         See Also
         --------
-        get_data_ids : Get data IDs for an object
+        iterate_properties : Iterate through properties with efficient memory handling
         check_property_exists : Check if properties exist for a collection
         list_valid_properties : List valid property names for a collection
+        has_properties : Check if an object has any properties
 
         Examples
         --------
@@ -2504,113 +2788,16 @@ class PlexosDB:
             msg = f"Object = `{name}` does not have any properties attached to it."
             raise NoPropertiesError(msg)
 
-        query = """
-        SELECT
-            d.data_id,
-            o.name AS name,
-            p.name AS property,
-            d.value AS property_value,
-            u.value AS unit
-        FROM t_data d
-        JOIN t_property p ON d.property_id = p.property_id
-        JOIN t_membership m ON d.membership_id = m.membership_id
-        JOIN t_object o ON m.child_object_id = o.object_id
-        LEFT JOIN t_unit u  ON p.unit_id = u.unit_id
-        WHERE
-            d.data_id IN ({placeholders});
-        """
-
-        data_ids = self.get_object_data_ids(
-            class_enum,
-            name,
-            property_names,
-            parent_class_enum=parent_class_enum,
-            collection_enum=collection_enum,
-            category=category,
+        return list(
+            self.iterate_properties(
+                class_enum=class_enum,
+                object_names=name,
+                property_names=property_names,
+                collection=collection_enum,
+                parent_class=parent_class_enum,
+                category=category,
+            )
         )
-
-        all_results: list[dict[str, Any]] = []
-        for chunk_data_ids in batched(data_ids, chunk_size):
-            placeholders = ",".join(["?"] * len(chunk_data_ids))
-            base_query = query.format(placeholders=placeholders)
-
-            base_data = {
-                row[0]: {
-                    "name": row[1],
-                    "property": row[2],
-                    "value": row[3],
-                    "unit": row[4],
-                    "texts": "",
-                    "tags": "",
-                    "bands": "",
-                    "scenario": None,
-                    "scenario_category": None,
-                }
-                for row in self.query(base_query, chunk_data_ids)
-            }
-
-            # Get text values for this chunk
-            text_query = f"""
-                SELECT
-                    txt.data_id,
-                    GROUP_CONCAT(txt.value, '; ') as text_values
-                FROM t_text txt
-                WHERE txt.data_id IN ({placeholders})
-                GROUP BY txt.data_id
-            """
-            for row in self.query(text_query, chunk_data_ids):
-                if row[0] in base_data:
-                    base_data[row[0]]["texts"] = row[1] or ""
-
-            # Get tag values for this chunk
-            tag_query = f"""
-                SELECT
-                    tag.data_id,
-                    GROUP_CONCAT(pt.name, '; ') as tag_values
-                FROM t_tag tag
-                JOIN t_property_tag pt ON tag.action_id = pt.tag_id
-                WHERE tag.data_id IN ({placeholders})
-                GROUP BY tag.data_id
-            """
-            for row in self.query(tag_query, chunk_data_ids):
-                if row[0] in base_data:
-                    base_data[row[0]]["tags"] = row[1] or ""
-
-            # Get band values for this chunk
-            band_query = f"""
-                SELECT
-                    band.data_id,
-                    GROUP_CONCAT(band.band_id, '; ') as band_values
-                FROM t_band band
-                WHERE band.data_id IN ({placeholders})
-                GROUP BY band.data_id
-            """
-            for row in self.query(band_query, chunk_data_ids):
-                if row[0] in base_data:
-                    base_data[row[0]]["bands"] = row[1] or ""
-
-            # Get scenario info for this chunk
-            scenario_query = f"""
-                SELECT
-                    t.data_id,
-                    obj.name AS scenario_name,
-                    cat.name AS scenario_category
-                FROM t_tag t
-                JOIN t_membership mem ON t.object_id = mem.child_object_id
-                JOIN t_object obj ON mem.child_object_id = obj.object_id
-                JOIN t_class cls ON mem.child_class_id = cls.class_id
-                LEFT JOIN t_category cat ON obj.category_id = cat.category_id
-                WHERE cls.name = '{ClassEnum.Scenario}' AND t.data_id IN ({placeholders})
-            """
-            for row in self.query(scenario_query, chunk_data_ids):
-                if row[0] in base_data:
-                    base_data[row[0]]["scenario"] = row[1]
-                    base_data[row[0]]["scenario_category"] = row[2]
-
-            # Add results from this chunk to the final results
-            all_results.extend(base_data.values())
-
-        return all_results
 
     def get_object_id(self, class_enum: ClassEnum, /, name: str, *, category: str | None = None) -> int:
         """Return the ID for a given object.
@@ -2904,200 +3091,18 @@ class PlexosDB:
         """Import data from CSV files into the database."""
         raise NotImplementedError
 
-    def _get_data_ids(
-        self,
-        class_enum: ClassEnum,
-        collection_id: int,
-        normalized_object_names: list[str] | None,
-        normalized_property_names: list[str] | None,
-    ) -> list[int]:
-        """Get data IDs that match the given criteria.
-
-        Parameters
-        ----------
-        class_enum : ClassEnum
-            Class enumeration to filter by
-        collection_id : int
-            ID of the collection to search in
-        parent_class : ClassEnum
-            Parent class enumeration
-        normalized_object_names : list[str] | None
-            List of normalized object names to filter by
-        normalized_property_names : list[str] | None
-            List of normalized property names to filter by
-
-        Returns
-        -------
-        list[int]
-            List of matching data IDs
-        """
-        params: list[Any] = []
-        filters = ["c.name = ?"]
-        params.append(str(class_enum.value))
-
-        if normalized_object_names:
-            object_placeholders = ", ".join(["?"] * len(normalized_object_names))
-            filters.append(f"o.name IN ({object_placeholders})")
-            params.extend(normalized_object_names)
-
-        if normalized_property_names:
-            prop_placeholders = ", ".join(["?"] * len(normalized_property_names))
-            filters.append(f"p.name IN ({prop_placeholders})")
-            params.extend(normalized_property_names)
-
-        filters.append("p.collection_id = ?")
-        params.append(collection_id)
-
-        query = f"""
-        SELECT d.data_id
-        FROM t_object o
-        JOIN t_class c ON o.class_id = c.class_id
-        JOIN t_membership m ON m.child_object_id = o.object_id
-        JOIN t_data d ON d.membership_id = m.membership_id
-        JOIN t_property p ON d.property_id = p.property_id
-        WHERE {" AND ".join(filters)}
-        ORDER BY o.name, p.name
-        """
-        return [row[0] for row in self.query(query, tuple(params))]
-
-    def _get_base_data(self, chunk_data_ids: list[int], placeholders: str) -> dict[int, dict]:
-        """Get base data for the given chunk of data IDs.
-
-        Parameters
-        ----------
-        chunk_data_ids : list[int]
-            List of data IDs to retrieve data for
-        placeholders : str
-            SQL placeholders string for the query
-
-        Returns
-        -------
-        dict[int, dict]
-            Dictionary mapping data IDs to their base data records
-        """
-        query = f"""
-        SELECT d.data_id, o.name, p.name, d.value, u.value
-        FROM t_data d
-        JOIN t_property p ON d.property_id = p.property_id
-        JOIN t_membership m ON d.membership_id = m.membership_id
-        JOIN t_object o ON m.child_object_id = o.object_id
-        LEFT JOIN t_unit u ON p.unit_id = u.unit_id
-        WHERE d.data_id IN ({placeholders})
-        """
-
-        return {
-            row[0]: {
-                "name": row[1],
-                "property": row[2],
-                "value": row[3],
-                "unit": row[4],
-                "texts": "",
-                "tags": "",
-                "bands": "",
-                "scenario": None,
-                "scenario_category": None,
-            }
-            for row in self.query(query, tuple(chunk_data_ids))
-        }
-
-    def _update_field_data(
-        self,
-        base_data: dict[int, dict],
-        chunk_data_ids: list[int],
-        placeholders: str,
-        query_template: str,
-        field_name: str,
-        params: tuple = (),
-    ) -> None:
-        """Execute query and update base_data with results."""
-        query = query_template.format(placeholders=placeholders)
-        query_params = params + tuple(chunk_data_ids) if params else tuple(chunk_data_ids)
-        for row in self.query(query, query_params):
-            if row[0] in base_data:
-                base_data[row[0]][field_name] = row[1] or ""
-
-    def _update_chunk_data(
-        self, base_data: dict[int, dict], chunk_data_ids: list[int], placeholders: str
-    ) -> None:
-        """Update chunk data with additional information from related tables.
-
-        Parameters
-        ----------
-        base_data : dict[int, dict]
-            Dictionary of base data to update
-        chunk_data_ids : list[int]
-            List of data IDs in this chunk
-        placeholders : str
-            SQL placeholders string for the queries
-        """
-        # Update texts
-        self._update_field_data(
-            base_data,
-            chunk_data_ids,
-            placeholders,
-            """
-            SELECT txt.data_id, GROUP_CONCAT(txt.value, '; ') as text_values
-            FROM t_text txt
-            WHERE txt.data_id IN ({placeholders})
-            GROUP BY txt.data_id
-            """,
-            "texts",
-        )
-
-        # Update tags
-        self._update_field_data(
-            base_data,
-            chunk_data_ids,
-            placeholders,
-            """
-            SELECT tag.data_id, GROUP_CONCAT(pt.name, '; ') as tag_values
-            FROM t_tag tag
-            JOIN t_property_tag pt ON tag.action_id = pt.tag_id
-            WHERE tag.data_id IN ({placeholders})
-            GROUP BY tag.data_id
-            """,
-            "tags",
-        )
-
-        # Update bands
-        self._update_field_data(
-            base_data,
-            chunk_data_ids,
-            placeholders,
-            """
-            SELECT band.data_id, GROUP_CONCAT(band.band_id, '; ') as band_values
-            FROM t_band band
-            WHERE band.data_id IN ({placeholders})
-            GROUP BY band.data_id
-            """,
-            "bands",
-        )
-
-        scenario_query = f"""
-        SELECT t.data_id, obj.name, cat.name
-        FROM t_tag t
-        JOIN t_membership mem ON t.object_id = mem.child_object_id
-        JOIN t_object obj ON mem.child_object_id = obj.object_id
-        JOIN t_class cls ON mem.child_class_id = cls.class_id
-        LEFT JOIN t_category cat ON obj.category_id = cat.category_id
-        WHERE cls.name = ? AND t.data_id IN ({placeholders})
-        """
-        for row in self.query(scenario_query, (ClassEnum.Scenario.value, *chunk_data_ids)):
-            if row[0] in base_data:
-                base_data[row[0]]["scenario"] = row[1]
-                base_data[row[0]]["scenario_category"] = row[2]
-
     def iterate_properties(
         self,
-        class_enum: ClassEnum,
         /,
         *,
+        class_enum: ClassEnum | None = None,
         object_names: str | Iterable[str] | None = None,
         property_names: str | Iterable[str] | None = None,
         parent_class: ClassEnum | None = None,
         collection: CollectionEnum | None = None,
-        chunk_size: int = 1000,
-    ) -> Iterator[dict]:
+        category: str | None = None,
+        batch_size: int = 1000,
+    ) -> Iterator[PropertyRecord]:
         """Iterate through properties with chunked processing to handle large datasets efficiently.
 
         This method efficiently retrieves properties for multiple objects of the specified class,
@@ -3106,7 +3111,7 @@ class PlexosDB:
 
         Parameters
         ----------
-        class_enum : ClassEnum
+        class_enum : ClassEnum | None, optional
             Class enumeration of the objects to retrieve properties for
         object_names : str | Iterable[str] | None, optional
             Names of specific objects to retrieve properties for. If None, gets properties
@@ -3117,60 +3122,68 @@ class PlexosDB:
             Parent class enumeration for filtering properties, defaults to ClassEnum.System
         collection : CollectionEnum | None, optional
             Collection enumeration to filter properties by
-        chunk_size : int, optional
+        batch_size : int, optional
             Number of records to process in each database query chunk, by default 1000
 
         Yields
         ------
-        dict
-            Dictionary containing property information with keys:
-            - name: Object name
-            - property: Property name
-            - value: Property value
-            - unit: Unit of measurement
-            - texts: Associated text data
-            - tags: Associated tags
-            - bands: Associated bands
-            - scenario: Associated scenario name
-            - scenario_category: Category of the associated scenario
+        PropertyRecord
+            Dictionary containing property information with keys such as:
+            name, property, value, unit, category, scenario_name, etc.
+            See PropertyRecord TypedDict for full field definitions.
 
         Raises
         ------
         NameError
             If a specified property does not exist for the collection
+        NotFoundError
+            If specified objects or category do not exist
+        KeyError
+            If specified category does not exist
         """
-        parent_class = parent_class or ClassEnum.System
-        collection = collection or get_default_collection(class_enum)
-        normalized_object_names = normalize_names(object_names) if object_names else None
-        normalized_property_names = normalize_names(property_names) if property_names else None
+        conditions: list[str] = []
 
-        if normalized_property_names and not self.check_property_exists(
-            collection, class_enum, normalized_property_names, parent_class=parent_class
+        if class_enum and self.check_class_exists(class_enum):
+            conditions.append(f"child_class.name = '{class_enum}'")
+
+        if parent_class and self.check_class_exists(parent_class):
+            conditions.append(f"parent_class.name = '{parent_class}'")
+
+        if (
+            collection
+            and parent_class
+            and class_enum
+            and self.check_collection_exists(collection, parent_class=parent_class, child_class=class_enum)
         ):
-            msg = (
-                f"Invalid property {normalized_property_names} for {collection=}. "
-                "Use `list_valid_properties` to check property requested."
+            collection_id = self.get_collection_id(collection, parent_class, class_enum)
+            conditions.append(f"membership.collection_id = {collection_id}")
+
+        if object_names:
+            names = (
+                self._validate_and_filter_objects(object_names, class_enum)
+                if class_enum
+                else normalize_names(object_names)
             )
-            raise NameError(msg)
+            joined = ", ".join(f"'{n}'" for n in names)
+            conditions.append(f"object.name IN ({joined})")
 
-        collection_id = self.get_collection_id(
-            collection, parent_class_enum=parent_class, child_class_enum=class_enum
-        )
+        if property_names:
+            check_collection = collection or (get_default_collection(class_enum) if class_enum else None)
+            props = (
+                self._validate_properties(property_names, check_collection, class_enum)
+                if check_collection and class_enum
+                else normalize_names(property_names)
+            )
+            joined = ", ".join(f"'{p}'" for p in props)
+            conditions.append(f"property.name IN ({joined})")
 
-        data_ids = self._get_data_ids(
-            class_enum, collection_id, normalized_object_names, normalized_property_names
-        )
+        if category and class_enum and not self.check_category_exists(class_enum, category):
+            msg = f"Category '{category}' does not exist for class {class_enum}."
+            raise NotFoundError(msg)
 
-        if not data_ids:
-            return
-
-        for chunk_start in range(0, len(data_ids), chunk_size):
-            chunk_data_ids = data_ids[chunk_start : chunk_start + chunk_size]
-            placeholders = ",".join("?" * len(chunk_data_ids))
-            base_data = self._get_base_data(chunk_data_ids, placeholders)
-            self._update_chunk_data(base_data, chunk_data_ids, placeholders)
-
-            yield from base_data.values()
+        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+        query = Template(PROPERTY_QUERY).safe_substitute(where_clause=where_clause)
+        yield from cast(Iterator[PropertyRecord], self._db.iter_dicts(query, batch_size=batch_size))
 
     def list_attributes(self, class_enum: ClassEnum) -> list[str]:
         """Get all attributes for a specific class.
@@ -4125,3 +4138,30 @@ class PlexosDB:
     def validate_database(self, /, *, fix_issues: bool = False) -> dict[str, list[str]]:
         """Validate database integrity and consistency."""
         raise NotImplementedError
+
+    def _validate_and_filter_objects(
+        self, object_names: str | Iterable[str], class_enum: ClassEnum
+    ) -> list[str]:
+        """Validate objects exist and return filtered list of valid names."""
+        names = normalize_names(object_names)
+        valid_names = [n for n in names if self.check_object_exists(class_enum, n)]
+        if not valid_names:
+            msg = (
+                f"None of the objects {names} exist in class {class_enum}. "
+                "Use `list_objects_by_class()` to see available objects."
+            )
+            raise NotFoundError(msg)
+        return valid_names
+
+    def _validate_properties(
+        self, property_names: str | Iterable[str], collection: CollectionEnum, class_enum: ClassEnum
+    ) -> list[str]:
+        """Validate properties exist for collection and return normalized list."""
+        props = normalize_names(property_names)
+        if not self.check_property_exists(collection, class_enum, props):
+            msg = (
+                f"Invalid property {props} for collection={collection}. "
+                "Use `list_valid_properties()` to check valid properties."
+            )
+            raise NameError(msg)
+        return props

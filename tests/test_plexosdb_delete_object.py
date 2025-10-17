@@ -104,7 +104,7 @@ def test_delete_property_with_scenario(db_instance_with_schema: PlexosDB):
     properties = db.get_object_properties(object_class, object_name)
     assert len(properties) == 1
     assert properties[0]["value"] == 100.0
-    assert properties[0]["scenario"] is None
+    assert properties[0]["scenario_name"] is None
 
 
 def test_delete_property_nonexistent_object(db_instance_with_schema: PlexosDB):
@@ -197,8 +197,8 @@ def test_delete_property_with_related_data(db_instance_with_schema: PlexosDB):
     # Verify property exists with related data
     properties = db.get_object_properties(object_class, object_name)
     assert len(properties) == 1
-    assert properties[0]["scenario"] == scenario_name
-    assert len(properties[0]["texts"]) > 0
+    assert properties[0]["scenario_name"] == scenario_name
+    assert len(properties[0]["text"]) > 0
 
     # Delete the property
     db.delete_property(object_class, object_name, property_name=property_name)

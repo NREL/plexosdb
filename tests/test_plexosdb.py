@@ -262,10 +262,10 @@ def test_add_property_to_object(db_instance_with_schema):
     assert object_properties_scenario[0]["name"] == test_object_name
     assert object_properties_scenario[0]["property"] == test_property_name
     assert object_properties_scenario[0]["value"] == test_property_value
-    assert object_properties_scenario[0]["scenario"] is None
+    assert object_properties_scenario[0]["scenario_name"] is None
     assert object_properties_scenario[1]["name"] == test_object_name
     assert object_properties_scenario[1]["property"] == test_property_name
-    assert object_properties_scenario[1]["scenario"] == scenario
+    assert object_properties_scenario[1]["scenario_name"] == scenario
 
     test_object_name = "TestGen"
     test_property_name = "Max Energy"
@@ -309,7 +309,7 @@ def test_add_properties_from_records_with_text(db_instance_with_schema):
     props = db.get_object_properties(ClassEnum.Generator, test_object_name)
     assert props
     assert any(p["property"] == test_property_name and p["value"] == test_property_value for p in props)
-    assert any("texts" in p and test_text in str(p["texts"]) for p in props)
+    assert any("text" in p and test_text in str(p["text"]) for p in props)
 
 
 def test_add_property_to_object_with_text(db_instance_with_schema):
@@ -327,7 +327,7 @@ def test_add_property_to_object_with_text(db_instance_with_schema):
     assert object_properties[0]["name"] == test_object_name
     assert object_properties[0]["property"] == test_property_name
     assert object_properties[0]["value"] == test_property_value
-    assert object_properties[0]["texts"] == "NonExisting"
+    assert object_properties[0]["text"] == "NonExisting"
 
 
 def test_invalid_property(db_instance_with_schema):
@@ -366,47 +366,47 @@ def test_get_object_properties(db_instance_with_schema):
 def test_iterate_properties(db_instance_with_schema):
     """Test iterator for properties with chunked processing."""
     db = db_instance_with_schema
-
-    # Add test objects with properties
     objects = ["Gen1", "Gen2", "Gen3"]
     properties = {
         "Max Capacity": [100.0, 200.0, 300.0],
     }
-
-    # Add generators and their properties
     for i, obj_name in enumerate(objects):
         db.add_object(ClassEnum.Generator, obj_name)
         for prop_name, values in properties.items():
             db.add_property(ClassEnum.Generator, obj_name, prop_name, values[i])
 
-    # Test iterating all properties
-    all_props = list(db.iterate_properties(ClassEnum.Generator))
+    # # Test iterating all properties
+    all_props = list(db.iterate_properties(class_enum=ClassEnum.Generator, object_names=objects))
     assert len(all_props) == len(objects) * len(properties)
 
     # Test filtering by object names
-    filtered_props = list(db.iterate_properties(ClassEnum.Generator, object_names=["Gen1", "Gen2"]))
+    filtered_props = list(
+        db.iterate_properties(class_enum=ClassEnum.Generator, object_names=["Gen1", "Gen2"])
+    )
     assert len(filtered_props) == 2 * len(properties)
 
     # Test filtering by property names
-    filtered_props = list(db.iterate_properties(ClassEnum.Generator, property_names=["Max Capacity"]))
+    filtered_props = list(
+        db.iterate_properties(class_enum=ClassEnum.Generator, property_names=["Max Capacity"])
+    )
     assert len(filtered_props) == len(objects)
 
     # Test filtering by both object and property names
     filtered_props = list(
-        db.iterate_properties(ClassEnum.Generator, object_names=["Gen1"], property_names=["Max Capacity"])
+        db.iterate_properties(
+            class_enum=ClassEnum.Generator, object_names=["Gen1"], property_names=["Max Capacity"]
+        )
     )
     assert len(filtered_props) == 1
     assert filtered_props[0]["name"] == "Gen1"
     assert filtered_props[0]["property"] == "Max Capacity"
     assert filtered_props[0]["value"] == 100.0
 
-    # Test chunked processing
-    chunked_props = list(db.iterate_properties(ClassEnum.Generator, chunk_size=2))
+    chunked_props = list(db.iterate_properties(class_enum=ClassEnum.Generator, batch_size=2))
     assert len(chunked_props) == len(objects) * len(properties)
 
-    # Test with invalid property name
     with pytest.raises(NameError):
-        list(db.iterate_properties(ClassEnum.Generator, property_names=["Invalid Property"]))
+        list(db.iterate_properties(class_enum=ClassEnum.Generator, property_names=["Invalid Property"]))
 
 
 @pytest.mark.listing
@@ -592,23 +592,23 @@ def test_list_parent_objects(db_instance_with_schema: PlexosDB):
         _ = db.list_parent_objects("NonExistentNode", child_class=ClassEnum.Node)
 
     # Test check_membership_exists with non-existent objects
-    membership_with_no_parent = db.check_membership_exists(
-        "NonExistentGen",
-        "TestNode",
-        parent_class=ClassEnum.Generator,
-        child_class=ClassEnum.Node,
-        collection=CollectionEnum.Nodes,
-    )
-    assert not membership_with_no_parent
+    with pytest.raises(NotFoundError):
+        _ = db.check_membership_exists(
+            "NonExistentGen",
+            "TestNode",
+            parent_class=ClassEnum.Generator,
+            child_class=ClassEnum.Node,
+            collection=CollectionEnum.Nodes,
+        )
 
-    membership_with_no_child = db.check_membership_exists(
-        "TestGen",
-        "NonExistentNode",
-        parent_class=ClassEnum.Generator,
-        child_class=ClassEnum.Node,
-        collection=CollectionEnum.Nodes,
-    )
-    assert not membership_with_no_child
+    with pytest.raises(NotFoundError):
+        _ = db.check_membership_exists(
+            "TestGen",
+            "NonExistentNode",
+            parent_class=ClassEnum.Generator,
+            child_class=ClassEnum.Node,
+            collection=CollectionEnum.Nodes,
+        )
 
 
 @pytest.mark.listing
