@@ -293,7 +293,13 @@ class PlexosDB:
         state : int | None, optional
             State value, by default None
         """
-        raise NotImplementedError
+        if not self.check_data_id_exist(data_id):
+            msg = "data_id not found on t_data. Check that data_id for  the property was added correctly."
+            raise NotFoundError(msg)
+
+        query = "INSERT INTO t_band(band_id,data_id) VALUES (?,?)"
+        self._db.execute(query, (band_id, data_id))
+        return
 
     def add_category(self, class_enum: ClassEnum, /, name: str) -> int:
         """Add a new category for a given class.
@@ -882,7 +888,7 @@ class PlexosDB:
         value: str | int | float,
         *,
         scenario: str | None = None,
-        band: str | int | None = None,
+        band: int | None = None,
         date_from: str | None = None,
         text: dict[ClassEnum, Any] | None = None,
         collection_enum: CollectionEnum | None = None,
@@ -1006,6 +1012,10 @@ class PlexosDB:
             for key, value in text.items():
                 text_result = self.add_text(key, value, data_id)
                 assert text_result
+
+        if band is not None:
+            self.add_band(data_id, band)
+
         return data_id
 
     def add_scenario(self, name: str, category: str | None = None) -> int:
@@ -1398,6 +1408,11 @@ class PlexosDB:
         where_clause = " AND ".join(conditions)
         query = f"SELECT 1 FROM {Schema.Collection.name} WHERE {where_clause}"
         return bool(self._db.query(query, tuple(params)))
+
+    def check_data_id_exist(self, data_id: int):
+        """Check that a data id is present on t_data table."""
+        query = "SELECT 1 FROM t_data where data_id = ?"
+        return bool(self.query(query, (data_id,)))
 
     def check_membership_exists(
         self,
