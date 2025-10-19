@@ -629,7 +629,7 @@ class PlexosDB:
         _ = self.add_membership(ClassEnum.System, class_enum, "System", name, collection_enum)
         return object_id
 
-    def add_objects(self, *object_names, class_enum: ClassEnum, category: str | None = None) -> None:
+    def add_objects(self, class_enum: ClassEnum, *object_names, category: str | None = None) -> None:
         """Add multiple objects of the same class to the database in bulk.
 
         This method efficiently adds multiple objects to the database in a single operation,
