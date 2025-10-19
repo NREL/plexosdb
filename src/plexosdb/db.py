@@ -293,7 +293,13 @@ class PlexosDB:
         state : int | None, optional
             State value, by default None
         """
-        raise NotImplementedError
+        if not self.check_data_id_exist(data_id):
+            msg = "data_id not found on t_data. Check that data_id for  the property was added correctly."
+            raise NotFoundError(msg)
+
+        query = "INSERT INTO t_band(band_id,data_id) VALUES (?,?)"
+        self._db.execute(query, (band_id, data_id))
+        return
 
     def add_category(self, class_enum: ClassEnum, /, name: str) -> int:
         """Add a new category for a given class.
@@ -623,7 +629,7 @@ class PlexosDB:
         _ = self.add_membership(ClassEnum.System, class_enum, "System", name, collection_enum)
         return object_id
 
-    def add_objects(self, *object_names, class_enum: ClassEnum, category: str | None = None) -> None:
+    def add_objects(self, class_enum: ClassEnum, *object_names, category: str | None = None) -> None:
         """Add multiple objects of the same class to the database in bulk.
 
         This method efficiently adds multiple objects to the database in a single operation,
@@ -882,7 +888,7 @@ class PlexosDB:
         value: str | int | float,
         *,
         scenario: str | None = None,
-        band: str | int | None = None,
+        band: int | None = None,
         date_from: str | None = None,
         text: dict[ClassEnum, Any] | None = None,
         collection_enum: CollectionEnum | None = None,
@@ -1006,6 +1012,10 @@ class PlexosDB:
             for key, value in text.items():
                 text_result = self.add_text(key, value, data_id)
                 assert text_result
+
+        if band is not None:
+            self.add_band(data_id, band)
+
         return data_id
 
     def add_scenario(self, name: str, category: str | None = None) -> int:
@@ -1398,6 +1408,11 @@ class PlexosDB:
         where_clause = " AND ".join(conditions)
         query = f"SELECT 1 FROM {Schema.Collection.name} WHERE {where_clause}"
         return bool(self._db.query(query, tuple(params)))
+
+    def check_data_id_exist(self, data_id: int):
+        """Check that a data id is present on t_data table."""
+        query = "SELECT 1 FROM t_data where data_id = ?"
+        return bool(self.query(query, (data_id,)))
 
     def check_membership_exists(
         self,
@@ -2782,7 +2797,10 @@ class PlexosDB:
         >>> properties[0]["value"]
         100.0
         """
-        parent_class_enum = parent_class_enum or ClassEnum.System
+        if not self.check_object_exists(class_enum, name):
+            msg = f"Object = `{name}` does not exist in class = {class_enum}. "
+            msg += "See available objects with list_objects_by_class"
+            raise NotFoundError(msg)
 
         if not self.has_properties(class_enum, name, collection_enum=collection_enum, category=category):
             msg = f"Object = `{name}` does not have any properties attached to it."
@@ -3063,27 +3081,26 @@ class PlexosDB:
         >>> db.has_properties(ClassEnum.Generator, "Generator1")
         True
         """
-        params = [name]
-        filters = "o.name = ?"
+        params = []
         if not collection_enum:
             collection_enum = get_default_collection(class_enum)
-        if category:
-            if not self.check_category_exists(class_enum, category):
-                raise KeyError
-            filters += " AND cat.name = ?"
-            params.append(category)
+        memberships = [
+            m["membership_id"] for m in self.list_object_memberships(class_enum, name, category=category)
+        ]
+        membership_placeholders = ", ".join(["?" for _ in memberships])
+        params.extend(memberships)
+        params.append(collection_enum)
         query = f"""
-        SELECT
-            1
-        FROM t_object o
-            JOIN t_class c ON o.class_id = c.class_id
-            JOIN t_category cat ON o.category_id = cat.category_id
-            JOIN t_membership m ON m.child_object_id = o.object_id
-            JOIN t_data d ON d.membership_id = m.membership_id
-            JOIN t_property p ON d.property_id = p.property_id
-        WHERE
-            {filters}
-        LIMIT 1
+            SELECT
+                1
+            FROM t_data d
+                JOIN t_property p ON d.property_id = p.property_id
+                JOIN t_membership m ON d.membership_id = m.membership_id
+                JOIN t_collection col ON m.collection_id = col.collection_id
+            WHERE
+                d.membership_id IN ({membership_placeholders})
+                AND col.name = ?
+            LIMIT 1
         """
         return bool(self._db.query(query, tuple(params)))
 

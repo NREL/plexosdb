@@ -37,13 +37,13 @@ def test_bulk_insert_memberships_from_records(db_instance_with_schema: PlexosDB)
 
     # Create the objects first
     objects = list(f"Generator_{i}" for i in range(5))
-    db.add_objects(objects, class_enum=ClassEnum.Generator)
+    db.add_objects(ClassEnum.Generator, objects)
     parent_object_ids = db.get_objects_id(objects, class_enum=ClassEnum.Generator)
     assert parent_object_ids
     assert db.get_memberships_system(objects, object_class=ClassEnum.Generator)
 
     objects = list(f"Nodes_{i}" for i in range(5))
-    db.add_objects(objects, class_enum=ClassEnum.Node)
+    db.add_objects(ClassEnum.Node, objects)
     child_object_ids = db.get_objects_id(objects, class_enum=ClassEnum.Node)
     assert child_object_ids
     assert len(child_object_ids) == 5
