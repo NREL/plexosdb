@@ -330,6 +330,27 @@ def test_add_property_to_object_with_text(db_instance_with_schema):
     assert object_properties[0]["text"] == "NonExisting"
 
 
+def test_add_property_with_bands(db_instance_with_schema):
+    db = db_instance_with_schema
+    test_object_name = "TestGen"
+    test_property_name = "Max Capacity"
+    test_property_value = 100.0
+    _ = db.add_object(ClassEnum.Generator, test_object_name)
+    data_id = db.add_property(
+        ClassEnum.Generator, test_object_name, test_property_name, test_property_value, band=2
+    )
+    assert db.check_data_id_exist(data_id)
+    with pytest.raises(NotFoundError):
+        db.add_band(10000, 1)
+
+    object_properties = db.get_object_properties(ClassEnum.Generator, test_object_name)
+    assert object_properties
+    assert object_properties[0]["name"] == test_object_name
+    assert object_properties[0]["property"] == test_property_name
+    assert object_properties[0]["value"] == test_property_value
+    assert object_properties[0]["band"] == 2
+
+
 def test_invalid_property(db_instance_with_schema):
     db = db_instance_with_schema
     test_object_name = "TestGen"
