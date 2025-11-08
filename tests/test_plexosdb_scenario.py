@@ -1,12 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
 
-from plexosdb.db import PlexosDB
-from plexosdb.enums import ClassEnum
-from plexosdb.exceptions import NameError
+if TYPE_CHECKING:
+    from plexosdb.db import PlexosDB
 
 
-def test_adding_scenaro(db_instance_with_schema):
-    db: PlexosDB = db_instance_with_schema
+def test_adding_scenaro(db_base: PlexosDB):
+    from plexosdb import ClassEnum
+    from plexosdb.exceptions import NameError
+
+    db: PlexosDB = db_base
 
     test_scenario = "Test"
     object_id = db.add_scenario(test_scenario)

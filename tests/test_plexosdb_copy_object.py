@@ -1,12 +1,15 @@
-import pytest
+from __future__ import annotations
 
-from plexosdb import ClassEnum
-from plexosdb.db import PlexosDB
-from plexosdb.enums import CollectionEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plexosdb.db import PlexosDB
 
 
-def test_copy_object(db_instance_with_schema, caplog):
-    db = db_instance_with_schema
+def test_copy_object(db_base: PlexosDB, caplog):
+    from plexosdb import ClassEnum
+
+    db = db_base
     original_object_name = "TestGen"
     object_class = ClassEnum.Generator
     original_object_id = db.add_object(object_class, original_object_name)
@@ -19,7 +22,6 @@ def test_copy_object(db_instance_with_schema, caplog):
         test_property_value,
     )
 
-    # Test default behaviour of copying properties
     new_object_name = "TestGenCopy"
     new_object_id = db.copy_object(object_class, original_object_name, new_object_name)
     assert new_object_id
@@ -38,8 +40,11 @@ def test_copy_object(db_instance_with_schema, caplog):
             assert old_properties[old_property] == new_properties[old_property]
 
 
-def test_copy_object_with_memberships(db_instance_with_schema):
-    db: PlexosDB = db_instance_with_schema
+def test_copy_object_with_memberships(db_base: PlexosDB):
+    from plexosdb import ClassEnum
+    from plexosdb.enums import CollectionEnum
+
+    db: PlexosDB = db_base
     object_name = "TestGen"
     object_class = ClassEnum.Generator
     _ = db.add_object(object_class, object_name)
@@ -63,8 +68,3 @@ def test_copy_object_with_memberships(db_instance_with_schema):
     new_child_membership = db.get_membership_id(new_object_name, child_object_name, collection)
     assert membership_id_child in membership_mapping
     assert membership_mapping[membership_id_child] == new_child_membership
-
-
-@pytest.mark.xfail
-def test_copy_object_with_text_data(db_instance_with_schema):
-    pass
