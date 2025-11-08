@@ -889,8 +889,8 @@ class PlexosDB:
         *,
         scenario: str | None = None,
         band: int | None = None,
-        date_from: datetime  | None = None,
-        date_to: datetime  | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
         text: dict[ClassEnum, Any] | None = None,
         collection_enum: CollectionEnum | None = None,
         parent_class_enum: ClassEnum | None = None,
@@ -1011,9 +1011,9 @@ class PlexosDB:
         if date_from is not None:
             if not isinstance(date_from, datetime):
                 raise TypeError("date_from must be a datetime object")
-            date_from_str  = date_from.isoformat()
+            date_from_str = date_from.isoformat()
             date_query = "INSERT INTO t_date_from(data_id, date) VALUES (?,?)"
-            result = self._db.execute(date_query, (data_id, date_from_str ))
+            result = self._db.execute(date_query, (data_id, date_from_str))
 
         if date_to is not None:
             if not isinstance(date_to, datetime):
