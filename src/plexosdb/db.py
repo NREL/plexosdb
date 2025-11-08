@@ -879,6 +879,20 @@ class PlexosDB:
         logger.debug(f"Successfully processed {len(records)} property and text records in batches")
         return
 
+    def _handle_dates(self, data_id, date_from, date_to):
+        if date_from is not None:
+            if not isinstance(date_from, datetime):
+                raise TypeError("date_from must be a datetime object")
+            self._db.execute(
+                "INSERT INTO t_date_from(data_id, date) VALUES (?,?)", (data_id, date_from.isoformat())
+            )
+        if date_to is not None:
+            if not isinstance(date_to, datetime):
+                raise TypeError("date_to must be a datetime object")
+            self._db.execute(
+                "INSERT INTO t_date_to(data_id, date) VALUES (?,?)", (data_id, date_to.isoformat())
+            )
+
     def add_property(
         self,
         object_class_enum: ClassEnum,
@@ -1008,19 +1022,7 @@ class PlexosDB:
             scenario_query = "INSERT INTO t_tag(object_id,data_id) VALUES (?,?)"
             result = self._db.execute(scenario_query, (scenario_id, data_id))
 
-        if date_from is not None:
-            if not isinstance(date_from, datetime):
-                raise TypeError("date_from must be a datetime object")
-            date_from_str = date_from.isoformat()
-            date_query = "INSERT INTO t_date_from(data_id, date) VALUES (?,?)"
-            result = self._db.execute(date_query, (data_id, date_from_str))
-
-        if date_to is not None:
-            if not isinstance(date_to, datetime):
-                raise TypeError("date_to must be a datetime.datetime object")
-            date_to_str = date_to.isoformat()
-            date_query = "INSERT INTO t_date_to(data_id, date) VALUES (?,?)"
-            result = self._db.execute(date_query, (data_id, date_to_str))
+        self._handle_dates(data_id, date_from, date_to)
 
         # Text could contain multiple keys, if so we add all of them with a execute many.
         if text is not None:
