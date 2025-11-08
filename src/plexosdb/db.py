@@ -915,9 +915,9 @@ class PlexosDB:
             Name of the scenario to associate with this property, by default None
         band : str | int | None, optional
             Band to associate with this property, by default None
-        date_from : str | None, optional
+        date_from : datetime | None, optional
             Start date for this property, by default None
-        date_to : str | None, optional
+        date_to : datetime | None, optional
             End date for this property, by default None
         text : dict[ClassEnum, Any] | None, optional
             Additional text data to associate with this property, by default None
@@ -1011,16 +1011,16 @@ class PlexosDB:
         if date_from is not None:
             if not isinstance(date_from, datetime):
                 raise TypeError("date_from must be a datetime object")
-            date_from = date_from.isoformat()
+            date_from_str  = date_from.isoformat()
             date_query = "INSERT INTO t_date_from(data_id, date) VALUES (?,?)"
-            result = self._db.execute(date_query, (data_id, date_from))
+            result = self._db.execute(date_query, (data_id, date_from_str ))
 
         if date_to is not None:
             if not isinstance(date_to, datetime):
                 raise TypeError("date_to must be a datetime.datetime object")
-            date_to = date_to.isoformat()
+            date_to_str = date_to.isoformat()
             date_query = "INSERT INTO t_date_to(data_id, date) VALUES (?,?)"
-            result = self._db.execute(date_query, (data_id, date_to))
+            result = self._db.execute(date_query, (data_id, date_to_str))
 
         # Text could contain multiple keys, if so we add all of them with a execute many.
         if text is not None:
