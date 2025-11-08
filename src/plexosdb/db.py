@@ -889,8 +889,8 @@ class PlexosDB:
         *,
         scenario: str | None = None,
         band: int | None = None,
-        date_from: str | None = None,
-        date_to: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
         text: dict[ClassEnum, Any] | None = None,
         collection_enum: CollectionEnum | None = None,
         parent_class_enum: ClassEnum | None = None,
@@ -1009,14 +1009,12 @@ class PlexosDB:
             result = self._db.execute(scenario_query, (scenario_id, data_id))
 
         if date_from is not None:
-            date_sql = datetime.strptime(date_from, "%d/%m/%Y").strftime("%Y-%m-%dT00:00:00")
             date_query = "INSERT INTO t_date_from(data_id, date) VALUES (?,?)"
-            result = self._db.execute(date_query, (data_id, date_sql))
+            result = self._db.execute(date_query, (data_id, date_from))
 
         if date_to is not None:
-            date_sql = datetime.strptime(date_to, "%d/%m/%Y").strftime("%Y-%m-%dT00:00:00")
             date_query = "INSERT INTO t_date_to(data_id, date) VALUES (?,?)"
-            result = self._db.execute(date_query, (data_id, date_sql))
+            result = self._db.execute(date_query, (data_id, date_to))
 
         # Text could contain multiple keys, if so we add all of them with a execute many.
         if text is not None:
