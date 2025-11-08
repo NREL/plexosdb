@@ -8,7 +8,7 @@ from importlib.resources import files
 from pathlib import Path
 from string import Template
 from typing import Any, Literal, TypedDict, cast
-
+from datetime import datetime
 from loguru import logger
 
 from .checks import check_memberships_from_records
@@ -890,6 +890,7 @@ class PlexosDB:
         scenario: str | None = None,
         band: int | None = None,
         date_from: str | None = None,
+        date_to: str | None = None,
         text: dict[ClassEnum, Any] | None = None,
         collection_enum: CollectionEnum | None = None,
         parent_class_enum: ClassEnum | None = None,
@@ -1006,6 +1007,16 @@ class PlexosDB:
                 scenario_id = self.get_scenario_id(scenario)
             scenario_query = "INSERT INTO t_tag(object_id,data_id) VALUES (?,?)"
             result = self._db.execute(scenario_query, (scenario_id, data_id))
+
+        if date_from is not None:
+            date_sql = datetime.strptime(date_from, "%d/%m/%Y").strftime("%Y-%m-%dT00:00:00")
+            date_query = "INSERT INTO t_date_from(data_id, date) VALUES (?,?)"
+            result = self._db.execute(date_query, (data_id, date_sql))
+
+        if date_to is not None:
+            date_sql = datetime.strptime(date_to, "%d/%m/%Y").strftime("%Y-%m-%dT00:00:00")
+            date_query = "INSERT INTO t_date_to(data_id, date) VALUES (?,?)"
+            result = self._db.execute(date_query, (data_id, date_sql))
 
         # Text could contain multiple keys, if so we add all of them with a execute many.
         if text is not None:
