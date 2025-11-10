@@ -8,7 +8,7 @@ from importlib.resources import files
 from pathlib import Path
 from string import Template
 from typing import Any, Literal, TypedDict, cast
-
+from datetime import datetime
 from loguru import logger
 
 from .checks import check_memberships_from_records
@@ -879,6 +879,20 @@ class PlexosDB:
         logger.debug(f"Successfully processed {len(records)} property and text records in batches")
         return
 
+    def _handle_dates(self, data_id, date_from, date_to):
+        if date_from is not None:
+            if not isinstance(date_from, datetime):
+                raise TypeError("date_from must be a datetime object")
+            self._db.execute(
+                "INSERT INTO t_date_from(data_id, date) VALUES (?,?)", (data_id, date_from.isoformat())
+            )
+        if date_to is not None:
+            if not isinstance(date_to, datetime):
+                raise TypeError("date_to must be a datetime object")
+            self._db.execute(
+                "INSERT INTO t_date_to(data_id, date) VALUES (?,?)", (data_id, date_to.isoformat())
+            )
+
     def add_property(
         self,
         object_class_enum: ClassEnum,
@@ -889,7 +903,8 @@ class PlexosDB:
         *,
         scenario: str | None = None,
         band: int | None = None,
-        date_from: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
         text: dict[ClassEnum, Any] | None = None,
         collection_enum: CollectionEnum | None = None,
         parent_class_enum: ClassEnum | None = None,
@@ -914,9 +929,9 @@ class PlexosDB:
             Name of the scenario to associate with this property, by default None
         band : str | int | None, optional
             Band to associate with this property, by default None
-        date_from : str | None, optional
+        date_from : datetime | None, optional
             Start date for this property, by default None
-        date_to : str | None, optional
+        date_to : datetime | None, optional
             End date for this property, by default None
         text : dict[ClassEnum, Any] | None, optional
             Additional text data to associate with this property, by default None
@@ -1006,6 +1021,8 @@ class PlexosDB:
                 scenario_id = self.get_scenario_id(scenario)
             scenario_query = "INSERT INTO t_tag(object_id,data_id) VALUES (?,?)"
             result = self._db.execute(scenario_query, (scenario_id, data_id))
+
+        self._handle_dates(data_id, date_from, date_to)
 
         # Text could contain multiple keys, if so we add all of them with a execute many.
         if text is not None:
