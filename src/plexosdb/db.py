@@ -374,8 +374,55 @@ class PlexosDB:
         *,
         description: str | None = None,
     ) -> int:
-        """Add a Data File tag to a property data record."""
-        raise NotImplementedError  # pragma: no cover
+        """Add a Data File tag to a property data record.
+
+        Creates a link between a property data record and a DataFile object
+        by finding the DataFile object that has a Filename property matching
+        the provided file path.
+
+        Parameters
+        ----------
+        data_id : int
+            The data ID of the property to tag
+        file_path : str
+            The file path to link to, must match a DataFile's Filename property
+        description : str, optional
+            Optional description for the tag (currently unused)
+
+        Returns
+        -------
+        int
+            The data_id that was tagged
+
+        Raises
+        ------
+        ValueError
+            If no DataFile with the matching file path is found
+        """
+        # Get the class_id for DataFile
+        datafile_class_id = self.get_class_id(ClassEnum.DataFile)
+
+        # Find the DataFile object that has a Filename property matching the file_path
+        # The file_path is stored in t_text table when add_property is called with datafile_text
+        query = """
+            SELECT DISTINCT m.child_object_id
+            FROM t_text txt
+            JOIN t_data d ON txt.data_id = d.data_id
+            JOIN t_membership m ON d.membership_id = m.membership_id
+            WHERE txt.value = ? AND txt.class_id = ? AND m.child_class_id = ?
+        """
+        result = self._db.fetchone(query, (file_path, datafile_class_id, datafile_class_id))
+
+        if result is None:
+            raise ValueError(f"No DataFile found with Filename: {file_path}")
+
+        datafile_object_id = result[0]
+
+        # Create the tag by inserting into t_tag
+        tag_query = "INSERT INTO t_tag(data_id, object_id) VALUES (?, ?)"
+        self._db.execute(tag_query, (data_id, datafile_object_id))
+
+        return data_id
 
     def add_membership(
         self,
@@ -1365,6 +1412,24 @@ class PlexosDB:
         """Check that a data id is present on t_data table."""
         query = "SELECT 1 FROM t_data where data_id = ?"
         return bool(self.query(query, (data_id,)))
+
+    def check_tag_exists(self, data_id: int, object_id: int) -> bool:
+        """Check if a tag exists linking a data record to an object.
+
+        Parameters
+        ----------
+        data_id : int
+            The data ID to check for
+        object_id : int
+            The object ID to check for
+
+        Returns
+        -------
+        bool
+            True if a tag exists with the given data_id and object_id, False otherwise
+        """
+        query = "SELECT 1 FROM t_tag WHERE data_id = ? AND object_id = ?"
+        return bool(self.query(query, (data_id, object_id)))
 
     def check_membership_exists(
         self,
