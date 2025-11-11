@@ -15,8 +15,9 @@ jobs:
   pytest:
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
         os: [ubuntu-latest, windows-latest]
+        plexos-version: ["v9.2R6", "v10.0R2", "v11.0R4"]
     permissions:
       pull-requests: write
       contents: write
@@ -35,11 +36,11 @@ jobs:
 
       - name: Running package tests
         run: |
-          uv run pytest -vvl --cov --cov-report=xml
+          uv run pytest -vvl --cov --cov-report=xml -m ${{ matrix.plexos-version }}
 
       - name: codecov
         uses: codecov/codecov-action@v4.2.0
-        if: ${{ matrix.os == env.DEFAULT_OS && matrix.python-version == env.DEFAULT_PYTHON  }}
+        if: ${{ matrix.os == env.DEFAULT_OS && matrix.python-version == env.DEFAULT_PYTHON && matrix.plexos-version == 'v11.0R4' }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           name: r2x-test
