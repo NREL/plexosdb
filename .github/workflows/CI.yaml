@@ -21,6 +21,7 @@ jobs:
     permissions:
       pull-requests: write
       contents: write
+    needs: [pre-commit, mypy, ruff]
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -36,7 +37,7 @@ jobs:
 
       - name: Running package tests
         run: |
-          uv run pytest -vvl --cov --cov-report=xml -m ${{ matrix.plexos-version }}
+          uv run pytest -vvl --cov --cov-report=xml -k ${{ matrix.plexos-version }}
 
       - name: codecov
         uses: codecov/codecov-action@v4.2.0
