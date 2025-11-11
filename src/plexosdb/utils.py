@@ -1,12 +1,18 @@
 """Util functions for plexosdb."""
 
+from __future__ import annotations
+
 import ast
 from collections.abc import Iterable
 from importlib.resources import files
 from itertools import islice
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from plexosdb import ClassEnum, CollectionEnum, PlexosDB
+    from plexosdb.db_manager import SQLiteManager
 
 
 def batched(iterable, n):
@@ -178,3 +184,199 @@ def create_membership_record(
         }
         for object_id in object_ids
     ]
+
+
+def prepare_properties_params(
+    db: PlexosDB,
+    records: list[dict],
+    object_class: ClassEnum,
+    collection: CollectionEnum,
+    parent_class,
+) -> tuple[list[tuple], list]:
+    """Prepare SQL parameters for property insertion.
+
+    Parameters
+    ----------
+    db : PlexosDB
+        Database instance
+    records : list[dict]
+        List of property records
+    object_class : ClassEnum
+        Class enumeration of the objects
+    collection : CollectionEnum
+        Collection enumeration for the properties
+    parent_class : ClassEnum
+        Parent class enumeration
+
+    Returns
+    -------
+    tuple[list[tuple], list]
+        Tuple of (params, collection_properties)
+    """
+    collection_id = db.get_collection_id(
+        collection, parent_class_enum=parent_class, child_class_enum=object_class
+    )
+    collection_properties = db.query(
+        f"select name, property_id from t_property where collection_id={collection_id}"
+    )
+    component_names = tuple(d["name"] for d in records)
+    memberships = db.get_memberships_system(component_names, object_class=object_class)
+
+    if not memberships:
+        raise KeyError(
+            "Object do not exists on the database yet. "
+            "Make sure you use `add_object` before adding properties."
+        )
+
+    params = prepare_sql_data_params(records, memberships=memberships, property_mapping=collection_properties)
+    return params, collection_properties
+
+
+def insert_property_data(db, params: list[tuple]) -> dict:
+    """Insert property data and return mapping of data IDs to object names.
+
+    Parameters
+    ----------
+    db : PlexosDB
+        Database instance
+    params : list[tuple]
+        List of (membership_id, property_id, value) tuples
+
+    Returns
+    -------
+    dict
+        Mapping of (membership_id, property_id, value) to (data_id, obj_name)
+    """
+    filter_property_ids = [d[1] for d in params]
+    for property_id in filter_property_ids:
+        db._db.execute("UPDATE t_property set is_dynamic=1 where property_id = ?", (property_id,))
+        db._db.execute("UPDATE t_property set is_enabled=1 where property_id = ?", (property_id,))
+
+    db._db.executemany("INSERT into t_data(membership_id, property_id, value) values (?,?,?)", params)
+
+    data_ids_query = """
+        SELECT d.data_id, o.name
+        FROM t_data d
+        JOIN t_membership m ON d.membership_id = m.membership_id
+        JOIN t_object o ON m.child_object_id = o.object_id
+        WHERE d.membership_id = ? AND d.property_id = ? AND d.value = ?
+    """
+    data_id_map = {}
+    for membership_id, property_id, value in params:
+        result = db._db.fetchone(data_ids_query, (membership_id, property_id, value))
+        if result:
+            data_id_map[(membership_id, property_id, value)] = (result[0], result[1])
+    return data_id_map
+
+
+def insert_scenario_tags(db: PlexosDB, scenario: str, params: list[tuple], chunksize: int) -> None:
+    """Insert scenario tags for property data.
+
+    Parameters
+    ----------
+    db : PlexosDB
+        Database instance
+    scenario : str
+        Scenario name
+    params : list[tuple]
+        List of (membership_id, property_id, value) tuples
+    chunksize : int
+        Number of records to process in each batch
+    """
+    if scenario is None:
+        return
+
+    if not db.check_scenario_exists(scenario):
+        scenario_id = db.add_scenario(scenario)
+    else:
+        scenario_id = db.get_scenario_id(scenario)
+
+    for batch in batched(params, chunksize):
+        batched_list = list(batch)
+        scenario_query = f"""
+            INSERT into t_tag(data_id, object_id)
+            SELECT
+                d.data_id as data_id,
+                {scenario_id} as object_id
+            FROM
+              t_data d
+            WHERE d.membership_id = ? AND d.property_id = ? AND d.value = ?
+        """
+        db._db.executemany(scenario_query, batched_list)
+
+
+def add_texts_for_properties(
+    db: PlexosDB, params: list[tuple], data_id_map: dict, records: list[dict], field_name: str, text_class
+) -> None:
+    """Add text data for properties from specified field.
+
+    Parameters
+    ----------
+    db : PlexosDB
+        Database instance
+    params : list[tuple]
+        List of (membership_id, property_id, value) tuples
+    data_id_map : dict
+        Mapping of (membership_id, property_id, value) to (data_id, obj_name)
+    records : list[dict]
+        Original records containing the text field
+    field_name : str
+        Name of the field in records containing text data
+    text_class : ClassEnum
+        ClassEnum for the text data
+    """
+    text_map = {rec["name"]: rec[field_name] for rec in records if field_name in rec}
+    for membership_id, property_id, value in params:
+        data_id, obj_name = data_id_map.get((membership_id, property_id, value), (None, None))
+        if data_id and obj_name and obj_name in text_map:
+            db.add_text(text_class, text_map[obj_name], data_id)
+
+
+def build_data_id_map(db: SQLiteManager, params: list[tuple]) -> dict:
+    """Build mapping of (membership_id, property_id, value) to (data_id, obj_name).
+
+    Parameters
+    ----------
+    db_manager : DBManager
+        Database manager instance for executing queries
+    params : list[tuple]
+        List of (membership_id, property_id, value) tuples
+
+    Returns
+    -------
+    dict
+        Mapping of (membership_id, property_id, value) to (data_id, obj_name)
+    """
+    data_ids_query = """
+        SELECT d.data_id, o.name
+        FROM t_data d
+        JOIN t_membership m ON d.membership_id = m.membership_id
+        JOIN t_object o ON m.child_object_id = o.object_id
+        WHERE d.membership_id = ? AND d.property_id = ? AND d.value = ?
+    """
+    data_id_map = {}
+    for membership_id, property_id, value in params:
+        result = db.fetchone(data_ids_query, (membership_id, property_id, value))
+        if result:
+            data_id_map[(membership_id, property_id, value)] = (result[0], result[1])
+    return data_id_map
+
+
+def get_scenario_id(db: PlexosDB, scenario: str) -> int:
+    """Get or create scenario ID.
+
+    Parameters
+    ----------
+    db_manager : DBManager
+        Database manager instance
+    scenario : str
+        Scenario name
+
+    Returns
+    -------
+    int
+        Scenario object ID
+    """
+    if not db.check_scenario_exists(scenario):
+        return db.add_scenario(scenario)
+    return db.get_scenario_id(scenario)
