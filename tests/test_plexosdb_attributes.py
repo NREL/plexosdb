@@ -1,9 +1,15 @@
-from plexosdb.db import PlexosDB
-from plexosdb.enums import ClassEnum
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plexosdb.db import PlexosDB
 
 
-def test_add_attribute(db_instance_with_schema):
-    db: PlexosDB = db_instance_with_schema
+def test_add_attribute(db_base: PlexosDB):
+    from plexosdb.enums import ClassEnum
+
+    db: PlexosDB = db_base
     attribute_id = db.get_attribute_id(ClassEnum.Generator, "Latitude")
     assert attribute_id
     assert attribute_id == 1
@@ -20,10 +26,11 @@ def test_add_attribute(db_instance_with_schema):
     assert result == 10.1
 
 
-def test_list_attributes(db_instance_with_schema):
-    db: PlexosDB = db_instance_with_schema
+def test_list_attributes(db_base: PlexosDB):
+    from plexosdb.enums import ClassEnum
+
+    db: PlexosDB = db_base
 
     result = db.list_attributes(ClassEnum.Generator)
     assert result
-    assert len(result) == 1
-    assert result[0] == "Latitude"
+    assert len(result) == 2

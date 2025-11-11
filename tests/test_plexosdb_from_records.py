@@ -1,24 +1,28 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
 
-from plexosdb import ClassEnum, CollectionEnum, PlexosDB
+if TYPE_CHECKING:
+    from plexosdb import PlexosDB
 
 
-def test_bulk_insert_properties_from_records(db_instance_with_schema):
-    db: PlexosDB() = db_instance_with_schema
+def test_bulk_insert_properties_from_records(db_base: PlexosDB):
+    from plexosdb import ClassEnum, CollectionEnum
 
-    # Create the objects first
+    db: PlexosDB() = db_base
+
     db.add_object(ClassEnum.Generator, "Generator1")
     db.add_object(ClassEnum.Generator, "Generator2")
     db.add_object(ClassEnum.Generator, "Generator3")
 
-    # Prepare the property records
     records = [
         {"name": "Generator1", "Max Capacity": 100.0, "Min Stable Level": 20.0, "Heat Rate": 10.5},
         {"name": "Generator2", "Max Capacity": 150.0, "Min Stable Level": 30.0, "Heat Rate": 9.8},
         {"name": "Generator3", "Max Capacity": 200.0, "Min Stable Level": 40.0, "Heat Rate": 8.7},
     ]
 
-    # Add all properties in bulk
     db.add_properties_from_records(
         records,
         object_class=ClassEnum.Generator,
@@ -32,10 +36,11 @@ def test_bulk_insert_properties_from_records(db_instance_with_schema):
     assert properties[0]["scenario_name"] == "Base Case"
 
 
-def test_bulk_insert_memberships_from_records(db_instance_with_schema: PlexosDB):
-    db = db_instance_with_schema
+def test_bulk_insert_memberships_from_records(db_base: PlexosDB):
+    from plexosdb import ClassEnum, CollectionEnum
 
-    # Create the objects first
+    db = db_base
+
     objects = list(f"Generator_{i}" for i in range(5))
     db.add_objects(ClassEnum.Generator, objects)
     parent_object_ids = db.get_objects_id(objects, class_enum=ClassEnum.Generator)

@@ -361,7 +361,7 @@ class PlexosDB:
         position: int | None = None,
     ) -> int:
         """Add a custom column to a class."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def add_datafile_tag(
         self,
@@ -372,7 +372,7 @@ class PlexosDB:
         description: str | None = None,
     ) -> int:
         """Add a Data File tag to a property data record."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def add_membership(
         self,
@@ -545,7 +545,7 @@ class PlexosDB:
         state: int | None = None,
     ) -> None:
         """Add metadata to an entity (object, membership, or data)."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def add_object(
         self,
@@ -1222,7 +1222,7 @@ class PlexosDB:
         description: str | None = None,
     ) -> int:
         """Add a time slice definition to the database."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def add_variable_tag(
         self,
@@ -1233,17 +1233,17 @@ class PlexosDB:
         value: str | float | None = None,
     ) -> int:
         """Add a Variable tag to a property data record."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def backup_database(self, target_path: str | Path) -> None:
         """Backup the in-memory database to a file."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def check_attribute_exists(
         self, attribute_name: str, /, *, object_name: str, object_class: ClassEnum
     ) -> bool:
         """Check if an attribute exists for a specific object."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def check_category_exists(self, class_enum: ClassEnum, name: str) -> bool:
         """Check if a category exists for a specific class.
@@ -1905,7 +1905,7 @@ class PlexosDB:
         base_scenario: str | None = None,
     ) -> int:
         """Create a new scenario with specific property values for an object."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def create_schema(self, schema: str | None = None) -> bool:
         """Create database schema from SQL script.
@@ -1954,11 +1954,11 @@ class PlexosDB:
         object_class: ClassEnum,
     ) -> None:
         """Delete an attribute from an object."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def delete_category(self, category: str, /, *, class_name: ClassEnum) -> None:
         """Delete a category from the database."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def delete_membership(
         self,
@@ -1971,7 +1971,7 @@ class PlexosDB:
         collection: CollectionEnum,
     ) -> None:
         """Delete a membership between two objects."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def delete_metadata(
         self,
@@ -1981,7 +1981,7 @@ class PlexosDB:
         property_name: str,
     ) -> None:
         """Delete metadata from an entity."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def delete_object(self, class_enum: ClassEnum, /, *, name: str) -> None:
         """Delete an object and its memberships from the database.
@@ -2141,7 +2141,7 @@ class PlexosDB:
         class_id: int,
     ) -> None:
         """Delete text data from a property data record."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def get_attribute(
         self,
@@ -2214,7 +2214,7 @@ class PlexosDB:
         attribute_names: list[str] | None = None,
     ) -> list[dict]:
         """Get all attributes for a specific object."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def get_category_id(self, class_enum: ClassEnum, /, name: str) -> int:
         """Return the ID for a given category.
@@ -2411,11 +2411,11 @@ class PlexosDB:
 
     def get_config(self, element: str | None = None) -> dict | list[dict]:
         """Get configuration values from the database."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def get_custom_columns(self, class_enum: ClassEnum | None = None) -> list[dict]:
         """Get custom columns, optionally filtered by class."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def get_membership_id(
         self,
@@ -2641,7 +2641,7 @@ class PlexosDB:
         property_name: str | None = None,
     ) -> list[dict]:
         """Retrieve metadata for an entity."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def get_object_data_ids(
         self,
@@ -2996,7 +2996,7 @@ class PlexosDB:
         child_class_enum: ClassEnum,
     ) -> str:
         """Get the unit for a specific property."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def get_scenario_id(self, name: str) -> int:
         """Return the ID for a given scenario.
@@ -3038,11 +3038,11 @@ class PlexosDB:
         class_id: int | None = None,
     ) -> list[dict]:
         """Retrieve text data associated with a property data record."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def get_unit(self, unit_id: int) -> dict:
         """Get details for a specific unit."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def has_properties(
         self,
@@ -3123,7 +3123,7 @@ class PlexosDB:
 
     def import_from_csv(self, source_path: str | Path, /, *, tables: list[str] | None = None) -> None:
         """Import data from CSV files into the database."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def iterate_properties(
         self,
@@ -3666,7 +3666,7 @@ class PlexosDB:
 
     def list_reports(self) -> list[dict]:
         """List all defined reports in the database."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def list_scenarios(self) -> list[str]:
         """Return all scenarios in the database.
@@ -3937,7 +3937,7 @@ class PlexosDB:
 
     def set_config(self, element: str, value: str) -> None:
         """Set a configuration value in the database."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def set_date_range(
         self,
@@ -3948,11 +3948,11 @@ class PlexosDB:
         date_to: str | None = None,
     ) -> None:
         """Set the date range for a property data record."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def to_csv(self, target_path: str | Path, /, *, tables: list[str] | None = None) -> None:
         """Export selected tables or the entire database to CSV files."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def to_xml(self, target_path: str | Path) -> bool:
         """Convert SQLite to XML format.
@@ -4040,11 +4040,11 @@ class PlexosDB:
         object_class: ClassEnum,
     ) -> None:
         """Update an attribute value for an object."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def update_category(self, category: str, new_name: str, /, *, class_name: ClassEnum) -> None:
         """Update a category name."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def update_object(
         self,
@@ -4128,7 +4128,7 @@ class PlexosDB:
 
     def update_properties(self, updates: list[dict]) -> None:
         """Update multiple properties in a single transaction."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def update_property(
         self,
@@ -4144,7 +4144,7 @@ class PlexosDB:
         parent_class: ClassEnum | None = None,
     ) -> None:
         """Update a property value for a given object."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def update_scenario(
         self,
@@ -4156,7 +4156,7 @@ class PlexosDB:
         new_description: str | None = None,
     ) -> None:
         """Update a scenario's properties."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def update_text(
         self,
@@ -4167,11 +4167,11 @@ class PlexosDB:
         class_id: int,
     ) -> None:
         """Update text data for a property data record."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def validate_database(self, /, *, fix_issues: bool = False) -> dict[str, list[str]]:
         """Validate database integrity and consistency."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def _validate_and_filter_objects(
         self, object_names: str | Iterable[str], class_enum: ClassEnum

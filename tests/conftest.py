@@ -5,12 +5,9 @@ from typing import Any
 
 import pytest
 from _pytest.logging import LogCaptureFixture
-from loguru import logger
-
 from plexosdb import PlexosDB
 from plexosdb.db_manager import SQLiteManager
 
-DATA_FOLDER = "tests/data"
 DB_FILENAME = "plexosdb.xml"
 TEST_SCHEMA = (
     "CREATE TABLE generators (id INTEGER PRIMARY KEY, name TEXT, capacity REAL, fuel_type TEXT);"
@@ -18,21 +15,34 @@ TEST_SCHEMA = (
     "value REAL, FOREIGN KEY(generator_id) REFERENCES generators(id));"
 )
 
+pytest_plugins = [
+    "fixtures.example_dbs",
+]
 
-@pytest.fixture
-def data_folder(pytestconfig):
-    return pytestconfig.rootpath.joinpath(DATA_FOLDER)
+
+def pytest_generate_tests(metafunc):
+    """
+    Parametrize _master_xml_param fixture with XML versions.
+    The v9.2R6 version is marked with 'fast' for quick testing.
+    Run with -m fast to only test the v9.2R6 version.
+    Run without -m fast to test all three XML versions.
+    """
+    if "_master_xml_param" in metafunc.fixturenames:
+        params = [
+            pytest.param("v9.2R6", marks=pytest.mark.fast),
+            "v10.0R2",
+            "v11.0R4",
+        ]
+
+        metafunc.parametrize("_master_xml_param", params, indirect=True)
 
 
 @pytest.fixture
 def caplog(caplog: LogCaptureFixture):
-    handler_id = logger.add(
-        caplog.handler,
-        format="{message}",
-        level=0,
-        filter=lambda record: record["level"].no >= caplog.handler.level,
-        enqueue=False,  # Set to 'True' if your test is spawning child processes.
-    )
+    from loguru import logger
+
+    logger.enable("plexosdb")
+    handler_id = logger.add(caplog.handler, format="{message}")
     yield caplog
     logger.remove(handler_id)
 
@@ -154,7 +164,6 @@ def db_manager_instance_empty_with_schema() -> Generator[SQLiteManager[Any], Non
 @pytest.fixture(scope="function")
 def db_manager_instance_empty():
     """Create a fresh empty DB instance for each test."""
-    # Create a completely fresh database for each test
     db = SQLiteManager()
     db.executescript(TEST_SCHEMA)
     yield db
@@ -164,11 +173,9 @@ def db_manager_instance_empty():
 @pytest.fixture(scope="function")
 def db_manager_instance_populated():
     """Create a populated DB instance for testing queries."""
-    # Create a fresh database and populate it
     db = SQLiteManager()
     db.executescript(TEST_SCHEMA)
 
-    # Add generators
     db.execute(
         "INSERT INTO generators (name, capacity, fuel_type) VALUES (?, ?, ?)", ("Coal Plant 1", 500.0, "Coal")
     )
@@ -179,7 +186,6 @@ def db_manager_instance_populated():
         "INSERT INTO generators (name, capacity, fuel_type) VALUES (?, ?, ?)", ("Wind Farm 1", 150.0, "Wind")
     )
 
-    # Add properties
     db.execute(
         "INSERT INTO properties (generator_id, property_name, value) VALUES (?, ?, ?)",
         (1, "Heat Rate", 9500.0),
