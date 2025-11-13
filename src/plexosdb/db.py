@@ -1,14 +1,14 @@
 """Main API for interacting with the Plexos database schema."""
 
 import sqlite3
-import sys
 import uuid
 from collections.abc import Iterable, Iterator
+from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
 from string import Template
 from typing import Any, Literal, TypedDict, cast
-from datetime import datetime
+
 from loguru import logger
 
 from .checks import check_memberships_from_records
@@ -19,13 +19,16 @@ from .exceptions import (
     NoPropertiesError,
     NotFoundError,
 )
-from .utils import create_membership_record, no_space, normalize_names, prepare_sql_data_params
+from .utils import (
+    add_texts_for_properties,
+    create_membership_record,
+    insert_property_data,
+    insert_scenario_tags,
+    no_space,
+    normalize_names,
+    prepare_properties_params,
+)
 from .xml_handler import XMLHandler
-
-if sys.version_info >= (3, 12):
-    from itertools import batched
-else:
-    from .utils import batched
 
 SQLITE_BACKEND_KWARGS = {"in_memory"}
 CHECK_QUERY = "SELECT 1 FROM ${schema} ${where_clause}"
@@ -371,8 +374,55 @@ class PlexosDB:
         *,
         description: str | None = None,
     ) -> int:
-        """Add a Data File tag to a property data record."""
-        raise NotImplementedError  # pragma: no cover
+        """Add a Data File tag to a property data record.
+
+        Creates a link between a property data record and a DataFile object
+        by finding the DataFile object that has a Filename property matching
+        the provided file path.
+
+        Parameters
+        ----------
+        data_id : int
+            The data ID of the property to tag
+        file_path : str
+            The file path to link to, must match a DataFile's Filename property
+        description : str, optional
+            Optional description for the tag (currently unused)
+
+        Returns
+        -------
+        int
+            The data_id that was tagged
+
+        Raises
+        ------
+        ValueError
+            If no DataFile with the matching file path is found
+        """
+        # Get the class_id for DataFile
+        datafile_class_id = self.get_class_id(ClassEnum.DataFile)
+
+        # Find the DataFile object that has a Filename property matching the file_path
+        # The file_path is stored in t_text table when add_property is called with datafile_text
+        query = """
+            SELECT DISTINCT m.child_object_id
+            FROM t_text txt
+            JOIN t_data d ON txt.data_id = d.data_id
+            JOIN t_membership m ON d.membership_id = m.membership_id
+            WHERE txt.value = ? AND txt.class_id = ? AND m.child_class_id = ?
+        """
+        result = self._db.fetchone(query, (file_path, datafile_class_id, datafile_class_id))
+
+        if result is None:
+            raise ValueError(f"No DataFile found with Filename: {file_path}")
+
+        datafile_object_id = result[0]
+
+        # Create the tag by inserting into t_tag
+        tag_query = "INSERT INTO t_tag(data_id, object_id) VALUES (?, ?)"
+        self._db.execute(tag_query, (data_id, datafile_object_id))
+
+        return data_id
 
     def add_membership(
         self,
@@ -697,19 +747,6 @@ class PlexosDB:
         self.add_memberships_from_records(membership_records)
         return
 
-    def _add_texts_for_properties(
-        self,
-        params: list[tuple],
-        data_id_map: dict,
-        text_map: dict,
-        text_class: ClassEnum,
-    ) -> None:
-        """Bulk add text data for each property record."""
-        for membership_id, property_id, value in params:
-            data_id, obj_name = data_id_map.get((membership_id, property_id, value), (None, None))
-            if data_id and obj_name and text_map.get(obj_name):
-                self.add_text(text_class, text_map[obj_name], data_id)
-
     def add_properties_from_records(
         self,
         records: list[dict],
@@ -719,8 +756,6 @@ class PlexosDB:
         parent_class: ClassEnum = ClassEnum.System,
         collection: CollectionEnum,
         scenario: str,
-        text_class: ClassEnum | None = None,
-        text_field: str = "text",
         chunksize: int = 10_000,
     ) -> None:
         """Bulk insert multiple properties from a list of records, with optional text data.
@@ -728,9 +763,9 @@ class PlexosDB:
         Efficiently adds multiple properties to multiple objects in batches using
         transactions, which is significantly faster than calling add_property repeatedly.
 
-        Each record should contain an 'object_name' field and property-value pairs.
-        If a text field is present and text_class is provided, text data will be attached
-        to the property data records.
+        Each record should contain an 'name' field and property-value pairs.
+        If records contain 'datafile_text' or 'timeslice' fields, that data will be
+        automatically attached to the property data records.
 
         All properties are automatically marked as dynamic and enabled in the database.
 
@@ -738,8 +773,10 @@ class PlexosDB:
         ----------
         records : list[dict]
             List of records where each record is a dictionary with:
-            - 'object_name': str - Name of the object
+            - 'name': str - Name of the object
             - property1: value1, property2: value2, ... - Property name-value pairs
+            - 'datafile_text': str (optional) - File path text for DataFile
+            - 'timeslice': str (optional) - Timeslice name
         object_class : ClassEnum
             Class enumeration of the objects (e.g., ClassEnum.Generator)
         parent_class : ClassEnum, optional
@@ -748,10 +785,6 @@ class PlexosDB:
             Collection enumeration for the properties (e.g., CollectionEnum.Generators)
         scenario : str
             Scenario name to associate with all properties
-        text_class : ClassEnum | None, optional
-            ClassEnum for the text data (e.g., ClassEnum.File). If None, text is ignored.
-        text_field : str, optional
-            Name of the field in each record containing the text data, by default "text"
         chunksize : int, optional
             Number of records to process in each batch to control memory usage,
             by default 10_000
@@ -782,6 +815,9 @@ class PlexosDB:
         Properties are inserted directly using SQL for optimal performance, and all
         added properties are automatically marked as dynamic and enabled.
 
+        The method automatically detects and processes 'datafile_text' and 'timeslice'
+        fields if present in the records.
+
         Examples
         --------
         >>> db = PlexosDB()
@@ -789,92 +825,35 @@ class PlexosDB:
         >>> # Create objects first
         >>> db.add_object(ClassEnum.Generator, "Generator1")
         >>> db.add_object(ClassEnum.Generator, "Generator2")
-        >>> # Prepare property records
+        >>> # Prepare property records with optional datafile_text field
         >>> records = [
-        ...     {"name": "Generator1", "Max Capacity": 100.0, "text": "/path_to_file/gen1.txt"},
-        ...     {"name": "Generator2", "Max Capacity": 150.0, "text": "/path_to_file/gen2.txt"},
+        ...     {"name": "Generator1", "Max Capacity": 100.0, "datafile_text": "/path_to_file/gen1.txt"},
+        ...     {"name": "Generator2", "Max Capacity": 150.0, "datafile_text": "/path_to_file/gen2.txt"},
         ... ]
-        >>> # Add properties in bulk
+        >>> # Add properties in bulk - datafile_text is automatically detected and attached
         >>> db.add_properties_from_records(
         ...     records,
         ...     object_class=ClassEnum.Generator,
         ...     collection=CollectionEnum.Generators,
         ...     scenario="Base Case",
-        ...     text_class=ClassEnum.DataFile,
-        ...     text_field="text",
         ... )
         """
         if not records:
             logger.warning("No records provided for bulk property and text insertion")
             return
 
-        collection_id = self.get_collection_id(
-            collection, parent_class_enum=parent_class, child_class_enum=object_class
-        )
-        collection_properties = self.query(
-            f"select name, property_id from t_property where collection_id={collection_id}"
-        )
-        component_names = tuple(d["name"] for d in records)
-        memberships = self.get_memberships_system(component_names, object_class=object_class)
-
-        if not memberships:
-            raise KeyError(
-                "Object do not exists on the database yet."
-                "Make sure you use `add_object` before adding properties."
-            )
-
-        params = prepare_sql_data_params(
-            records, memberships=memberships, property_mapping=collection_properties
-        )
-
-        # Map object name to text value for quick lookup
-        text_map = {rec["name"]: rec.get(text_field) for rec in records}
+        params, _ = prepare_properties_params(self, records, object_class, collection, parent_class)
 
         with self._db.transaction():
-            filter_property_ids = [d[1] for d in params]
-            for property_id in filter_property_ids:
-                self._db.execute("UPDATE t_property set is_dynamic=1 where property_id = ?", (property_id,))
-                self._db.execute("UPDATE t_property set is_enabled=1 where property_id = ?", (property_id,))
+            data_id_map = insert_property_data(self, params)
+            insert_scenario_tags(self, scenario, params, chunksize)
 
-            self._db.executemany(
-                "INSERT into t_data(membership_id, property_id, value) values (?,?,?)", params
-            )
-
-            data_ids_query = """
-                SELECT d.data_id, o.name
-                FROM t_data d
-                JOIN t_membership m ON d.membership_id = m.membership_id
-                JOIN t_object o ON m.child_object_id = o.object_id
-                WHERE d.membership_id = ? AND d.property_id = ? AND d.value = ?
-            """
-            data_id_map = {}
-            for membership_id, property_id, value in params:
-                result = self._db.fetchone(data_ids_query, (membership_id, property_id, value))
-                if result:
-                    data_id_map[(membership_id, property_id, value)] = (result[0], result[1])
-
-            # Insert scenario tags
-            if scenario is not None:
-                if not self.check_scenario_exists(scenario):
-                    scenario_id = self.add_scenario(scenario)
-                else:
-                    scenario_id = self.get_scenario_id(scenario)
-                for batch in batched(params, chunksize):
-                    batched_list = list(batch)
-                    scenario_query = f"""
-                        INSERT into t_tag(data_id, object_id)
-                        SELECT
-                            d.data_id as data_id,
-                            {scenario_id} as object_id
-                        FROM
-                          t_data d
-                        WHERE d.membership_id = ? AND d.property_id = ? AND d.value = ?
-                    """
-                    self._db.executemany(scenario_query, batched_list)
-
-            # Insert text data for each property record using a helper
-            if text_class:
-                self._add_texts_for_properties(params, data_id_map, text_map, text_class)
+            if any("datafile_text" in rec for rec in records):
+                add_texts_for_properties(
+                    self, params, data_id_map, records, "datafile_text", ClassEnum.DataFile
+                )
+            if any("timeslice" in rec for rec in records):
+                add_texts_for_properties(self, params, data_id_map, records, "timeslice", ClassEnum.Timeslice)
 
         logger.debug(f"Successfully processed {len(records)} property and text records in batches")
         return
@@ -905,7 +884,8 @@ class PlexosDB:
         band: int | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
-        text: dict[ClassEnum, Any] | None = None,
+        datafile_text: str | None = None,
+        timeslice: str | None = None,
         collection_enum: CollectionEnum | None = None,
         parent_class_enum: ClassEnum | None = None,
         parent_object_name: str | None = None,
@@ -913,7 +893,7 @@ class PlexosDB:
         """Add a property for a given object in the database.
 
         Adds a property with the specified value to an object, optionally associating
-        it with a scenario, band, date range, and text data.
+        it with a scenario, band, date range, datafile text, and timeslice data.
 
         Parameters
         ----------
@@ -933,8 +913,10 @@ class PlexosDB:
             Start date for this property, by default None
         date_to : datetime | None, optional
             End date for this property, by default None
-        text : dict[ClassEnum, Any] | None, optional
-            Additional text data to associate with this property, by default None
+        datafile_text : str | None, optional
+            File path text to associate with this property (for DataFile objects), by default None
+        timeslice : str | None, optional
+            Timeslice name to associate with this property, by default None
         collection_enum : CollectionEnum | None, optional
             Collection enumeration for the property. If None, a default is determined
             based on the object class, by default None
@@ -969,7 +951,8 @@ class PlexosDB:
         -----
         The method validates that the property name is valid for the given collection.
         If a scenario is provided but doesn't exist, it will be created automatically.
-        Text data can include additional information associated with different classes.
+        The datafile_text parameter stores file path metadata for DataFile objects.
+        The timeslice parameter stores timeslice name metadata.
 
         Examples
         --------
@@ -1010,8 +993,7 @@ class PlexosDB:
         membership_id = self.get_membership_id(parent_object_name or "System", object_name, collection_enum)
 
         query = f"INSERT INTO {Schema.Data.name}(membership_id, property_id, value) values (?, ?, ?)"
-        result = self._db.execute(query, (membership_id, property_id, value))
-        assert result
+        _ = self._db.execute(query, (membership_id, property_id, value))
         data_id = self._db.last_insert_rowid()
 
         if scenario is not None:
@@ -1020,17 +1002,17 @@ class PlexosDB:
             else:
                 scenario_id = self.get_scenario_id(scenario)
             scenario_query = "INSERT INTO t_tag(object_id,data_id) VALUES (?,?)"
-            result = self._db.execute(scenario_query, (scenario_id, data_id))
+            _ = self._db.execute(scenario_query, (scenario_id, data_id))
 
         self._handle_dates(data_id, date_from, date_to)
 
-        # Text could contain multiple keys, if so we add all of them with a execute many.
-        if text is not None:
-            for key, value in text.items():
-                text_result = self.add_text(key, value, data_id)
-                assert text_result
+        if datafile_text:
+            self.add_text(ClassEnum.DataFile, datafile_text, data_id)
 
-        if band is not None:
+        if timeslice:
+            self.add_text(ClassEnum.Timeslice, timeslice, data_id)
+
+        if band:
             self.add_band(data_id, band)
 
         return data_id
@@ -1430,6 +1412,24 @@ class PlexosDB:
         """Check that a data id is present on t_data table."""
         query = "SELECT 1 FROM t_data where data_id = ?"
         return bool(self.query(query, (data_id,)))
+
+    def check_tag_exists(self, data_id: int, object_id: int) -> bool:
+        """Check if a tag exists linking a data record to an object.
+
+        Parameters
+        ----------
+        data_id : int
+            The data ID to check for
+        object_id : int
+            The object ID to check for
+
+        Returns
+        -------
+        bool
+            True if a tag exists with the given data_id and object_id, False otherwise
+        """
+        query = "SELECT 1 FROM t_tag WHERE data_id = ? AND object_id = ?"
+        return bool(self.query(query, (data_id, object_id)))
 
     def check_membership_exists(
         self,

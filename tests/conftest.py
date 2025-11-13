@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 from _pytest.logging import LogCaptureFixture
+
 from plexosdb import PlexosDB
 from plexosdb.db_manager import SQLiteManager
 
@@ -16,6 +17,7 @@ TEST_SCHEMA = (
 )
 
 pytest_plugins = [
+    "fixtures.csv_fixtures",
     "fixtures.example_dbs",
 ]
 

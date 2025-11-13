@@ -20,7 +20,7 @@ def test_add_property_with_text_data_succeeds(db_with_topology, tmp_path):
     data_file = tmp_path / "test_data.csv"
     data_file.write_text("value1,value2")
     db_with_topology.add_property(
-        ClassEnum.Generator, "thermal-01", "Rating", 0.0, band=1, text={ClassEnum.DataFile: str(data_file)}
+        ClassEnum.Generator, "thermal-01", "Rating", 0.0, band=1, datafile_text=str(data_file)
     )
     properties = db_with_topology.get_object_properties(ClassEnum.Generator, "thermal-01")
     assert any(p["property"] == "Rating" for p in properties)
