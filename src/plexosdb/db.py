@@ -610,7 +610,7 @@ class PlexosDB:
         *,
         description: str | None = None,
         category: str | None = None,
-        collection_enum: CollectionEnum | None = None,
+        collection_enum: CollectionEnum | None | Literal[False] = None,
     ) -> int:
         """Add an object to the database and append a system membership.
 
@@ -678,6 +678,10 @@ class PlexosDB:
         query_result = self._db.execute(query, params)
         assert query_result
         object_id = self._db.last_insert_rowid()
+
+        # Skip system membership for System class itself, or if explicitly set to False
+        if class_enum == ClassEnum.System or collection_enum is False:
+            return object_id
 
         if not collection_enum:
             collection_enum = get_default_collection(class_enum)
@@ -852,10 +856,12 @@ class PlexosDB:
             logger.warning("No records provided for bulk property and text insertion")
             return
 
-        params, _ = prepare_properties_params(self, records, object_class, collection, parent_class)
+        params, _, metadata_map = prepare_properties_params(
+            self, records, object_class, collection, parent_class
+        )
 
         with self._db.transaction():
-            data_id_map = insert_property_data(self, params)
+            data_id_map = insert_property_data(self, params, metadata_map)
             insert_scenario_tags(self, scenario, params, chunksize)
 
             if any("datafile_text" in rec for rec in records):
