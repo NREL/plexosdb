@@ -193,7 +193,7 @@ def prepare_properties_params(
     object_class: ClassEnum,
     collection: CollectionEnum,
     parent_class: ClassEnum,
-) -> tuple[list[tuple[int, int, Any]], list[tuple[str, int]]]:
+) -> tuple[list[tuple[int, int, Any]], list[tuple[str, int]], dict[tuple[int, int, Any], dict[str, Any]]]:
     """Prepare SQL parameters for property insertion.
 
     Parameters
@@ -211,8 +211,9 @@ def prepare_properties_params(
 
     Returns
     -------
-    tuple[list[tuple], list]
-        Tuple of (params, collection_properties)
+    tuple[list[tuple], list, dict]
+        Tuple of (params, collection_properties, metadata_map)
+        where metadata_map contains band/date info keyed by (membership_id, property_id, value)
     """
     collection_id = db.get_collection_id(
         collection, parent_class_enum=parent_class, child_class_enum=object_class
@@ -229,12 +230,47 @@ def prepare_properties_params(
             "Make sure you use `add_object` before adding properties."
         )
 
-    params = prepare_sql_data_params(records, memberships=memberships, property_mapping=collection_properties)
-    return params, collection_properties
+    property_id_map = {prop: pid for prop, pid in collection_properties}
+    name_to_membership = {membership["name"]: membership["membership_id"] for membership in memberships}
+
+    params = []
+    metadata_map = {}
+
+    for record in records:
+        if record["name"] not in name_to_membership:
+            continue
+
+        membership_id = name_to_membership[record["name"]]
+
+        # Extract metadata fields
+        band = record.get("Band") or record.get("band")
+        date_from = record.get("date_from")
+        date_to = record.get("date_to")
+
+        for prop, value in record.items():
+            if prop == "name" or prop not in property_id_map:
+                continue
+            if prop in ("Band", "band", "date_from", "date_to", "datafile_text", "timeslice"):
+                continue
+
+            property_id = property_id_map[prop]
+            param_key = (membership_id, property_id, value)
+            params.append(param_key)
+
+            # Store metadata for this property
+            metadata_map[param_key] = {
+                "band": band,
+                "date_from": date_from,
+                "date_to": date_to,
+            }
+
+    return params, collection_properties, metadata_map
 
 
 def insert_property_data(
-    db: PlexosDB, params: list[tuple[int, int, Any]]
+    db: PlexosDB,
+    params: list[tuple[int, int, Any]],
+    metadata_map: dict[tuple[int, int, Any], dict[str, Any]] | None = None,
 ) -> dict[tuple[int, int, Any], tuple[int, str]]:
     """Insert property data and return mapping of data IDs to object names.
 
@@ -244,6 +280,8 @@ def insert_property_data(
         Database instance
     params : list[tuple]
         List of (membership_id, property_id, value) tuples
+    metadata_map : dict | None, optional
+        Mapping of params to metadata (band, date_from, date_to), by default None
 
     Returns
     -------
@@ -268,7 +306,22 @@ def insert_property_data(
     for membership_id, property_id, value in params:
         result = db._db.fetchone(data_ids_query, (membership_id, property_id, value))
         if result:
-            data_id_map[(membership_id, property_id, value)] = (result[0], result[1])
+            data_id = result[0]
+            obj_name = result[1]
+            data_id_map[(membership_id, property_id, value)] = (data_id, obj_name)
+
+            if metadata_map and (membership_id, property_id, value) in metadata_map:
+                metadata = metadata_map[(membership_id, property_id, value)]
+                band = metadata.get("band")
+                date_from = metadata.get("date_from")
+                date_to = metadata.get("date_to")
+
+                if band is not None:
+                    db.add_band(data_id, band)
+
+                if date_from is not None or date_to is not None:
+                    db._handle_dates(data_id, date_from, date_to)
+
     return data_id_map
 
 
