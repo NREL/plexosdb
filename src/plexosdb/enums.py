@@ -1,6 +1,7 @@
 """Plexos model enums that define the data schema."""
 
 from enum import Enum, StrEnum
+from typing import cast
 
 
 class Schema(Enum):
@@ -33,12 +34,12 @@ class Schema(Enum):
     Units = ("t_unit", "unit_id")
 
     @property
-    def name(self):  # noqa: D102
-        return self.value[0]
+    def name(self) -> str:  # noqa: D102
+        return cast(str, self.value[0])
 
     @property
-    def label(self):  # noqa: D102
-        return self.value[1]
+    def label(self) -> str | None:  # noqa: D102
+        return cast(str | None, self.value[1])
 
 
 class ClassEnum(StrEnum):
@@ -120,11 +121,11 @@ class CollectionEnum(StrEnum):
     Variables = "Variables"
 
 
-def str2enum(string, schema_enum=Schema) -> Schema | None:
+def str2enum(string: str, schema_enum: type[Enum] = Schema) -> Schema | None:
     """Convert string to enum."""
     for e in schema_enum:
         if e.name == string:
-            return e
+            return cast(Schema, e)
     return None
 
 

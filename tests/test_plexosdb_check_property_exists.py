@@ -38,7 +38,7 @@ def test_check_property_exists_invalid_collection_raises_error(
     from plexosdb import ClassEnum
     from plexosdb.exceptions import NotFoundError
 
-    with pytest.raises(NotFoundError, match="Collection.*does not exist"):
+    with pytest.raises(NotFoundError, match=r"Collection.*does not exist"):
         db_with_topology.check_property_exists(
             "InvalidCollection",
             ClassEnum.Generator,
@@ -52,7 +52,7 @@ def test_check_property_exists_invalid_child_class_raises_error(
     from plexosdb import CollectionEnum
     from plexosdb.exceptions import NotFoundError
 
-    with pytest.raises(NotFoundError, match="Child class.*does not exist"):
+    with pytest.raises(NotFoundError, match=r"Child class.*does not exist"):
         db_with_topology.check_property_exists(
             CollectionEnum.Generators,
             "InvalidClass",

@@ -1,5 +1,5 @@
 import os
-import xml.etree.ElementTree as ET  # noqa: N817
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest

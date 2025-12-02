@@ -3,6 +3,7 @@ import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 
 from plexosdb.db_manager import SQLiteManager
 
@@ -113,6 +114,9 @@ def test_failed_collation_creation(monkeypatch):
     """Test handling of failed collation creation."""
     db = SQLiteManager()
 
+    # Store the original connection to close it later (prevents resource leak)
+    original_conn = db._con
+
     mock_conn = MagicMock()
     mock_conn.create_collation.side_effect = sqlite3.Error("Failed to create collation")
 
@@ -121,6 +125,8 @@ def test_failed_collation_creation(monkeypatch):
     result = db.add_collation("TEST_COLLATION", lambda x, y: 0)
     assert result is False, "Should return False when collation creation fails"
 
+    # Restore and close the original connection to avoid ResourceWarning
+    db._con = original_conn
     db.close()
 
 
@@ -181,3 +187,254 @@ def test_backup_path_handling(db_base, tmp_path):
             assert success is False
         finally:
             restricted_dir.chmod(0o755)
+
+
+def test_config_property_returns_config():
+    """Test that config property returns SQLiteConfig instance."""
+    from plexosdb.db_manager import SQLiteConfig
+
+    db = SQLiteManager()
+
+    config = db.config
+
+    assert config is not None
+    assert isinstance(config, SQLiteConfig)
+    db.close()
+
+
+def test_config_property_in_memory():
+    """Test config property for in-memory database."""
+    db = SQLiteManager()  # In-memory by default
+
+    config = db.config
+
+    assert config.cache_size_mb == 50
+    assert config.mmap_size_gb == 0
+    assert config.synchronous == "OFF"
+    assert config.journal_mode == "MEMORY"
+    db.close()
+
+
+def test_config_property_file_database(tmp_path):
+    """Test config property for file-based database."""
+    db_path = tmp_path / "test.db"
+    db = SQLiteManager(fpath_or_conn=db_path)
+
+    config = db.config
+
+    assert config.cache_size_mb == 20
+    assert config.mmap_size_gb == 2
+    assert config.synchronous == "NORMAL"
+    assert config.journal_mode == "WAL"
+    db.close()
+
+
+def test_sqlite_version_property():
+    """Test sqlite_version property returns version string."""
+    db = SQLiteManager()
+
+    version = db.sqlite_version
+
+    assert isinstance(version, str)
+    # Version should be in format like "3.43.0"
+    parts = version.split(".")
+    assert len(parts) >= 2
+    assert all(part.isdigit() for part in parts[:2])
+    db.close()
+
+
+def test_init_with_invalid_type_raises_type_error():
+    """Test that __init__ raises TypeError for invalid input type."""
+    with pytest.raises(TypeError):
+        SQLiteManager(fpath_or_conn=12345)  # Invalid type: int
+
+
+def test_init_with_list_raises_type_error():
+    """Test that __init__ raises TypeError for list input."""
+    with pytest.raises(TypeError):
+        SQLiteManager(fpath_or_conn=[])  # Invalid type: list
+
+
+def test_init_with_dict_raises_type_error():
+    """Test that __init__ raises TypeError for dict input."""
+    with pytest.raises(TypeError):
+        SQLiteManager(fpath_or_conn={})  # Invalid type: dict
+
+
+def test_transaction_context_manager_success():
+    """Test transaction context manager executes successfully."""
+    db = SQLiteManager()
+    db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
+
+    with db.transaction():
+        db.execute("INSERT INTO test (value) VALUES (?)", ("test1",))
+        db.execute("INSERT INTO test (value) VALUES (?)", ("test2",))
+
+    # Verify data was committed
+    rows = db.query("SELECT * FROM test")
+    assert len(rows) == 2
+
+    db.close()
+
+
+def test_transaction_context_manager_rollback_on_error():
+    """Test transaction rolls back when sqlite3.Error occurs."""
+    db = SQLiteManager()
+    db.execute("CREATE TABLE unique_test (id INTEGER PRIMARY KEY UNIQUE, value TEXT)")
+    db.execute("INSERT INTO unique_test VALUES (1, 'initial')")
+
+    try:
+        with db.transaction():
+            # This will fail because of duplicate primary key (database error)
+            db.execute("INSERT INTO unique_test VALUES (1, 'duplicate')")
+    except sqlite3.Error:
+        pass
+
+    # Verify only initial row exists (rollback occurred)
+    rows = db.query("SELECT * FROM unique_test")
+    assert len(rows) == 1
+    assert rows[0][1] == "initial"
+
+    db.close()
+
+
+def test_transaction_reraises_sqlite_error():
+    """Test transaction re-raises sqlite3.Error."""
+    from unittest.mock import MagicMock
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_conn.execute.side_effect = sqlite3.Error("Transaction failed")
+
+    db._con = mock_conn
+
+    with pytest.raises(sqlite3.Error):
+        with db.transaction():
+            pass
+
+
+def test_transaction_rollback_called_on_error():
+    """Test that rollback is called when sqlite3.Error occurs in transaction."""
+    from unittest.mock import MagicMock
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_conn.execute.side_effect = [None, sqlite3.Error("Error in transaction")]
+
+    db._con = mock_conn
+
+    try:
+        with db.transaction():
+            # This would trigger the second execute call which raises the error
+            db.connection.execute("SELECT 1")
+    except sqlite3.Error:
+        pass
+
+    mock_conn.rollback.assert_called_once()
+
+
+def test_close_handles_rollback_error():
+    """Test close() handles rollback errors gracefully."""
+    from unittest.mock import MagicMock
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_conn.in_transaction = True
+    mock_conn.rollback.side_effect = sqlite3.Error("Rollback failed")
+    mock_conn.close.return_value = None
+
+    db._con = mock_conn
+
+    db.close()
+
+    assert db._con is None
+
+
+def test_close_handles_commit_error():
+    """Test close() handles commit errors gracefully."""
+    from unittest.mock import MagicMock
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_conn.in_transaction = False
+    mock_conn.commit.side_effect = sqlite3.Error("Commit failed")
+    mock_conn.close.return_value = None
+
+    db._con = mock_conn
+
+    db._is_in_memory = MagicMock(return_value=False)
+
+    db.close()
+
+    assert db._con is None
+
+
+def test_close_handles_close_error():
+    """Test close() handles connection.close() errors gracefully."""
+    from unittest.mock import MagicMock
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_conn.in_transaction = False
+    mock_conn.close.side_effect = sqlite3.Error("Close failed")
+
+    db._con = mock_conn
+
+    # Mock _is_in_memory to return True (in-memory database)
+    db._is_in_memory = MagicMock(return_value=True)
+
+    # Should not raise, should log warning and continue
+    db.close()
+
+    # Connection should be nulled
+    assert db._con is None
+
+
+def test_optimize_with_active_transaction():
+    """Test optimize() commits transaction before VACUUM."""
+    db = SQLiteManager()
+    db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)")
+    db.execute("INSERT INTO test (id) VALUES (1)")
+
+    db.connection.execute("BEGIN")
+
+    # Optimize should commit the transaction before VACUUM
+    result = db.optimize()
+
+    assert result is True
+
+
+def test_optimize_error_handling():
+    """Test optimize() handles errors gracefully."""
+    from unittest.mock import MagicMock
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_conn.in_transaction = False
+    mock_conn.execute.side_effect = sqlite3.Error("Optimize failed")
+
+    db._con = mock_conn
+
+    result = db.optimize()
+
+    assert result is False
+
+
+def test_last_insert_rowid_returns_zero_on_empty():
+    """Test last_insert_rowid returns 0 when query returns empty."""
+    from unittest.mock import MagicMock
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.fetchall.return_value = []
+    mock_conn.cursor.return_value = mock_cursor
+
+    db._con = mock_conn
+
+    # Mock query to return empty result
+    db.query = MagicMock(return_value=[])
+
+    result = db.last_insert_rowid()
+
+    assert result == 0
