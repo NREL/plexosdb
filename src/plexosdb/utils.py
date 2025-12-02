@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from importlib.resources import files
 from itertools import islice
 from typing import TYPE_CHECKING, Any
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from plexosdb.db_manager import SQLiteManager
 
 
-def batched(iterable, n):
+def batched(iterable: Iterable[Any], n: int) -> Iterator[tuple[Any, ...]]:
     """Implement batched iterator.
 
     https://docs.python.org/3/library/itertools.html#itertools.batched
@@ -70,7 +70,7 @@ def no_space(a: str, b: str) -> int:
     return 1
 
 
-def normalize_names(*args) -> list[str]:
+def normalize_names(*args: str | Iterable[str]) -> list[str]:
     """Normalize a name or list of names into a unique list of strings.
 
     Parameters
@@ -88,6 +88,7 @@ def normalize_names(*args) -> list[str]:
     ValueError
         If the input is neither a string nor an iterable of strings
     """
+    names: Iterable[Any]
     if len(args) == 1 and hasattr(args[0], "__iter__") and not isinstance(args[0], str):
         names = args[0]
     else:
@@ -95,7 +96,7 @@ def normalize_names(*args) -> list[str]:
     return list(set(str(name) for name in names if name is not None))
 
 
-def get_sql_query(query_name: str):
+def get_sql_query(query_name: str) -> str:
     """Load SQL query from package.
 
     Parameters
@@ -188,11 +189,11 @@ def create_membership_record(
 
 def prepare_properties_params(
     db: PlexosDB,
-    records: list[dict],
+    records: list[dict[str, Any]],
     object_class: ClassEnum,
     collection: CollectionEnum,
-    parent_class,
-) -> tuple[list[tuple], list]:
+    parent_class: ClassEnum,
+) -> tuple[list[tuple[int, int, Any]], list[tuple[str, int]]]:
     """Prepare SQL parameters for property insertion.
 
     Parameters
@@ -232,7 +233,9 @@ def prepare_properties_params(
     return params, collection_properties
 
 
-def insert_property_data(db, params: list[tuple]) -> dict:
+def insert_property_data(
+    db: PlexosDB, params: list[tuple[int, int, Any]]
+) -> dict[tuple[int, int, Any], tuple[int, str]]:
     """Insert property data and return mapping of data IDs to object names.
 
     Parameters
@@ -269,7 +272,9 @@ def insert_property_data(db, params: list[tuple]) -> dict:
     return data_id_map
 
 
-def insert_scenario_tags(db: PlexosDB, scenario: str, params: list[tuple], chunksize: int) -> None:
+def insert_scenario_tags(
+    db: PlexosDB, scenario: str, params: list[tuple[int, int, Any]], chunksize: int
+) -> None:
     """Insert scenario tags for property data.
 
     Parameters
@@ -306,7 +311,12 @@ def insert_scenario_tags(db: PlexosDB, scenario: str, params: list[tuple], chunk
 
 
 def add_texts_for_properties(
-    db: PlexosDB, params: list[tuple], data_id_map: dict, records: list[dict], field_name: str, text_class
+    db: PlexosDB,
+    params: list[tuple[int, int, Any]],
+    data_id_map: dict[tuple[int, int, Any], tuple[int, str]],
+    records: list[dict[str, Any]],
+    field_name: str,
+    text_class: ClassEnum,
 ) -> None:
     """Add text data for properties from specified field.
 
@@ -332,7 +342,9 @@ def add_texts_for_properties(
             db.add_text(text_class, text_map[obj_name], data_id)
 
 
-def build_data_id_map(db: SQLiteManager, params: list[tuple]) -> dict:
+def build_data_id_map(
+    db: SQLiteManager, params: list[tuple[int, int, Any]]
+) -> dict[tuple[int, int, Any], tuple[int, str]]:
     """Build mapping of (membership_id, property_id, value) to (data_id, obj_name).
 
     Parameters

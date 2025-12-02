@@ -1,7 +1,6 @@
 import shutil
 import uuid
 from collections.abc import Generator
-from typing import Any
 
 import pytest
 from _pytest.logging import LogCaptureFixture
@@ -156,7 +155,7 @@ def db_instance_with_schema() -> PlexosDB:
 
 
 @pytest.fixture(scope="function")
-def db_manager_instance_empty_with_schema() -> Generator[SQLiteManager[Any], None, None]:
+def db_manager_instance_empty_with_schema() -> Generator[SQLiteManager, None, None]:
     db: PlexosDB = PlexosDB()
     db.create_schema()
     yield db._db

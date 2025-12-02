@@ -198,3 +198,189 @@ def test_executescript_successful_with_commit():
     result = db.executescript("SELECT 1; SELECT 2;")
 
     assert result is True
+
+
+def test_query_reraises_sqlite_error():
+    """Test query() re-raises sqlite3.Error when cursor.execute fails."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+    mock_conn.cursor.return_value = mock_cursor
+
+    db._con = mock_conn
+
+    with pytest.raises(sqlite3.Error):
+        db.query("SELECT * FROM nonexistent")
+
+
+def test_query_cursor_cleanup_on_error():
+    """Test query() properly cleans up cursor on error."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+    mock_conn.cursor.return_value = mock_cursor
+
+    db._con = mock_conn
+
+    with pytest.raises(sqlite3.Error):
+        db.query("SELECT * FROM test")
+
+    mock_cursor.close.assert_called_once()
+
+
+def test_fetchall_dict_reraises_sqlite_error():
+    """Test fetchall_dict() re-raises sqlite3.Error."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+    mock_conn.cursor.return_value = mock_cursor
+
+    db._con = mock_conn
+
+    with pytest.raises(sqlite3.Error):
+        db.fetchall_dict("SELECT * FROM test")
+
+
+def test_fetchall_dict_cursor_cleanup_on_error():
+    """Test fetchall_dict() cleans up cursor on error."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+    mock_conn.cursor.return_value = mock_cursor
+
+    db._con = mock_conn
+
+    with pytest.raises(sqlite3.Error):
+        db.fetchall_dict("SELECT * FROM test")
+
+    mock_cursor.close.assert_called_once()
+
+
+def test_fetchone_reraises_sqlite_error():
+    """Test fetchone() re-raises sqlite3.Error."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+    mock_conn.cursor.return_value = mock_cursor
+
+    db._con = mock_conn
+
+    with pytest.raises(sqlite3.Error):
+        db.fetchone("SELECT * FROM test")
+
+
+def test_fetchone_cursor_cleanup_on_error():
+    """Test fetchone() cleans up cursor on error."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+    mock_conn.cursor.return_value = mock_cursor
+
+    db._con = mock_conn
+
+    with pytest.raises(sqlite3.Error):
+        db.fetchone("SELECT * FROM test")
+
+    mock_cursor.close.assert_called_once()
+
+
+def test_fetchone_dict_reraises_sqlite_error():
+    """Test fetchone_dict() re-raises sqlite3.Error."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+    mock_conn.cursor.return_value = mock_cursor
+
+    db._con = mock_conn
+
+    with pytest.raises(sqlite3.Error):
+        db.fetchone_dict("SELECT * FROM test")
+
+
+def test_fetchone_dict_cursor_cleanup_on_error():
+    """Test fetchone_dict() cleans up cursor on error."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+    mock_conn.cursor.return_value = mock_cursor
+
+    db._con = mock_conn
+
+    with pytest.raises(sqlite3.Error):
+        db.fetchone_dict("SELECT * FROM test")
+
+    mock_cursor.close.assert_called_once()
+
+
+def test_validate_query_type_raises_on_insert():
+    """Test _validate_query_type raises ValueError for INSERT."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+
+    with pytest.raises(ValueError, match=r"Use execute.*INSERT"):
+        db.query("INSERT INTO test VALUES (1)")
+
+
+def test_validate_query_type_raises_on_update():
+    """Test _validate_query_type raises ValueError for UPDATE."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+
+    with pytest.raises(ValueError, match=r"Use execute.*UPDATE"):
+        db.query("UPDATE test SET col = 1")
+
+
+def test_validate_query_type_raises_on_delete():
+    """Test _validate_query_type raises ValueError for DELETE."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+
+    with pytest.raises(ValueError, match=r"Use execute.*DELETE"):
+        db.query("DELETE FROM test")
+
+
+def test_validate_query_type_raises_on_create():
+    """Test _validate_query_type raises ValueError for CREATE."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+
+    with pytest.raises(ValueError, match=r"Use execute.*CREATE"):
+        db.query("CREATE TABLE test (id INT)")
+
+
+def test_validate_query_type_raises_on_alter():
+    """Test _validate_query_type raises ValueError for ALTER."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+
+    with pytest.raises(ValueError, match=r"Use execute.*ALTER"):
+        db.query("ALTER TABLE test ADD COLUMN col TEXT")

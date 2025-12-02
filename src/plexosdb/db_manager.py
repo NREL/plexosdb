@@ -1,15 +1,13 @@
 """SQLite database manager."""
 
 import sqlite3
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, TypeVar, overload
+from typing import Any, cast, overload
 
 from loguru import logger
-
-T = TypeVar("T")
 
 
 @dataclass(slots=True)
@@ -48,7 +46,7 @@ class SQLiteConfig:
         )
 
 
-class SQLiteManager(Generic[T]):
+class SQLiteManager:
     """SQLite database manager with optimized transaction support."""
 
     _con: sqlite3.Connection | None = None
@@ -60,6 +58,21 @@ class SQLiteManager(Generic[T]):
         config: SQLiteConfig | None = None,
         initialize: bool = True,
     ) -> None:
+        """Create an SQLite manager wrapping a connection or file path.
+
+        Parameters
+        ----------
+        fpath_or_conn : str, Path, sqlite3.Connection, optional
+            Path to an SQLite file, an existing connection, or None to use in-memory.
+        config : SQLiteConfig, optional
+            Configuration overrides for the connection.
+        initialize : bool, optional
+            Whether to immediately apply the requested SQLite pragmas.
+
+        Returns
+        -------
+        None
+        """
         match fpath_or_conn:
             case None:
                 logger.info("Creating in-memory database.")
@@ -92,9 +105,9 @@ class SQLiteManager(Generic[T]):
         return self._config
 
     @property
-    def sqlite_version(self) -> int:
+    def sqlite_version(self) -> str:
         """SQLite version."""
-        return self.query("select sqlite_version()")[0][0]
+        return cast(str, self.query("select sqlite_version()")[0][0])
 
     @property
     def tables(self) -> list[str]:
@@ -125,7 +138,7 @@ class SQLiteManager(Generic[T]):
     def _is_in_memory(self) -> bool:
         """Check if the connection is to an in-memory database."""
         result = self.query("PRAGMA database_list")
-        return result[0][2] == ""  # Empty file path indicates in-memory
+        return cast(str, result[0][2]) == ""  # Empty file path indicates in-memory
 
     def add_collation(self, name: str, callable_func: Callable[[str, str], int]) -> bool:
         """Register a collation function.
@@ -393,7 +406,7 @@ class SQLiteManager(Generic[T]):
             If a database error occurs
         """
         try:
-            return self.query("SELECT last_insert_rowid()")[0][0]
+            return cast(int, self.query("SELECT last_insert_rowid()")[0][0])
         except IndexError:
             # This shouldn't happen with last_insert_rowid() but handle it anyway
             return 0
@@ -443,10 +456,14 @@ class SQLiteManager(Generic[T]):
 
     # Add generic type support for query results
     @overload
-    def query(self, query: str, params: None = None) -> list[tuple[Any, ...]]: ...
+    def query(self, query: str, params: None = None) -> list[tuple[Any, ...]]:
+        """Read-only queries without parameters use the default binding."""
+        ...
 
     @overload
-    def query(self, query: str, params: tuple[Any, ...] | dict[str, Any]) -> list[tuple[Any, ...]]: ...
+    def query(self, query: str, params: tuple[Any, ...] | dict[str, Any]) -> list[tuple[Any, ...]]:
+        """Read-only queries that bind positional or named parameters."""
+        ...
 
     def query(
         self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None
@@ -782,7 +799,7 @@ class SQLiteManager(Generic[T]):
             cursor.close()
 
     @contextmanager
-    def transaction(self):
+    def transaction(self) -> Generator["SQLiteManager", None, None]:
         """Begin a transaction that can span multiple operations.
 
         This provides explicit transaction control for grouping multiple operations
@@ -869,7 +886,7 @@ class SQLiteManager(Generic[T]):
 
         return self.executemany(query, values_list)
 
-    def __enter__(self):
+    def __enter__(self) -> "SQLiteManager":
         """Support using SQLiteManager as a context manager."""
         return self
 

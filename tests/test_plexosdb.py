@@ -109,3 +109,15 @@ def test_xml_round_trip(db_base, tmp_path):
 def test_xml_not_exist():
     with pytest.raises(FileNotFoundError):
         _ = PlexosDB.from_xml("not/existing/path")
+
+
+def test_plexosdb_version_property_refresh(db_with_topology):
+    """Test PlexosDB.version property with cache refresh."""
+    # First access should fetch version
+    version1 = db_with_topology.version
+
+    # Second access should use cached value
+    version2 = db_with_topology.version
+
+    # Should return same value
+    assert version1 == version2

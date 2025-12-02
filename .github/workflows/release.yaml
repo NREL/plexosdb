@@ -1,189 +1,81 @@
-name: Release
+name: release-please
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-please
+  cancel-in-progress: true
+
 permissions:
   contents: write
+  pull-requests: write
   id-token: write
 
-on:
-  workflow_dispatch:
-    inputs:
-      base_bump:
-        description: "Select base version bump (major, minor, patch, stable, or empty to bump prerelease only)"
-        required: false
-        type: choice
-        default: ""
-        options:
-          - ""
-          - patch
-          - minor
-          - major
-          - stable
-
-      prerelease:
-        description: "Optional: Add a pre-release tag (dev, alpha, beta, rc)"
-        required: false
-        type: choice
-        default: ""
-        options:
-          - ""
-          - dev
-          - alpha
-          - beta
-          - rc
-
-      release_name:
-        description: "Optional: Release Name"
-        required: false
-        type: string
-
-      release_body:
-        description: "Optional: Release Body"
-        required: false
-        type: string
+env:
+  UV_VERSION: "0.9.4"
 
 jobs:
-  determine-version:
+  release-please:
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      release_tag: ${{ steps.release.outputs.tag_name }}
     runs-on: ubuntu-latest
-    outputs:
-      NEW_VERSION: ${{ steps.calculate_version.outputs.NEW_VERSION }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
         with:
-          version: "latest"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main
 
-      - name: Calculate new version
-        if: github.event_name == 'workflow_dispatch'
-        id: calculate_version
-        run: |
-          BASE_BUMP="${{ github.event.inputs.base_bump }}"
-          PRERELEASE="${{ github.event.inputs.prerelease }}"
-          CURRENT_VERSION=$(uv version --short)
-
-          echo "Current version: $CURRENT_VERSION"
-
-          # Build the uv version command based on inputs
-          if [[ -n "$BASE_BUMP" && -n "$PRERELEASE" ]]; then
-            # Both specified: base bump + prerelease
-            NEW_VERSION=$(uv version --bump "$BASE_BUMP" --bump "$PRERELEASE" --dry-run | awk '{print $NF}')
-          elif [[ -n "$BASE_BUMP" ]]; then
-            # Only base bump (includes 'stable')
-            NEW_VERSION=$(uv version --bump "$BASE_BUMP" --dry-run | awk '{print $NF}')
-          elif [[ -n "$PRERELEASE" ]]; then
-            # Only prerelease: bump the prerelease counter
-            NEW_VERSION=$(uv version --bump "$PRERELEASE" --dry-run | awk '{print $NF}')
-          else
-            echo "Error: Must specify either base_bump or prerelease"
-            exit 1
-          fi
-
-          echo "New version: $NEW_VERSION"
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-          # Add to workflow summary
-          echo "## 🎉 Version Bump Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Current Version:** \`$CURRENT_VERSION\`" >> $GITHUB_STEP_SUMMARY
-          echo "**New Version:** \`$NEW_VERSION\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [[ -n "$BASE_BUMP" && -n "$PRERELEASE" ]]; then
-            echo "📦 Creating first **$PRERELEASE** prerelease for new **$BASE_BUMP** version" >> $GITHUB_STEP_SUMMARY
-          elif [[ "$BASE_BUMP" == "stable" ]]; then
-            echo "✅ Promoting to **stable** release" >> $GITHUB_STEP_SUMMARY
-          elif [[ -n "$PRERELEASE" ]]; then
-            echo "🔄 Bumping **$PRERELEASE** counter" >> $GITHUB_STEP_SUMMARY
-          elif [[ -n "$BASE_BUMP" ]]; then
-            echo "📈 Standard **$BASE_BUMP** version bump" >> $GITHUB_STEP_SUMMARY
-          fi
-
-  bumpversion:
-    needs: determine-version
-    runs-on: "ubuntu-latest"
-    outputs:
-      version: ${{ steps.version.outputs.version  }}
+  build:
+    name: Build
+    needs: release-please
+    if: needs.release-please.outputs.release_created
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout release commit
+        uses: actions/checkout@v6
         with:
-          token: ${{ secrets.BOT_TOKEN }}
+          ref: ${{ needs.release-please.outputs.release_tag }}
+          fetch-depth: 0
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "latest"
-
-      - name: "Set up Python"
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
           python-version-file: "pyproject.toml"
 
-      - name: Install the project
-        run: uv sync --all-extras --dev
-
-      - name: Bump version using UV
-        id: version
-        run: |
-          NEW_VERSION="${{ needs.determine-version.outputs.NEW_VERSION }}"
-
-          echo "Setting version to: $NEW_VERSION"
-          uv version "$NEW_VERSION"
-
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Generate a changelog
-        uses: orhun/git-cliff-action@v4
-        id: git-cliff
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          config: cliff.toml
-          args: --verbose
-        env:
-          OUTPUT: docs/source/CHANGELOG.md
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
 
-      - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
-        id: import-gpg
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASS }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-          git_tag_gpgsign: true
-          git_config_global: true
-
-      - name: Adding changes
-        run: git add pyproject.toml docs/source/CHANGELOG.md
-
-      - name: Commit new version
-        shell: bash
-        run: |
-          git config commit.gpgsign true
-          git config --global user.email "${{ steps.import-gpg.outputs.email }}"
-          git config --global user.name "${{ steps.import-gpg.outputs.name }}"
-          git commit -S -m "Bump version to v${{ env.NEW_VERSION}}"
-          git tag -s v${{ env.NEW_VERSION }} -m "Release version ${{ env.NEW_VERSION }}"
-          git push origin ${{ github.ref_name }} --tags
+      - name: Install dependencies
+        run: uv sync --all-groups
 
       - name: Build package
-        run: |
-          uv build
+        run: uv build
 
       - name: Store the distribution packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: python-package-distributions
           path: dist/
 
   publish-testpypi:
-    needs:
-      - bumpversion
     runs-on: ubuntu-latest
+    needs: build
     environment:
       name: testpypi
       url: https://test.pypi.org/p/plexosdb
     steps:
       - name: Download all the dists
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: python-package-distributions
           path: dist/
@@ -195,7 +87,7 @@ jobs:
 
   publish-pypi:
     needs:
-      - bumpversion
+      - build
       - publish-testpypi
     runs-on: ubuntu-latest
     environment:
@@ -203,46 +95,9 @@ jobs:
       url: https://pypi.org/p/plexosdb
     steps:
       - name: Download all the dists
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: python-package-distributions
           path: dist/
       - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
-  github-release:
-    name: >-
-      Sign the Python 🐍 distribution 📦 with Sigstore
-      and upload them to GitHub Release
-    needs:
-      - bumpversion
-      - publish-pypi
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download all the dists
-        uses: actions/download-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
-      - name: Sign the dists with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v3.0.0
-        with:
-          inputs: >-
-            ./dist/*.tar.gz
-            ./dist/*.whl
-      - name: Create GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create
-          "v${{ needs.bumpversion.outputs.version }}"
-          --repo "$GITHUB_REPOSITORY"
-          --generate-notes
-      - name: Upload artifact signatures to GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          gh release upload
-          "v${{ needs.bumpversion.outputs.version }}" dist/**
-          --repo "$GITHUB_REPOSITORY"

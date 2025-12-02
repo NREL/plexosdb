@@ -93,7 +93,7 @@ class PlexosDB:
         self,
         fpath_or_conn: Path | str | sqlite3.Connection | None = None,
         new_db: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the API using an XML file or other data sources.
 
@@ -130,7 +130,12 @@ class PlexosDB:
         return tuple(map(int, result[0].split(".")))
 
     @classmethod
-    def from_xml(cls, xml_path: str | Path, schema: str | None = None, **kwargs) -> "PlexosDB":
+    def from_xml(
+        cls,
+        xml_path: str | Path,
+        schema: str | None = None,
+        **kwargs: Any,
+    ) -> "PlexosDB":
         """Construct a PlexosDB instance from an XML file.
 
         This factory method creates a new PlexosDB instance and populates it with data
@@ -679,7 +684,12 @@ class PlexosDB:
         _ = self.add_membership(ClassEnum.System, class_enum, "System", name, collection_enum)
         return object_id
 
-    def add_objects(self, class_enum: ClassEnum, *object_names, category: str | None = None) -> None:
+    def add_objects(
+        self,
+        class_enum: ClassEnum,
+        *object_names: str,
+        category: str | None = None,
+    ) -> None:
         """Add multiple objects of the same class to the database in bulk.
 
         This method efficiently adds multiple objects to the database in a single operation,
@@ -749,7 +759,7 @@ class PlexosDB:
 
     def add_properties_from_records(
         self,
-        records: list[dict],
+        records: list[dict[str, Any]],
         /,
         *,
         object_class: ClassEnum,
@@ -858,18 +868,45 @@ class PlexosDB:
         logger.debug(f"Successfully processed {len(records)} property and text records in batches")
         return
 
-    def _handle_dates(self, data_id, date_from, date_to):
+    def _handle_dates(
+        self,
+        data_id: int,
+        date_from: datetime | None,
+        date_to: datetime | None,
+    ) -> None:
+        """Persist optional date boundaries for a property data entry.
+
+        Parameters
+        ----------
+        data_id : int
+            Identifier of the property data row that owns the dates.
+        date_from : datetime or None
+            Optional start date to attach to the row.
+        date_to : datetime or None
+            Optional end date to attach to the row.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        TypeError
+            If either `date_from` or `date_to` is provided but is not a datetime.
+        """
         if date_from is not None:
             if not isinstance(date_from, datetime):
                 raise TypeError("date_from must be a datetime object")
             self._db.execute(
-                "INSERT INTO t_date_from(data_id, date) VALUES (?,?)", (data_id, date_from.isoformat())
+                "INSERT INTO t_date_from(data_id, date) VALUES (?,?)",
+                (data_id, date_from.isoformat()),
             )
         if date_to is not None:
             if not isinstance(date_to, datetime):
                 raise TypeError("date_to must be a datetime object")
             self._db.execute(
-                "INSERT INTO t_date_to(data_id, date) VALUES (?,?)", (data_id, date_to.isoformat())
+                "INSERT INTO t_date_to(data_id, date) VALUES (?,?)",
+                (data_id, date_to.isoformat()),
             )
 
     def add_property(
@@ -1408,7 +1445,7 @@ class PlexosDB:
         query = f"SELECT 1 FROM {Schema.Collection.name} WHERE {where_clause}"
         return bool(self._db.query(query, tuple(params)))
 
-    def check_data_id_exist(self, data_id: int):
+    def check_data_id_exist(self, data_id: int) -> bool:
         """Check that a data id is present on t_data table."""
         query = "SELECT 1 FROM t_data where data_id = ?"
         return bool(self.query(query, (data_id,)))
@@ -1816,7 +1853,7 @@ class PlexosDB:
             logger.warning(msg, object_class, original_name)
         return membership_mapping
 
-    def _copy_object_properties(self, membership_mapping: dict[int, int]):
+    def _copy_object_properties(self, membership_mapping: dict[int, int]) -> bool:
         """Copy all property data from original object to new object efficiently.
 
         Parameters
@@ -2150,7 +2187,7 @@ class PlexosDB:
         *,
         object_name: str,
         attribute_name: str,
-    ) -> dict:
+    ) -> Any:
         """Get attribute details for a specific object."""
         query = """
         SELECT
@@ -2166,7 +2203,7 @@ class PlexosDB:
 
         result = self._db.fetchone(query, (attribute_id, object_id))
         assert result
-        return result
+        return cast(Any, result)
 
     def get_attribute_id(self, class_enum: ClassEnum, /, name: str) -> int:
         """Return the ID for a given attribute.
@@ -2203,7 +2240,7 @@ class PlexosDB:
         """
         result = self._db.fetchone(query, (name, class_enum))
         assert result
-        return result[0]
+        return cast(int, result[0])
 
     def get_attributes(
         self,
@@ -2212,7 +2249,7 @@ class PlexosDB:
         *,
         object_class: ClassEnum,
         attribute_names: list[str] | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get all attributes for a specific object."""
         raise NotImplementedError  # pragma: no cover
 
@@ -2266,7 +2303,7 @@ class PlexosDB:
         if not result:
             msg = f"Category = `{name}` not found on the database."
             raise NotFoundError(msg)
-        return result[0]
+        return cast(int, result[0])
 
     def get_category_max_id(self, class_enum: ClassEnum) -> int:
         """Return the current maximum rank for a given category class.
@@ -2313,7 +2350,7 @@ class PlexosDB:
         """
         result = self._db.fetchone(query, (class_enum,))
         assert result
-        return result[0]
+        return cast(int, result[0])
 
     def get_class_id(self, class_enum: ClassEnum) -> int:
         """Return the ID for a given class.
@@ -2349,7 +2386,7 @@ class PlexosDB:
         query = f"SELECT class_id FROM {Schema.Class.name} WHERE name = ?"
         result = self._db.fetchone(query, (class_enum,))
         assert result
-        return result[0]
+        return cast(int, result[0])
 
     def get_collection_id(
         self,
@@ -2407,13 +2444,13 @@ class PlexosDB:
         """
         result = self._db.fetchone(query, (collection, parent_class_enum, child_class_enum))
         assert result
-        return result[0]
+        return cast(int, result[0])
 
-    def get_config(self, element: str | None = None) -> dict | list[dict]:
+    def get_config(self, element: str | None = None) -> dict[str, Any] | list[dict[str, Any]]:
         """Get configuration values from the database."""
         raise NotImplementedError  # pragma: no cover
 
-    def get_custom_columns(self, class_enum: ClassEnum | None = None) -> list[dict]:
+    def get_custom_columns(self, class_enum: ClassEnum | None = None) -> list[dict[str, Any]]:
         """Get custom columns, optionally filtered by class."""
         raise NotImplementedError  # pragma: no cover
 
@@ -2478,7 +2515,7 @@ class PlexosDB:
         """
         result = self._db.fetchone(query, (parent_name, child_name, collection))
         assert result
-        return result[0]
+        return cast(int, result[0])
 
     def list_object_memberships(
         self,
@@ -2639,7 +2676,7 @@ class PlexosDB:
         *,
         class_name: str | None = None,
         property_name: str | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Retrieve metadata for an entity."""
         raise NotImplementedError  # pragma: no cover
 
@@ -2653,7 +2690,7 @@ class PlexosDB:
         parent_class_enum: ClassEnum = ClassEnum.System,
         collection_enum: CollectionEnum | None = None,
         category: str | None = None,
-    ):
+    ) -> list[int]:
         """Get all the data_id values for a given object in the database.
 
         Retrieves all data IDs that match the specified criteria for an object,
@@ -2897,7 +2934,7 @@ class PlexosDB:
             msg = f"Object = {name} not found on the database."
             raise NotFoundError(msg)
         assert result
-        return result[0]
+        return cast(int, result[0])
 
     def get_objects_id(
         self,
@@ -2985,7 +3022,7 @@ class PlexosDB:
             (property_name, collection_id),
         )
         assert result
-        return result[0]
+        return cast(int, result[0])
 
     def get_property_unit(
         self,
@@ -3036,11 +3073,11 @@ class PlexosDB:
         /,
         *,
         class_id: int | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Retrieve text data associated with a property data record."""
         raise NotImplementedError  # pragma: no cover
 
-    def get_unit(self, unit_id: int) -> dict:
+    def get_unit(self, unit_id: int) -> dict[str, Any]:
         """Get details for a specific unit."""
         raise NotImplementedError  # pragma: no cover
 
@@ -3309,7 +3346,7 @@ class PlexosDB:
         parent_class: ClassEnum,
         child_class: ClassEnum | None = None,
         collection: CollectionEnum | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """List all child objects for a given parent object.
 
         Retrieves all child objects that have a membership relationship with the specified
@@ -3453,7 +3490,7 @@ class PlexosDB:
         *,
         parent_class: ClassEnum | None = None,
         child_class: ClassEnum | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """List all available collections in the database.
 
         Parameters
@@ -3558,7 +3595,7 @@ class PlexosDB:
         child_class: ClassEnum,
         parent_class: ClassEnum | None = None,
         collection: CollectionEnum | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """List all parent objects for a given child object.
 
         Retrieves all parent objects that have a membership relationship with the specified
@@ -3664,7 +3701,7 @@ class PlexosDB:
         result = self._db.fetchall_dict(query, tuple(params))
         return result
 
-    def list_reports(self) -> list[dict]:
+    def list_reports(self) -> list[dict[str, Any]]:
         """List all defined reports in the database."""
         raise NotImplementedError  # pragma: no cover
 
@@ -4126,7 +4163,7 @@ class PlexosDB:
         assert result
         return True
 
-    def update_properties(self, updates: list[dict]) -> None:
+    def update_properties(self, updates: list[dict[str, Any]]) -> None:
         """Update multiple properties in a single transaction."""
         raise NotImplementedError  # pragma: no cover
 

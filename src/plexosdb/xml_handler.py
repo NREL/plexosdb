@@ -1,10 +1,10 @@
 """Plexos Input XML API."""
 
-import xml.etree.ElementTree as ET  # noqa: N817
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from os import PathLike
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -19,21 +19,38 @@ class XMLHandler:
 
     # Tell mypy that these attributes are never None after initialization
     if TYPE_CHECKING:
-        root: ET.Element
-        tree: ET.ElementTree
+        root: ET.Element[str]
+        tree: ET.ElementTree[ET.Element[str]]
 
     def __init__(
         self,
-        fpath: str | PathLike | None = None,
+        fpath: str | PathLike[str] | None = None,
         namespace: str = PLEXOS_NAMESPACE,
         in_memory: bool = True,
         initialize: bool = False,
     ) -> None:
+        """Initialize XML handler for PLEXOS datasets.
+
+        Parameters
+        ----------
+        fpath : str or PathLike, optional
+            Path to an existing XML file to load.
+        namespace : str, optional
+            XML namespace to use when serializing.
+        in_memory : bool, optional
+            Store element caches in memory for faster lookups.
+        initialize : bool, optional
+            Build an empty XML tree instead of parsing a file.
+
+        Returns
+        -------
+        None
+        """
         self.fpath = fpath
         self.namespace = namespace
         self.in_memory = in_memory
-        self._cache: dict = {}
-        self._counts: dict = {}
+        self._cache: dict[str, list[ET.Element]] = {}
+        self._counts: dict[str, int] = {}
 
         if initialize:
             self.root = ET.Element("MasterDataSet")
@@ -42,7 +59,9 @@ class XMLHandler:
         # If we are parsing an XML file
         if fpath and not initialize:
             self.tree = ET.parse(fpath)
-            self.root = self.tree.getroot()
+            root = self.tree.getroot()
+            if root is not None:
+                self.root = root
             self._remove_namespace(namespace)
 
         # At this point both should be either define from a file or from initialize.
@@ -58,11 +77,21 @@ class XMLHandler:
             self._counts = {key: len(_cache[key]) for key in _cache}
 
     @classmethod
-    def parse(cls, fpath: str | PathLike, namespace: str = PLEXOS_NAMESPACE, **kwargs) -> "XMLHandler":
+    def parse(
+        cls,
+        fpath: str | PathLike[str],
+        namespace: str = PLEXOS_NAMESPACE,
+        **kwargs: Any,
+    ) -> "XMLHandler":
         """Return XML instance from file requested."""
         return XMLHandler(fpath=fpath, namespace=namespace, **kwargs)
 
-    def create_table_element(self, rows: list[tuple], column_types: dict[str, str], table_name: str) -> bool:
+    def create_table_element(
+        self,
+        rows: list[tuple[Any, ...]],
+        column_types: dict[str, str],
+        table_name: str,
+    ) -> bool:
         """Create XML elements for a given table."""
         for row in rows:
             table_element = ET.SubElement(self.root, table_name)
@@ -85,9 +114,9 @@ class XMLHandler:
         self,
         element_enum: Schema,
         *elements: Iterable[str | int],
-        rename_dict: dict | None = None,
-        **tag_elements,
-    ) -> list[dict]:
+        rename_dict: dict[str, str] | None = None,
+        **tag_elements: Any,
+    ) -> list[dict[str, Any]]:
         """Return a given element(s) as list of dictionaries."""
         if rename_dict is None:
             rename_dict = {}
@@ -106,7 +135,11 @@ class XMLHandler:
         )
 
     def iter(
-        self, element_type: Schema, *elements: Iterable[str | int], label: str | None = None, **tags
+        self,
+        element_type: Schema,
+        *elements: Iterable[str | int],
+        label: str | None = None,
+        **tags: Any,
     ) -> Iterable[ET.Element]:
         """Return elements from the XML based on the type.
 
@@ -141,7 +174,7 @@ class XMLHandler:
         for element in elements:
             yield from self._cache_iter(element_type, **{f"{label}": element})
 
-    def to_xml(self, fpath: str | PathLike) -> bool:
+    def to_xml(self, fpath: str | PathLike[str]) -> bool:
         """Save memory xml to file."""
         assert self.root is not None
         assert self.tree is not None
@@ -167,13 +200,41 @@ class XMLHandler:
 
         return True
 
-    def _cache_iter(self, element_type: Schema, **tag_elements) -> Iterator | list:
+    def _cache_iter(self, element_type: Schema, **tag_elements: Any) -> Iterator[ET.Element]:
+        """Return iterator over cached XML elements matching filters.
+
+        Parameters
+        ----------
+        element_type : Schema
+            Schema enum describing the cached element type.
+        **tag_elements : Any
+            Optional tag filters (usually by label) to narrow the results.
+
+        Returns
+        -------
+        Iterator[ET.Element]
+            Cached elements that match the provided filters.
+
+        Raises
+        ------
+        ValueError
+            If no label exists but filters are supplied.
+        """
         if not tag_elements:
             return iter(self._cache[element_type.name])
-        index = int(tag_elements[element_type.label]) - 1
+        label = element_type.label
+        if label is None:
+            msg = f"Element type {element_type.name} has no label"
+            raise ValueError(msg)
+        index = int(tag_elements[label]) - 1
         return iter([self._cache[element_type.name][index]])
 
-    def _iter_elements(self, element_type: str, *elements, **tag_elements) -> Iterator:
+    def _iter_elements(
+        self,
+        element_type: str,
+        *elements: Any,
+        **tag_elements: Any,
+    ) -> Iterator[ET.Element]:
         """Iterate over the xml file.
 
         This method also includes a simple cache mechanism to re-use results.
@@ -208,7 +269,7 @@ class XMLHandler:
                 elem.tag = elem.tag[nsl:]
 
 
-def xml_query(element_name: str, *tags, **tag_elements) -> str:
+def xml_query(element_name: str, *tags: Any, **tag_elements: Any) -> str:
     """Construct XPath query for extracting data from a XML with no namespace.
 
     Parameters
