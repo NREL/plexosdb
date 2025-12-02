@@ -14,26 +14,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
-
-      - name: "Set up Python"
-        uses: actions/setup-python@v5
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version-file: "pyproject.toml"
+          version: "latest"
 
       - name: Install the project
         run: uv sync --group docs
 
+      - name: Generate docstring coverage badge
+        run: uv run docstr-coverage src --badge docs/source/_static
+
       - name: Build Sphinx documentation
-        run: uv run sphinx-build docs/source/ docs/build/
+        run: uv run sphinx-build docs/source/ docs/_build/
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/build/
+          publish_dir: docs/_build/
           force_orphan: true
