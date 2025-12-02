@@ -34,11 +34,25 @@ class Schema(Enum):
     Units = ("t_unit", "unit_id")
 
     @property
-    def name(self) -> str:  # noqa: D102
+    def name(self) -> str:
+        """Table name associated with this schema element.
+
+        Returns
+        -------
+        str
+            The underlying table name parsed from the enum value.
+        """
         return cast(str, self.value[0])
 
     @property
-    def label(self) -> str | None:  # noqa: D102
+    def label(self) -> str | None:
+        """Primary label column name for the schema element, if any.
+
+        Returns
+        -------
+        str | None
+            The label column used as a default identifier when available.
+        """
         return cast(str | None, self.value[1])
 
 

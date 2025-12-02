@@ -1,23 +1,25 @@
-# ruff: noqa: D100, D101
+"""Custom PlexosDB exceptions that highlight domain-specific failures."""
+
+
 class NotFoundError(Exception):
-    pass
+    """Raised when the database cannot locate a requested entry."""
 
 
 class MultlipleElementsError(Exception):
-    pass
+    """Raised when a query unexpectedly returns multiple elements."""
 
 
 class ModelError(Exception):
-    pass
+    """Raised for generic errors related to model relationships."""
 
 
 class MultipleFilesError(Exception):
-    pass
+    """Raised when multiple files are provided but only one is expected."""
 
 
 class NameError(ValueError):
-    pass
+    """Raised when an object name is invalid or missing in context."""
 
 
 class NoPropertiesError(Exception):
-    pass
+    """Raised when a lookup finds no properties for a given object."""

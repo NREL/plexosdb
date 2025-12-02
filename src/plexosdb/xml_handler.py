@@ -29,6 +29,23 @@ class XMLHandler:
         in_memory: bool = True,
         initialize: bool = False,
     ) -> None:
+        """Initialize XML handler for PLEXOS datasets.
+
+        Parameters
+        ----------
+        fpath : str or PathLike, optional
+            Path to an existing XML file to load.
+        namespace : str, optional
+            XML namespace to use when serializing.
+        in_memory : bool, optional
+            Store element caches in memory for faster lookups.
+        initialize : bool, optional
+            Build an empty XML tree instead of parsing a file.
+
+        Returns
+        -------
+        None
+        """
         self.fpath = fpath
         self.namespace = namespace
         self.in_memory = in_memory
@@ -184,6 +201,25 @@ class XMLHandler:
         return True
 
     def _cache_iter(self, element_type: Schema, **tag_elements: Any) -> Iterator[ET.Element]:
+        """Return iterator over cached XML elements matching filters.
+
+        Parameters
+        ----------
+        element_type : Schema
+            Schema enum describing the cached element type.
+        **tag_elements : Any
+            Optional tag filters (usually by label) to narrow the results.
+
+        Returns
+        -------
+        Iterator[ET.Element]
+            Cached elements that match the provided filters.
+
+        Raises
+        ------
+        ValueError
+            If no label exists but filters are supplied.
+        """
         if not tag_elements:
             return iter(self._cache[element_type.name])
         label = element_type.label

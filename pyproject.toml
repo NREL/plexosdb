@@ -126,7 +126,7 @@ select = [
 ]
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-extend-ignore = ['D105', 'D107', 'D205', 'D415']
+extend-ignore = ['D105', 'D107', 'D205', 'D415', 'D418']
 pydocstyle.convention = "numpy"
 
 [tool.ruff.format]

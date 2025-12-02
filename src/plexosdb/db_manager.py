@@ -58,6 +58,21 @@ class SQLiteManager:
         config: SQLiteConfig | None = None,
         initialize: bool = True,
     ) -> None:
+        """Create an SQLite manager wrapping a connection or file path.
+
+        Parameters
+        ----------
+        fpath_or_conn : str, Path, sqlite3.Connection, optional
+            Path to an SQLite file, an existing connection, or None to use in-memory.
+        config : SQLiteConfig, optional
+            Configuration overrides for the connection.
+        initialize : bool, optional
+            Whether to immediately apply the requested SQLite pragmas.
+
+        Returns
+        -------
+        None
+        """
         match fpath_or_conn:
             case None:
                 logger.info("Creating in-memory database.")
@@ -441,10 +456,14 @@ class SQLiteManager:
 
     # Add generic type support for query results
     @overload
-    def query(self, query: str, params: None = None) -> list[tuple[Any, ...]]: ...
+    def query(self, query: str, params: None = None) -> list[tuple[Any, ...]]:
+        """Read-only queries without parameters use the default binding."""
+        ...
 
     @overload
-    def query(self, query: str, params: tuple[Any, ...] | dict[str, Any]) -> list[tuple[Any, ...]]: ...
+    def query(self, query: str, params: tuple[Any, ...] | dict[str, Any]) -> list[tuple[Any, ...]]:
+        """Read-only queries that bind positional or named parameters."""
+        ...
 
     def query(
         self, query: str, params: tuple[Any, ...] | dict[str, Any] | None = None

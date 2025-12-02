@@ -1,3 +1,5 @@
+"""Entrypoint for the PlexosDB client providing its exports."""
+
 from importlib.metadata import version
 
 from loguru import logger

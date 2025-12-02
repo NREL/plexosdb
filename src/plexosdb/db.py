@@ -874,6 +874,26 @@ class PlexosDB:
         date_from: datetime | None,
         date_to: datetime | None,
     ) -> None:
+        """Persist optional date boundaries for a property data entry.
+
+        Parameters
+        ----------
+        data_id : int
+            Identifier of the property data row that owns the dates.
+        date_from : datetime or None
+            Optional start date to attach to the row.
+        date_to : datetime or None
+            Optional end date to attach to the row.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        TypeError
+            If either `date_from` or `date_to` is provided but is not a datetime.
+        """
         if date_from is not None:
             if not isinstance(date_from, datetime):
                 raise TypeError("date_from must be a datetime object")
