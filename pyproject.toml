@@ -59,6 +59,7 @@ docs = [
     "sphinx-autobuild>=2024.10.3",
     "sphinx-multiversion>=0.2.4",
     "sphinxcontrib-versioning>=2.2.1",
+    "docstr-coverage>=2.3.2",
 ]
 dev = [
     "ipython>=9.2.0",
