@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0](https://github.com/NREL/plexosdb/compare/v1.1.3...v1.2.0) (2025-12-02)
+
+
+### 🚀 Features
+
+* Adding method `add_datafile_tag` and refactor add_properties/add_properties_from_records ([#69](https://github.com/NREL/plexosdb/issues/69)) ([1e6e018](https://github.com/NREL/plexosdb/commit/1e6e01852e46fba89b16120c07d472f4c84f94ab))
+* Adding new fixtures for cleaner testing. ([#68](https://github.com/NREL/plexosdb/issues/68)) ([9062baa](https://github.com/NREL/plexosdb/commit/9062baab8db1eb611dcb7364e952bbdb898fe36a))
+* Adding query date_from and date_to to properties ([#67](https://github.com/NREL/plexosdb/issues/67)) ([00d533b](https://github.com/NREL/plexosdb/commit/00d533b4b547822a09984cf59e40738fea330f4a))
+
+
+### 🐛 Bug Fixes
+
+* Adding new release-please workflow ([#71](https://github.com/NREL/plexosdb/issues/71)) ([1f8da38](https://github.com/NREL/plexosdb/commit/1f8da384a9deb3edfa7a343e91999d3d37e07b17))
+
+
+### 📦 Build
+
+* **deps:** bump actions/checkout from 4 to 6 ([#74](https://github.com/NREL/plexosdb/issues/74)) ([bb7be8d](https://github.com/NREL/plexosdb/commit/bb7be8d0e36c332051ec1a1767b8862f4baec359))
+* **deps:** bump actions/setup-python from 5 to 6 ([#73](https://github.com/NREL/plexosdb/issues/73)) ([18a0d9d](https://github.com/NREL/plexosdb/commit/18a0d9d26db2056d79bbdda6cec168e895abe0e9))
+* **deps:** bump furo from 2024.8.6 to 2025.9.25 ([#77](https://github.com/NREL/plexosdb/issues/77)) ([3dd6463](https://github.com/NREL/plexosdb/commit/3dd64632666e31a38f6ed8f8bb15f9d333e64791))
+* **deps:** bump ipython from 9.4.0 to 9.7.0 ([#76](https://github.com/NREL/plexosdb/issues/76)) ([ca687df](https://github.com/NREL/plexosdb/commit/ca687dfa466990e59c273c26908496c1fd5a8878))
+* **deps:** bump pytest from 8.4.1 to 9.0.1 ([#75](https://github.com/NREL/plexosdb/issues/75)) ([5864d85](https://github.com/NREL/plexosdb/commit/5864d85e69e5e6cc865fc389e6b15f8e63785001))
+
 ## [0.0.1] - 2024-08-21
 
 ### 🐛 Bug Fixes
