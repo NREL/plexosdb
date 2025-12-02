@@ -3,7 +3,7 @@ name = "plexosdb"
 version = "1.1.3"
 readme = "README.md"
 license = {file = "LICENSE.txt"}
-keywords = []
+keywords = ["PLEXOS", "Database", "SQLite"]
 authors = [
     { name = "Pedro Andres Sanchez Perez", email = "psanchez@nrel.gov" },
     { name = "Kodi Obika", email = "kodi.obika@nrel.gov" },
@@ -15,12 +15,9 @@ maintainers = [
     { name = "mcllerena", email = "mcllerena@users.noreply.github.com"},
 ]
 description = "SQLite API for plexos XMLs"
-dependencies = [
-    "loguru",
-]
-requires-python = ">= 3.11"
+requires-python = ">= 3.11,<3.15"
 classifiers = [
-  "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: BSD License",
   "Topic :: Software Development :: Build Tools",
@@ -28,6 +25,16 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Database",
+
+    "Typing :: Typed",
+]
+dependencies = [
+    "loguru",
 ]
 
 [project.urls]
@@ -54,15 +61,12 @@ docs = [
     "sphinxcontrib-versioning>=2.2.1",
 ]
 dev = [
-    "pytest-benchmark>=5.1.0",
-    "bump2version",
-    "ipython",
-    "pudb",
-    "mypy~=1.11.0",
-    "pre-commit",
-    "pytest",
-    "pytest-cov",
-    "ruff~=0.5.2",
+    "ipython>=9.2.0",
+    "mypy>=1.15.0",
+    "pre-commit>=4.2.0",
+    "pytest>=8.3.5",
+    "pytest-coverage>=0.0",
+    "ruff>=0.11.5",
 ]
 
 [tool.setuptools]
@@ -74,9 +78,9 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# Setuptools configuration
-[tool.setuptools.dynamic]
-readme = { file = ["README.md"], content-type = "text/markdown" }
+[tool.mypy]
+strict = true
+exclude = ["tests/"]
 
 [tool.ruff]
 line-length = 110
@@ -138,8 +142,15 @@ docstring-code-line-length = "dynamic"
 "**/{tests,docs,tools}/*" = ["D100", "D103", "E402"]
 
 [tool.pytest.ini_options]
-pythonpath = [
-  "src"
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = [
+    "--cov=plexosdb",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html",
+    "--cov-report=json",
+    "--strict-markers",
+    "-v",
 ]
 markers = [
     "checks: Functions that check existence of database entities",
@@ -153,6 +164,26 @@ markers = [
 ]
 
 [tool.coverage.run]
+source = ["src/plexosdb"]
 omit = [
-    "tests/*",
-    ]
+  "*/tests/*",
+  "*/__pycache__/*",
+  "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "@abstractmethod",
+  "@abstract",
+]
+precision = 2
+fail_under = 95
+
+[tool.coverage.html]
+directory = "htmlcov"
