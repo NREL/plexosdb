@@ -105,3 +105,14 @@ def test_context_manager_sqlite_error_in_context() -> None:
 
     # Connection should still be closed
     assert db._con is None
+
+
+def test_close_with_none_connection() -> None:
+    """Test close() handles None connection gracefully."""
+    from plexosdb.db_manager import SQLiteManager
+
+    db = SQLiteManager()
+    db.close()
+    # Second close should not raise error
+    db.close()
+    assert db._con is None

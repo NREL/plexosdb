@@ -575,3 +575,22 @@ def test_add_texts_for_properties_empty_params(db_with_topology: PlexosDB) -> No
     from plexosdb.utils import add_texts_for_properties
 
     add_texts_for_properties(db_with_topology, [], {}, [], "datafile_text", ClassEnum.DataFile)
+
+
+def test_prepare_properties_params_raises_on_no_memberships(db_with_topology: PlexosDB) -> None:
+    """Test prepare_properties_params raises NotFoundError when no memberships exist."""
+    from plexosdb import ClassEnum, CollectionEnum
+    from plexosdb.exceptions import NotFoundError
+    from plexosdb.utils import prepare_properties_params
+
+    # Try to prepare params for object that doesn't exist
+    records = [{"name": "NonExistentObject", "property": 100}]
+
+    with pytest.raises(NotFoundError, match="Object = NonExistentObject not found"):
+        prepare_properties_params(
+            db_with_topology,
+            records,
+            ClassEnum.Generator,
+            CollectionEnum.Generators,
+            ClassEnum.System,
+        )

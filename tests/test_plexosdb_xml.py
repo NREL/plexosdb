@@ -84,3 +84,26 @@ def test_save_xml(tmp_path):
 )
 def test_xml_query(element_name, tags, tag_elements, expected_query):
     assert xml_query(element_name, *tags, **tag_elements) == expected_query
+
+
+def test_iter_with_elements(xml_handler):
+    """Test XMLHandler.iter() with specific elements filters."""
+    from plexosdb.enums import Schema
+
+    # Get elements with specific IDs to exercise the filter path
+    elements = list(xml_handler.iter(Schema.Objects, 1))
+    assert elements is not None
+    assert isinstance(elements, list)
+
+
+def test_cache_iter_with_label_filter(xml_handler):
+    """Test XMLHandler._cache_iter() with label-based filtering."""
+    from plexosdb.enums import Schema
+
+    # This exercises the code path where label validation occurs
+    element_type = Schema.Objects
+
+    if element_type.label:
+        # Create tag_elements dict with the label
+        elements = list(xml_handler._cache_iter(element_type, **{element_type.label: 1}))
+        assert isinstance(elements, list)

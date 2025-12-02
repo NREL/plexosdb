@@ -330,3 +330,18 @@ def test_iter_dicts_cursor_cleanup_on_error() -> None:
         list(db.iter_dicts("SELECT * FROM test"))
 
     mock_cursor.close.assert_called_once()
+
+
+def test_fetchmany_happy_path(db_with_large_dataset: SQLiteManager) -> None:
+    """Test fetchmany() successful execution returns correct number of rows."""
+    result = db_with_large_dataset.fetchmany("SELECT * FROM items", size=2)
+    assert len(result) == 2
+    assert result[0][1] == "Item 1"
+    assert result[1][1] == "Item 2"
+
+
+def test_fetchmany_default_size(db_with_large_dataset: SQLiteManager) -> None:
+    """Test fetchmany() with default size parameter."""
+    result = db_with_large_dataset.fetchmany("SELECT * FROM items")
+    assert len(result) > 0
+    assert isinstance(result, list)
