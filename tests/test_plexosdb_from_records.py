@@ -11,16 +11,37 @@ if TYPE_CHECKING:
 def test_bulk_insert_properties_from_records(db_base: PlexosDB):
     from plexosdb import ClassEnum, CollectionEnum
 
-    db: PlexosDB() = db_base
+    db: PlexosDB = db_base
 
     db.add_object(ClassEnum.Generator, "Generator1")
     db.add_object(ClassEnum.Generator, "Generator2")
     db.add_object(ClassEnum.Generator, "Generator3")
 
     records = [
-        {"name": "Generator1", "Max Capacity": 100.0, "Min Stable Level": 20.0, "Heat Rate": 10.5},
-        {"name": "Generator2", "Max Capacity": 150.0, "Min Stable Level": 30.0, "Heat Rate": 9.8},
-        {"name": "Generator3", "Max Capacity": 200.0, "Min Stable Level": 40.0, "Heat Rate": 8.7},
+        {
+            "name": "Generator1",
+            "properties": {
+                "Max Capacity": {"value": 100.0},
+                "Min Stable Level": {"value": 20.0},
+                "Heat Rate": {"value": 10.5},
+            },
+        },
+        {
+            "name": "Generator2",
+            "properties": {
+                "Max Capacity": {"value": 150.0},
+                "Min Stable Level": {"value": 30.0},
+                "Heat Rate": {"value": 9.8},
+            },
+        },
+        {
+            "name": "Generator3",
+            "properties": {
+                "Max Capacity": {"value": 200.0},
+                "Min Stable Level": {"value": 40.0},
+                "Heat Rate": {"value": 8.7},
+            },
+        },
     ]
 
     db.add_properties_from_records(
