@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1](https://github.com/NREL/plexosdb/compare/v1.2.0...v1.2.1) (2025-12-04)
+
+
+### 🐛 Bug Fixes
+
+* handle property related attributes on "add_properties_from_records" method ([#78](https://github.com/NREL/plexosdb/issues/78)) ([1776d2a](https://github.com/NREL/plexosdb/commit/1776d2a614facef29d5a2a3df1f3a27dd154e359))
+
 ## [1.2.0](https://github.com/NREL/plexosdb/compare/v1.1.3...v1.2.0) (2025-12-02)
 
 
