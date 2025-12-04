@@ -743,7 +743,6 @@ class PlexosDB:
         query_result = self._db.executemany(query, params)
         assert query_result
 
-        # Add system memberships in bulk
         collection_enum = get_default_collection(class_enum)
         object_ids = self.get_objects_id(names, class_enum=class_enum)
         parent_class_id = self.get_class_id(ClassEnum.System)
