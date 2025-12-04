@@ -201,7 +201,14 @@ def prepare_properties_params(
     db : PlexosDB
         Database instance
     records : list[dict]
-        List of property records
+        List of property records with property-specific format:
+        {
+            "name": "obj1",
+            "properties": {
+                "Property1": {"value": value1, "band": 1, "date_from": date1},
+                "Property2": {"value": value2, "band": 2, "date_from": date2}
+            }
+        }
     object_class : ClassEnum
         Class enumeration of the objects
     collection : CollectionEnum
@@ -213,7 +220,6 @@ def prepare_properties_params(
     -------
     tuple[list[tuple], list, dict]
         Tuple of (params, collection_properties, metadata_map)
-        where metadata_map contains band/date info keyed by (membership_id, property_id, value)
     """
     collection_id = db.get_collection_id(
         collection, parent_class_enum=parent_class, child_class_enum=object_class
@@ -237,27 +243,25 @@ def prepare_properties_params(
     metadata_map = {}
 
     for record in records:
-        if record["name"] not in name_to_membership:
+        membership_id = name_to_membership.get(record["name"])
+        if not membership_id:
             continue
 
-        membership_id = name_to_membership[record["name"]]
+        properties = record.get("properties", {})
 
-        # Extract metadata fields
-        band = record.get("Band") or record.get("band")
-        date_from = record.get("date_from")
-        date_to = record.get("date_to")
-
-        for prop, value in record.items():
-            if prop == "name" or prop not in property_id_map:
-                continue
-            if prop in ("Band", "band", "date_from", "date_to", "datafile_text", "timeslice"):
+        for prop_name, prop_data in properties.items():
+            property_id = property_id_map.get(prop_name)
+            if not property_id:
                 continue
 
-            property_id = property_id_map[prop]
+            # Extract value and metadata - handle both dict and simple value
+            value = prop_data.get("value") if isinstance(prop_data, dict) else prop_data
+            band = prop_data.get("band") or prop_data.get("Band") if isinstance(prop_data, dict) else None
+            date_from = prop_data.get("date_from") if isinstance(prop_data, dict) else None
+            date_to = prop_data.get("date_to") if isinstance(prop_data, dict) else None
+
             param_key = (membership_id, property_id, value)
             params.append(param_key)
-
-            # Store metadata for this property
             metadata_map[param_key] = {
                 "band": band,
                 "date_from": date_from,

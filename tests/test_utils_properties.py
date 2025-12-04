@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from datetime import datetime
+from typing import TYPE_CHECKING
+
 import pytest
 
 if TYPE_CHECKING:
@@ -19,8 +20,14 @@ def test_prepare_properties_params_succeeds(db_with_topology: PlexosDB) -> None:
     db_with_topology.add_object(ClassEnum.Generator, "gen-02")
 
     records = [
-        {"name": "gen-01", "Max Capacity": 100.0, "Heat Rate": 10.5},
-        {"name": "gen-02", "Max Capacity": 150.0, "Heat Rate": 9.8},
+        {
+            "name": "gen-01",
+            "properties": {"Max Capacity": {"value": 100.0}, "Heat Rate": {"value": 10.5}},
+        },
+        {
+            "name": "gen-02",
+            "properties": {"Max Capacity": {"value": 150.0}, "Heat Rate": {"value": 9.8}},
+        },
     ]
 
     params, collection_properties, metadata_map = prepare_properties_params(
@@ -44,7 +51,7 @@ def test_insert_property_data_marks_dynamic_and_enabled(db_with_topology: Plexos
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}}]
 
     params, _, metadata_map = prepare_properties_params(
         db_with_topology,
@@ -68,7 +75,7 @@ def test_insert_scenario_tags_creates_scenario(db_with_topology: PlexosDB) -> No
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}}]
 
     params, _, metadata_map = prepare_properties_params(
         db_with_topology,
@@ -98,7 +105,13 @@ def test_add_texts_for_properties_with_datafile_text(db_with_topology: PlexosDB)
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0, "datafile_text": "/path/to/file.csv"}]
+    records = [
+        {
+            "name": "gen-01",
+            "properties": {"Max Capacity": {"value": 100.0}},
+            "datafile_text": "/path/to/file.csv",
+        }
+    ]
 
     params, _, metadata_map = prepare_properties_params(
         db_with_topology,
@@ -116,7 +129,6 @@ def test_add_texts_for_properties_with_datafile_text(db_with_topology: PlexosDB)
 
         # Verify text was added by checking database
         text_records = db_with_topology.query("SELECT COUNT(*) as count FROM t_text")
-        # query returns tuples, so access by index
         assert text_records[0][0] > 0
 
 
@@ -128,8 +140,8 @@ def test_prepare_properties_params_raises_error_when_no_memberships(db_with_topo
 
     # Don't add objects to database - they should not exist
     records = [
-        {"name": "nonexistent-gen-01", "Max Capacity": 100.0},
-        {"name": "nonexistent-gen-02", "Max Capacity": 150.0},
+        {"name": "nonexistent-gen-01", "properties": {"Max Capacity": {"value": 100.0}}},
+        {"name": "nonexistent-gen-02", "properties": {"Max Capacity": {"value": 150.0}}},
     ]
 
     # Raises NotFoundError when objects don't exist in database
@@ -152,7 +164,7 @@ def test_prepare_properties_params_empty_collection_properties(db_with_topology:
 
     # Records with properties that don't exist in the collection
     records = [
-        {"name": "gen-01", "NonexistentProperty": 100.0},
+        {"name": "gen-01", "properties": {"NonexistentProperty": {"value": 100.0}}},
     ]
 
     params, collection_properties, metadata_map = prepare_properties_params(
@@ -178,8 +190,8 @@ def test_prepare_properties_params_multiple_records_single_valid(db_with_topolog
     db_with_topology.add_object(ClassEnum.Generator, "gen-02")
 
     records = [
-        {"name": "gen-01", "Max Capacity": 100.0},
-        {"name": "gen-02", "NonexistentProperty": 150.0},
+        {"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}},
+        {"name": "gen-02", "properties": {"NonexistentProperty": {"value": 150.0}}},
     ]
 
     params, _, metadata_map = prepare_properties_params(
@@ -203,7 +215,7 @@ def test_prepare_properties_params_return_structure(db_with_topology: PlexosDB) 
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}}]
 
     result = prepare_properties_params(
         db_with_topology,
@@ -213,7 +225,7 @@ def test_prepare_properties_params_return_structure(db_with_topology: PlexosDB) 
         ClassEnum.System,
     )
 
-    # Check that result is a tuple with 3 elements (updated from 2)
+    # Check that result is a tuple with 3 elements
     assert isinstance(result, tuple)
     assert len(result) == 3
 
@@ -241,8 +253,14 @@ def test_insert_property_data_updates_multiple_properties(db_with_topology: Plex
     db_with_topology.add_object(ClassEnum.Generator, "gen-02")
 
     records = [
-        {"name": "gen-01", "Max Capacity": 100.0, "Heat Rate": 10.5},
-        {"name": "gen-02", "Max Capacity": 150.0, "Heat Rate": 9.8},
+        {
+            "name": "gen-01",
+            "properties": {"Max Capacity": {"value": 100.0}, "Heat Rate": {"value": 10.5}},
+        },
+        {
+            "name": "gen-02",
+            "properties": {"Max Capacity": {"value": 150.0}, "Heat Rate": {"value": 9.8}},
+        },
     ]
 
     params, _, metadata_map = prepare_properties_params(
@@ -270,7 +288,7 @@ def test_insert_property_data_inserts_data_correctly(db_with_topology: PlexosDB)
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}}]
 
     params, _, metadata_map = prepare_properties_params(
         db_with_topology,
@@ -295,7 +313,7 @@ def test_insert_property_data_builds_data_id_map(db_with_topology: PlexosDB) -> 
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}}]
 
     params, _, metadata_map = prepare_properties_params(
         db_with_topology,
@@ -322,7 +340,7 @@ def test_insert_property_data_handles_null_values(db_with_topology: PlexosDB) ->
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": None}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": None}}}]
 
     params, _, metadata_map = prepare_properties_params(
         db_with_topology,
@@ -354,7 +372,6 @@ def test_insert_scenario_tags_early_return_when_scenario_none(db_with_topology: 
     from plexosdb.utils import insert_scenario_tags
 
     # Should not raise error and should return early when scenario is None
-    # Using type: ignore because we're testing the None case
     insert_scenario_tags(db_with_topology, None, [], chunksize=1000)  # type: ignore[arg-type]
 
 
@@ -365,7 +382,7 @@ def test_insert_scenario_tags_creates_new_scenario(db_with_topology: PlexosDB) -
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}}]
 
     params, _, metadata_map = prepare_properties_params(
         db_with_topology,
@@ -394,7 +411,7 @@ def test_insert_scenario_tags_uses_existing_scenario(db_with_topology: PlexosDB)
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}}]
 
     params, _, metadata_map = prepare_properties_params(
         db_with_topology,
@@ -422,8 +439,15 @@ def test_insert_scenario_tags_batching_single_batch(db_with_topology: PlexosDB) 
 
     records = [
         {
-            "name": "gen-01", "Max Capacity": 100.0, "band": 1,
-            "date_from": datetime(2025, 1, 1), "date_to": datetime(2025, 12, 31),
+            "name": "gen-01",
+            "properties": {
+                "Max Capacity": {
+                    "value": 100.0,
+                    "band": 1,
+                    "date_from": datetime(2025, 1, 1),
+                    "date_to": datetime(2025, 12, 31),
+                }
+            },
         }
     ]
 
@@ -454,7 +478,14 @@ def test_insert_scenario_tags_batching_multiple_batches(db_with_topology: Plexos
         db_with_topology.add_object(ClassEnum.Generator, f"gen-{i:02d}")
 
     records = [
-        {"name": f"gen-{i:02d}", "Max Capacity": 100.0 + i * 10.0, "Heat Rate": 10.0 + i} for i in range(3)
+        {
+            "name": f"gen-{i:02d}",
+            "properties": {
+                "Max Capacity": {"value": 100.0 + i * 10.0},
+                "Heat Rate": {"value": 10.0 + i},
+            },
+        }
+        for i in range(3)
     ]
 
     params, _, metadata_map = prepare_properties_params(
@@ -496,8 +527,8 @@ def test_add_texts_for_properties_skips_records_without_field(db_with_topology: 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
     records = [
-        {"name": "gen-01", "Max Capacity": 100.0},
-        # No datafile_text field in second record
+        {"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}},
+        # No datafile_text field in record
     ]
 
     params, _, metadata_map = prepare_properties_params(
@@ -526,7 +557,13 @@ def test_add_texts_for_properties_handles_data_id_none(db_with_topology: PlexosD
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0, "datafile_text": "/path/to/file.csv"}]
+    records = [
+        {
+            "name": "gen-01",
+            "properties": {"Max Capacity": {"value": 100.0}},
+            "datafile_text": "/path/to/file.csv",
+        }
+    ]
 
     params, _, metadata_map = prepare_properties_params(
         db_with_topology,
@@ -557,8 +594,16 @@ def test_add_texts_for_properties_multiple_texts(db_with_topology: PlexosDB) -> 
     db_with_topology.add_object(ClassEnum.Generator, "gen-02")
 
     records = [
-        {"name": "gen-01", "Max Capacity": 100.0, "datafile_text": "/path/file1.csv"},
-        {"name": "gen-02", "Max Capacity": 150.0, "datafile_text": "/path/file2.csv"},
+        {
+            "name": "gen-01",
+            "properties": {"Max Capacity": {"value": 100.0}},
+            "datafile_text": "/path/file1.csv",
+        },
+        {
+            "name": "gen-02",
+            "properties": {"Max Capacity": {"value": 150.0}},
+            "datafile_text": "/path/file2.csv",
+        },
     ]
 
     params, _, metadata_map = prepare_properties_params(
@@ -595,7 +640,7 @@ def test_prepare_properties_params_raises_on_no_memberships(db_with_topology: Pl
     from plexosdb.utils import prepare_properties_params
 
     # Try to prepare params for object that doesn't exist
-    records = [{"name": "NonExistentObject", "property": 100}]
+    records = [{"name": "NonExistentObject", "properties": {"property": {"value": 100}}}]
 
     with pytest.raises(NotFoundError, match="Object = NonExistentObject not found"):
         prepare_properties_params(

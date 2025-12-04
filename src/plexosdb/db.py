@@ -627,7 +627,7 @@ class PlexosDB:
             Category of the object, by default "-"
         description : str | None, optional
             Description of the object, by default None
-        collection_enum : CollectionEnum | None, optional
+        collection_enum : CollectionEnum | None | Literal[False] = None, optional
             Collection for the system membership. If None, a default collection is determined
             based on the class, by default None
 
@@ -680,7 +680,7 @@ class PlexosDB:
         object_id = self._db.last_insert_rowid()
 
         # Skip system membership for System class itself, or if explicitly set to False
-        if class_enum == ClassEnum.System or collection_enum is False:
+        if collection_enum is False:
             return object_id
 
         if not collection_enum:
