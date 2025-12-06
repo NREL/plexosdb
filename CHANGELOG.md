@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2](https://github.com/NREL/plexosdb/compare/v1.2.1...v1.2.2) (2025-12-06)
+
+
+### 🐛 Bug Fixes
+
+* Update battery collection enum naming and add increment to rank for same class enum ([#80](https://github.com/NREL/plexosdb/issues/80)) ([e247e67](https://github.com/NREL/plexosdb/commit/e247e6731f05eeef792cf8de09f0123e6f9d2995))
+
 ## [1.2.1](https://github.com/NREL/plexosdb/compare/v1.2.0...v1.2.1) (2025-12-04)
 
 
