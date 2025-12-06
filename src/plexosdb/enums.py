@@ -145,9 +145,14 @@ def str2enum(string: str, schema_enum: type[Enum] = Schema) -> Schema | None:
 
 def get_default_collection(class_enum: ClassEnum) -> CollectionEnum:
     """Return default collection for class."""
-    # Special case for Data File
-    if class_enum == ClassEnum.DataFile:
-        return CollectionEnum.DataFiles
+    # Special cases for Data File and Battery objects
+    special_cases = {
+        ClassEnum.DataFile: CollectionEnum.DataFiles,
+        ClassEnum.Battery: CollectionEnum.Batteries,
+    }
+
+    if class_enum in special_cases:
+        return special_cases[class_enum]
 
     collection_name = f"{class_enum}s"
     if collection_name not in CollectionEnum.__members__:

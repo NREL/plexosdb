@@ -352,7 +352,7 @@ class PlexosDB:
             return self.get_category_id(class_enum, name)
 
         class_id = self.get_class_id(class_enum)
-        rank = self.get_category_max_id(class_enum) or 1  # Default to max rank of 1 if no category exists
+        rank = self.get_category_max_id(class_enum) + 1 or 1  # Default to max rank of 1 if no category exists
         params = (class_id, name, rank)
         placeholders = ", ".join("?" * len(params))
         query = f"INSERT INTO {Schema.Categories.name}(class_id, name, rank) VALUES({placeholders})"
