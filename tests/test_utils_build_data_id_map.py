@@ -15,9 +15,9 @@ def test_build_data_id_map_single_record(db_with_topology: PlexosDB) -> None:
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}}]
 
-    params, _ = prepare_properties_params(
+    params, _, metadata_map = prepare_properties_params(
         db_with_topology,
         records,
         ClassEnum.Generator,
@@ -26,7 +26,7 @@ def test_build_data_id_map_single_record(db_with_topology: PlexosDB) -> None:
     )
 
     with db_with_topology._db.transaction():
-        insert_property_data(db_with_topology, params)
+        insert_property_data(db_with_topology, params, metadata_map)
         data_id_map = build_data_id_map(db_with_topology._db, params)
 
         assert len(data_id_map) == 1
@@ -40,9 +40,9 @@ def test_build_data_id_map_returns_correct_structure(db_with_topology: PlexosDB)
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0}]
+    records = [{"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}}]
 
-    params, _ = prepare_properties_params(
+    params, _, metadata_map = prepare_properties_params(
         db_with_topology,
         records,
         ClassEnum.Generator,
@@ -51,7 +51,7 @@ def test_build_data_id_map_returns_correct_structure(db_with_topology: PlexosDB)
     )
 
     with db_with_topology._db.transaction():
-        insert_property_data(db_with_topology, params)
+        insert_property_data(db_with_topology, params, metadata_map)
         data_id_map = build_data_id_map(db_with_topology._db, params)
 
         for key, value in data_id_map.items():
@@ -75,11 +75,11 @@ def test_build_data_id_map_multiple_records(db_with_topology: PlexosDB) -> None:
     db_with_topology.add_object(ClassEnum.Generator, "gen-02")
 
     records = [
-        {"name": "gen-01", "Max Capacity": 100.0},
-        {"name": "gen-02", "Max Capacity": 200.0},
+        {"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}},
+        {"name": "gen-02", "properties": {"Max Capacity": {"value": 200.0}}},
     ]
 
-    params, _ = prepare_properties_params(
+    params, _, metadata_map = prepare_properties_params(
         db_with_topology,
         records,
         ClassEnum.Generator,
@@ -88,7 +88,7 @@ def test_build_data_id_map_multiple_records(db_with_topology: PlexosDB) -> None:
     )
 
     with db_with_topology._db.transaction():
-        insert_property_data(db_with_topology, params)
+        insert_property_data(db_with_topology, params, metadata_map)
         data_id_map = build_data_id_map(db_with_topology._db, params)
 
         assert len(data_id_map) == 2
@@ -101,9 +101,14 @@ def test_build_data_id_map_multiple_properties(db_with_topology: PlexosDB) -> No
 
     db_with_topology.add_object(ClassEnum.Generator, "gen-01")
 
-    records = [{"name": "gen-01", "Max Capacity": 100.0, "Fuel Price": 5.0}]
+    records = [
+        {
+            "name": "gen-01",
+            "properties": {"Max Capacity": {"value": 100.0}, "Fuel Price": {"value": 5.0}},
+        }
+    ]
 
-    params, _ = prepare_properties_params(
+    params, _, metadata_map = prepare_properties_params(
         db_with_topology,
         records,
         ClassEnum.Generator,
@@ -112,7 +117,7 @@ def test_build_data_id_map_multiple_properties(db_with_topology: PlexosDB) -> No
     )
 
     with db_with_topology._db.transaction():
-        insert_property_data(db_with_topology, params)
+        insert_property_data(db_with_topology, params, metadata_map)
         data_id_map = build_data_id_map(db_with_topology._db, params)
 
         assert len(data_id_map) == 2
@@ -137,11 +142,11 @@ def test_build_data_id_map_preserves_mapping_accuracy(db_with_topology: PlexosDB
     db_with_topology.add_object(ClassEnum.Generator, "gen-02")
 
     records = [
-        {"name": "gen-01", "Max Capacity": 100.0},
-        {"name": "gen-02", "Max Capacity": 200.0},
+        {"name": "gen-01", "properties": {"Max Capacity": {"value": 100.0}}},
+        {"name": "gen-02", "properties": {"Max Capacity": {"value": 200.0}}},
     ]
 
-    params, _ = prepare_properties_params(
+    params, _, metadata_map = prepare_properties_params(
         db_with_topology,
         records,
         ClassEnum.Generator,
@@ -150,7 +155,7 @@ def test_build_data_id_map_preserves_mapping_accuracy(db_with_topology: PlexosDB
     )
 
     with db_with_topology._db.transaction():
-        insert_property_data(db_with_topology, params)
+        insert_property_data(db_with_topology, params, metadata_map)
         data_id_map = build_data_id_map(db_with_topology._db, params)
 
         # Verify all params are in the mapping
@@ -170,12 +175,12 @@ def test_build_data_id_map_edge_case_values(db_with_topology: PlexosDB) -> None:
     db_with_topology.add_object(ClassEnum.Generator, "gen-03")
 
     records = [
-        {"name": "gen-01", "Max Capacity": 0.0},
-        {"name": "gen-02", "Max Capacity": -100.0},
-        {"name": "gen-03", "Max Capacity": 1e15},
+        {"name": "gen-01", "properties": {"Max Capacity": {"value": 0.0}}},
+        {"name": "gen-02", "properties": {"Max Capacity": {"value": -100.0}}},
+        {"name": "gen-03", "properties": {"Max Capacity": {"value": 1e15}}},
     ]
 
-    params, _ = prepare_properties_params(
+    params, _, metadata_map = prepare_properties_params(
         db_with_topology,
         records,
         ClassEnum.Generator,
@@ -184,7 +189,7 @@ def test_build_data_id_map_edge_case_values(db_with_topology: PlexosDB) -> None:
     )
 
     with db_with_topology._db.transaction():
-        insert_property_data(db_with_topology, params)
+        insert_property_data(db_with_topology, params, metadata_map)
         data_id_map = build_data_id_map(db_with_topology._db, params)
 
         assert len(data_id_map) == 3
@@ -203,9 +208,9 @@ def test_build_data_id_map_data_ids_and_names_valid(db_with_topology: PlexosDB) 
 
     db_with_topology.add_object(ClassEnum.Generator, "test-generator")
 
-    records = [{"name": "test-generator", "Max Capacity": 100.0}]
+    records = [{"name": "test-generator", "properties": {"Max Capacity": {"value": 100.0}}}]
 
-    params, _ = prepare_properties_params(
+    params, _, metadata_map = prepare_properties_params(
         db_with_topology,
         records,
         ClassEnum.Generator,
@@ -214,7 +219,7 @@ def test_build_data_id_map_data_ids_and_names_valid(db_with_topology: PlexosDB) 
     )
 
     with db_with_topology._db.transaction():
-        insert_property_data(db_with_topology, params)
+        insert_property_data(db_with_topology, params, metadata_map)
         data_id_map = build_data_id_map(db_with_topology._db, params)
 
         for data_id, obj_name in data_id_map.values():
