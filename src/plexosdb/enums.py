@@ -150,7 +150,7 @@ def get_default_collection(class_enum: ClassEnum) -> CollectionEnum:
         ClassEnum.DataFile: CollectionEnum.DataFiles,
         ClassEnum.Battery: CollectionEnum.Batteries,
     }
-    
+
     if class_enum in special_cases:
         return special_cases[class_enum]
 
