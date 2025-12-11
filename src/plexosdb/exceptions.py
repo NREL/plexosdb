@@ -23,3 +23,7 @@ class NameError(ValueError):
 
 class NoPropertiesError(Exception):
     """Raised when a lookup finds no properties for a given object."""
+
+
+class PropertyError(Exception):
+    """Raised when we have a problem with a property."""

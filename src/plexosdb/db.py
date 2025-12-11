@@ -8,6 +8,7 @@ from importlib.resources import files
 from pathlib import Path
 from string import Template
 from typing import Any, Literal, TypedDict, cast
+import warnings
 
 from loguru import logger
 
@@ -20,13 +21,13 @@ from .exceptions import (
     NotFoundError,
 )
 from .utils import (
-    add_texts_for_properties,
+    apply_scenario_tags,
     create_membership_record,
-    insert_property_data,
-    insert_scenario_tags,
+    insert_property_texts,
+    insert_property_values,
     no_space,
     normalize_names,
-    prepare_properties_params,
+    plan_property_inserts,
 )
 from .xml_handler import XMLHandler
 
@@ -855,20 +856,57 @@ class PlexosDB:
             logger.warning("No records provided for bulk property and text insertion")
             return
 
-        params, _, metadata_map = prepare_properties_params(
-            self, records, object_class, collection, parent_class
+        prepared = plan_property_inserts(
+            self,
+            records,
+            object_class=object_class,
+            collection=collection,
+            parent_class=parent_class,
         )
+        if prepared.deprecated_format_used:
+            warnings.warn(
+                "The nested 'properties' payload is deprecated; prefer flat property records with "
+                "keys 'name', 'property', and 'value'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        params = prepared.params
+        metadata_map = prepared.metadata_map
+
+        if not params:
+            msg = f"Failed to parse the properties for the given {collection=} and {object_class=}. "
+            msg += "Check the function plan_property_inserts"
+            return
+            # raise PropertyError(msg)
+
+        has_datafile_text = any(meta.get("datafile_text") for meta in metadata_map.values())
+        has_timeslice_text = any(meta.get("timeslice") for meta in metadata_map.values())
 
         with self._db.transaction():
-            data_id_map = insert_property_data(self, params, metadata_map)
-            insert_scenario_tags(self, scenario, params, chunksize)
+            data_id_map = insert_property_values(self, params, metadata_map=metadata_map)
+            apply_scenario_tags(self, params, scenario=scenario, chunksize=chunksize)
 
-            if any("datafile_text" in rec for rec in records):
-                add_texts_for_properties(
-                    self, params, data_id_map, records, "datafile_text", ClassEnum.DataFile
+            if has_datafile_text:
+                insert_property_texts(
+                    self,
+                    params,
+                    data_id_map=data_id_map,
+                    records=records,
+                    field_name="datafile_text",
+                    text_class=ClassEnum.DataFile,
+                    metadata_map=metadata_map,
                 )
-            if any("timeslice" in rec for rec in records):
-                add_texts_for_properties(self, params, data_id_map, records, "timeslice", ClassEnum.Timeslice)
+            if has_timeslice_text:
+                insert_property_texts(
+                    self,
+                    params,
+                    data_id_map=data_id_map,
+                    records=records,
+                    field_name="timeslice",
+                    text_class=ClassEnum.Timeslice,
+                    metadata_map=metadata_map,
+                )
 
         logger.debug(f"Successfully processed {len(records)} property and text records in batches")
         return
@@ -2355,7 +2393,8 @@ class PlexosDB:
         """
         result = self._db.fetchone(query, (class_enum,))
         assert result
-        return cast(int, result[0])
+        rank = result[0]
+        return 0 if rank is None else cast(int, rank)
 
     def get_class_id(self, class_enum: ClassEnum) -> int:
         """Return the ID for a given class.
