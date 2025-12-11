@@ -1,0 +1,1183 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="#"><link rel="search" title="Search" href="search.html">
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 --><title>Index - plexosdb</title>
+<link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">plexosdb</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <span class="sidebar-brand-text">plexosdb</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="howtos/index.html">How-to Guides</a><input aria-label="Toggle navigation of How-to Guides" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="howtos/create_db.html">Creating a database from an existing XML file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/add_objects.html">Adding Objects to the Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/add_properties.html">Adding Properties to Objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/delete_objects.html">Deleting Objects and Properties from the Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/query_database.html">Querying the Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/work_with_scenarios.html">Working with Scenarios</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/import_export.html">Importing and Exporting Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/manage_relationships.html">Managing Object Relationships</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/copy_objects.html">Copying Objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/bulk_operations.html">Bulk Operations with PlexosDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howtos/remove_non_ascii.html">Removing non-ASCII text from names</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="api/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/plexosdb.html">PlexosDB Class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/enums.html">Enumerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/exceptions.html">Exceptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utils.html">Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/xml_handler.html">XML Handler</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/sqlite_manager.html">SQLite Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="CHANGELOG.html">Changelog</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          
+<section class="genindex-section">
+  <h1 id="index">Index</h1>
+  <div class="genindex-jumpbox"><a href="#A"><strong>A</strong></a> | <a href="#B"><strong>B</strong></a> | <a href="#C"><strong>C</strong></a> | <a href="#D"><strong>D</strong></a> | <a href="#E"><strong>E</strong></a> | <a href="#F"><strong>F</strong></a> | <a href="#G"><strong>G</strong></a> | <a href="#H"><strong>H</strong></a> | <a href="#I"><strong>I</strong></a> | <a href="#J"><strong>J</strong></a> | <a href="#L"><strong>L</strong></a> | <a href="#M"><strong>M</strong></a> | <a href="#N"><strong>N</strong></a> | <a href="#O"><strong>O</strong></a> | <a href="#P"><strong>P</strong></a> | <a href="#Q"><strong>Q</strong></a> | <a href="#R"><strong>R</strong></a> | <a href="#S"><strong>S</strong></a> | <a href="#T"><strong>T</strong></a> | <a href="#U"><strong>U</strong></a> | <a href="#V"><strong>V</strong></a> | <a href="#X"><strong>X</strong></a> | <a href="#Z"><strong>Z</strong></a></div>
+</section>
+<section id="A" class="genindex-section">
+  <h2>A</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.action">action (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Action">Action (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_attribute">add_attribute() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_band">add_band() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_category">add_category() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.add_collation">add_collation() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_custom_column">add_custom_column() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_datafile_tag">add_datafile_tag() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_membership">add_membership() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_memberships_from_records">add_memberships_from_records() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_metadata">add_metadata() (plexosdb.db.PlexosDB method)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_object">add_object() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_objects">add_objects() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_properties_from_records">add_properties_from_records() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_property">add_property() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_report">add_report() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_scenario">add_scenario() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_text">add_text() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_time_slice">add_time_slice() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.add_variable_tag">add_variable_tag() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.apply_scenario_tags">apply_scenario_tags() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.AttributeData">AttributeData (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Attributes">Attributes (plexosdb.enums.Schema attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="B" class="genindex-section">
+  <h2>B</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.backup">backup() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.backup_database">backup_database() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.band">band (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Band">Band (plexosdb.enums.Schema attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/utils.html#plexosdb.utils.batched">batched() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Batteries">Batteries (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Battery">Battery (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.build_data_id_map">build_data_id_map() (in module plexosdb.utils)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="C" class="genindex-section">
+  <h2>C</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteConfig.cache_size_mb">cache_size_mb (plexosdb.db_manager.SQLiteConfig attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Categories">Categories (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.category">category (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_attribute_exists">check_attribute_exists() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_category_exists">check_category_exists() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_class_exists">check_class_exists() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_collection_exists">check_collection_exists() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_data_id_exist">check_data_id_exist() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_membership_exists">check_membership_exists() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_object_exists">check_object_exists() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_property_exists">check_property_exists() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_scenario_exists">check_scenario_exists() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.check_tag_exists">check_tag_exists() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.child_class">child_class (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Class">Class (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum">ClassEnum (class in plexosdb.enums)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.ClassGroup">ClassGroup (plexosdb.enums.Schema attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.close">close() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Collection">Collection (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.PreparedPropertiesResult.collection_properties">collection_properties (plexosdb.utils.PreparedPropertiesResult attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum">CollectionEnum (class in plexosdb.enums)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.CollectionReport">CollectionReport (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.config">config (plexosdb.db_manager.SQLiteManager property)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Config">Config (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.connection">connection (plexosdb.db_manager.SQLiteManager property)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Constraint">Constraint (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Constraint">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Constraints">Constraints (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.copy_object">copy_object() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.copy_object_memberships">copy_object_memberships() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.create_membership_record">create_membership_record() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.create_object_scenario">create_object_scenario() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.create_schema">create_schema() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/xml_handler.html#plexosdb.xml_handler.XMLHandler.create_table_element">create_table_element() (plexosdb.xml_handler.XMLHandler method)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="D" class="genindex-section">
+  <h2>D</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Data">Data (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.DataFile">DataFile (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.datafile_id">datafile_id (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.datafile_name">datafile_name (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.DataFiles">DataFiles (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.date_from">date_from (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.date_to">date_to (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.DateFrom">DateFrom (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.DateTo">DateTo (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.delete_attribute">delete_attribute() (plexosdb.db.PlexosDB method)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.delete_category">delete_category() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.delete_membership">delete_membership() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.delete_metadata">delete_metadata() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.delete_object">delete_object() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.delete_property">delete_property() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.delete_text">delete_text() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.PreparedPropertiesResult.deprecated_format_used">deprecated_format_used (plexosdb.utils.PreparedPropertiesResult attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Diagnostic">Diagnostic (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Diagnostic">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Diagnostics">Diagnostics (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="E" class="genindex-section">
+  <h2>E</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Emission">Emission (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Emissions">Emissions (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.execute">execute() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.executemany">executemany() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.executescript">executescript() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="F" class="genindex-section">
+  <h2>F</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.fetchall">fetchall() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.fetchall_dict">fetchall_dict() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.fetchmany">fetchmany() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.fetchone">fetchone() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.fetchone_dict">fetchone_dict() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteConfig.for_file_database">for_file_database() (plexosdb.db_manager.SQLiteConfig class method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteConfig.for_in_memory">for_in_memory() (plexosdb.db_manager.SQLiteConfig class method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteConfig.foreign_keys">foreign_keys (plexosdb.db_manager.SQLiteConfig attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.from_xml">from_xml() (plexosdb.db.PlexosDB class method)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Fuel">Fuel (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Fuels">Fuels (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="G" class="genindex-section">
+  <h2>G</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Generator">Generator (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Generators">Generators (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_attribute">get_attribute() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_attribute_id">get_attribute_id() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_attributes">get_attributes() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_category_id">get_category_id() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_category_max_id">get_category_max_id() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_class_id">get_class_id() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_collection_id">get_collection_id() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_config">get_config() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_custom_columns">get_custom_columns() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.get_default_collection">get_default_collection() (in module plexosdb.enums)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_membership_id">get_membership_id() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_memberships_system">get_memberships_system() (plexosdb.db.PlexosDB method)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_metadata">get_metadata() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_object_data_ids">get_object_data_ids() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_object_id">get_object_id() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_object_properties">get_object_properties() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_objects_id">get_objects_id() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_plexos_version">get_plexos_version() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_property_id">get_property_id() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_property_unit">get_property_unit() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/xml_handler.html#plexosdb.xml_handler.XMLHandler.get_records">get_records() (plexosdb.xml_handler.XMLHandler method)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.get_scenario_id">get_scenario_id() (in module plexosdb.utils)</a>
+
+        <ul>
+          <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_scenario_id">(plexosdb.db.PlexosDB method)</a>
+</li>
+        </ul></li>
+        <li><a href="api/utils.html#plexosdb.utils.get_sql_query">get_sql_query() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_text">get_text() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.get_unit">get_unit() (plexosdb.db.PlexosDB method)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="H" class="genindex-section">
+  <h2>H</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.has_properties">has_properties() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.HeadStorage">HeadStorage (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Horizon">Horizon (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Horizon">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Horizons">Horizons (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="I" class="genindex-section">
+  <h2>I</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.import_from_csv">import_from_csv() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.insert_property_texts">insert_property_texts() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.insert_property_values">insert_property_values() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.insert_records">insert_records() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Interface">Interface (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Interfaces">Interfaces (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/xml_handler.html#plexosdb.xml_handler.XMLHandler.iter">iter() (plexosdb.xml_handler.XMLHandler method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.iter_dicts">iter_dicts() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.iter_query">iter_query() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.iterate_properties">iterate_properties() (plexosdb.db.PlexosDB method)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="J" class="genindex-section">
+  <h2>J</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteConfig.journal_mode">journal_mode (plexosdb.db_manager.SQLiteConfig attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="L" class="genindex-section">
+  <h2>L</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.label">label (plexosdb.enums.Schema property)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.last_insert_rowid">last_insert_rowid() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Line">Line (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Lines">Lines (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_attributes">list_attributes() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_categories">list_categories() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_child_objects">list_child_objects() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_classes">list_classes() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_collections">list_collections() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_models">list_models() (plexosdb.db.PlexosDB method)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_object_memberships">list_object_memberships() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_objects_by_class">list_objects_by_class() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_parent_objects">list_parent_objects() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_reports">list_reports() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_scenarios">list_scenarios() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_scenarios_by_model">list_scenarios_by_model() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.list_table_names">list_table_names() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_units">list_units() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_valid_properties">list_valid_properties() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.list_valid_properties_report">list_valid_properties_report() (plexosdb.db.PlexosDB method)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="M" class="genindex-section">
+  <h2>M</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Memberships">Memberships (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.MemoData">MemoData (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Message">Message (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.PreparedPropertiesResult.metadata_map">metadata_map (plexosdb.utils.PreparedPropertiesResult attribute)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteConfig.mmap_size_gb">mmap_size_gb (plexosdb.db_manager.SQLiteConfig attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Model">Model (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/exceptions.html#plexosdb.exceptions.ModelError">ModelError</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Models">Models (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li>
+    module
+
+        <ul>
+          <li><a href="api/plexosdb.html#module-plexosdb.db">plexosdb.db</a>
+</li>
+          <li><a href="api/sqlite_manager.html#module-plexosdb.db_manager">plexosdb.db_manager</a>
+</li>
+          <li><a href="api/enums.html#module-plexosdb.enums">plexosdb.enums</a>
+</li>
+          <li><a href="api/exceptions.html#module-plexosdb.exceptions">plexosdb.exceptions</a>
+</li>
+          <li><a href="api/utils.html#module-plexosdb.utils">plexosdb.utils</a>
+</li>
+          <li><a href="api/xml_handler.html#module-plexosdb.xml_handler">plexosdb.xml_handler</a>
+</li>
+        </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.MTSchedule">MTSchedule (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.MTSchedule">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/exceptions.html#plexosdb.exceptions.MultipleFilesError">MultipleFilesError</a>
+</li>
+        <li><a href="api/exceptions.html#plexosdb.exceptions.MultlipleElementsError">MultlipleElementsError</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="N" class="genindex-section">
+  <h2>N</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.name">name (plexosdb.db.PropertyRecord attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.Schema.name">(plexosdb.enums.Schema property)</a>
+</li>
+        </ul></li>
+        <li><a href="api/exceptions.html#plexosdb.exceptions.NameError">NameError</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.no_space">no_space() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Node">Node (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.NodeFrom">NodeFrom (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Nodes">Nodes (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.NodeTo">NodeTo (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/exceptions.html#plexosdb.exceptions.NoPropertiesError">NoPropertiesError</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.normalize_names">normalize_names() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.PreparedPropertiesResult.normalized_records">normalized_records (plexosdb.utils.PreparedPropertiesResult attribute)</a>
+</li>
+        <li><a href="api/exceptions.html#plexosdb.exceptions.NotFoundError">NotFoundError</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="O" class="genindex-section">
+  <h2>O</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.object_id">object_id (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Objects">Objects (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.optimize">optimize() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="P" class="genindex-section">
+  <h2>P</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/utils.html#plexosdb.utils.PreparedPropertiesResult.params">params (plexosdb.utils.PreparedPropertiesResult attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.parent_class">parent_class (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.parent_id">parent_id (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/xml_handler.html#plexosdb.xml_handler.XMLHandler.parse">parse() (plexosdb.xml_handler.XMLHandler class method)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.PASA">PASA (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.PASA">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Performance">Performance (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Performance">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/utils.html#plexosdb.utils.plan_property_inserts">plan_property_inserts() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB">PlexosDB (class in plexosdb.db)</a>
+</li>
+        <li>
+    plexosdb.db
+
+        <ul>
+          <li><a href="api/plexosdb.html#module-plexosdb.db">module</a>
+</li>
+        </ul></li>
+        <li>
+    plexosdb.db_manager
+
+        <ul>
+          <li><a href="api/sqlite_manager.html#module-plexosdb.db_manager">module</a>
+</li>
+        </ul></li>
+        <li>
+    plexosdb.enums
+
+        <ul>
+          <li><a href="api/enums.html#module-plexosdb.enums">module</a>
+</li>
+        </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li>
+    plexosdb.exceptions
+
+        <ul>
+          <li><a href="api/exceptions.html#module-plexosdb.exceptions">module</a>
+</li>
+        </ul></li>
+        <li>
+    plexosdb.utils
+
+        <ul>
+          <li><a href="api/utils.html#module-plexosdb.utils">module</a>
+</li>
+        </ul></li>
+        <li>
+    plexosdb.xml_handler
+
+        <ul>
+          <li><a href="api/xml_handler.html#module-plexosdb.xml_handler">module</a>
+</li>
+        </ul></li>
+        <li><a href="api/utils.html#plexosdb.utils.prepare_sql_data_params">prepare_sql_data_params() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.PreparedPropertiesResult">PreparedPropertiesResult (class in plexosdb.utils)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Production">Production (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Production">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.property">property (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Property">Property (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/exceptions.html#plexosdb.exceptions.PropertyError">PropertyError</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.PropertyGroup">PropertyGroup (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord">PropertyRecord (class in plexosdb.db)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.PropertyReport">PropertyReport (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.PropertyTag">PropertyTag (plexosdb.enums.Schema attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="Q" class="genindex-section">
+  <h2>Q</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.query">query() (plexosdb.db.PlexosDB method)</a>
+
+        <ul>
+          <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.query">(plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        </ul></li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="R" class="genindex-section">
+  <h2>R</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.ReferenceNode">ReferenceNode (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Region">Region (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Region">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Regions">Regions (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Report">Report (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Report">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+          <li><a href="api/enums.html#plexosdb.enums.Schema.Report">(plexosdb.enums.Schema attribute)</a>
+</li>
+        </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Reports">Reports (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Reserve">Reserve (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Reserves">Reserves (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="S" class="genindex-section">
+  <h2>S</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Scenario">Scenario (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Scenario">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.scenario_name">scenario_name (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Scenarios">Scenarios (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema">Schema (class in plexosdb.enums)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.set_config">set_config() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.set_date_range">set_date_range() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.sqlite_version">sqlite_version (plexosdb.db_manager.SQLiteManager property)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteConfig">SQLiteConfig (class in plexosdb.db_manager)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager">SQLiteManager (class in plexosdb.db_manager)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Storage">Storage (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Storages">Storages (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.str2enum">str2enum() (in module plexosdb.enums)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.STSchedule">STSchedule (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.STSchedule">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteConfig.synchronous">synchronous (plexosdb.db_manager.SQLiteConfig attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.System">System (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="T" class="genindex-section">
+  <h2>T</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.tables">tables (plexosdb.db_manager.SQLiteManager property)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Tags">Tags (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.TailStorage">TailStorage (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteConfig.temp_store">temp_store (plexosdb.db_manager.SQLiteConfig attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.text">text (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Text">Text (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.text_class_name">text_class_name (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Timeslice">Timeslice (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.timeslice_id">timeslice_id (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.to_csv">to_csv() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.to_xml">to_xml() (plexosdb.db.PlexosDB method)</a>
+
+        <ul>
+          <li><a href="api/xml_handler.html#plexosdb.xml_handler.XMLHandler.to_xml">(plexosdb.xml_handler.XMLHandler method)</a>
+</li>
+        </ul></li>
+        <li><a href="api/sqlite_manager.html#plexosdb.db_manager.SQLiteManager.transaction">transaction() (plexosdb.db_manager.SQLiteManager method)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Transformer">Transformer (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Transformers">Transformers (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Transmission">Transmission (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Transmission">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="U" class="genindex-section">
+  <h2>U</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.unit">unit (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.Schema.Units">Units (plexosdb.enums.Schema attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.update_attribute">update_attribute() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.update_category">update_category() (plexosdb.db.PlexosDB method)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.update_object">update_object() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.update_properties">update_properties() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.update_property">update_property() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.update_scenario">update_scenario() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.update_text">update_text() (plexosdb.db.PlexosDB method)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="V" class="genindex-section">
+  <h2>V</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.validate_database">validate_database() (plexosdb.db.PlexosDB method)</a>
+</li>
+        <li><a href="api/utils.html#plexosdb.utils.validate_string">validate_string() (in module plexosdb.utils)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.value">value (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Variable">Variable (plexosdb.enums.ClassEnum attribute)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.variable_id">variable_id (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PropertyRecord.variable_name">variable_name (plexosdb.db.PropertyRecord attribute)</a>
+</li>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Variables">Variables (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        <li><a href="api/plexosdb.html#plexosdb.db.PlexosDB.version">version (plexosdb.db.PlexosDB property)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="X" class="genindex-section">
+  <h2>X</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/xml_handler.html#plexosdb.xml_handler.xml_query">xml_query() (in module plexosdb.xml_handler)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/xml_handler.html#plexosdb.xml_handler.XMLHandler">XMLHandler (class in plexosdb.xml_handler)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="Z" class="genindex-section">
+  <h2>Z</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.ClassEnum.Zone">Zone (plexosdb.enums.ClassEnum attribute)</a>
+
+        <ul>
+          <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Zone">(plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+        </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/enums.html#plexosdb.enums.CollectionEnum.Zones">Zones (plexosdb.enums.CollectionEnum attribute)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2024, Alliance for Sustainable Energy LLC, All rights reserved.
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/NREL/plexosdb" aria-label="GitHub">
+                <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
+                </svg>
+            </a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=d6b6a36a"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=3a0c56fd"></script>
+    </body>
+</html>
