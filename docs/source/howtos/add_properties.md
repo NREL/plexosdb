@@ -82,19 +82,23 @@ db.add_property(
 
 ## Bulk Adding Properties
 
-For efficiency when adding many properties at once:
+For efficiency when adding many properties at once (use the flat format; the nested format is accepted but deprecated and will emit a warning):
 
 ```python
-# Prepare property records
-property_records = [
-    {"name": "Generator1", "Max Capacity": 100.0, "Min Stable Level": 20.0},
-    {"name": "Generator2", "Max Capacity": 150.0, "Min Stable Level": 30.0},
-    {"name": "Generator3", "Max Capacity": 250.0, "Min Stable Level": 10.0},
+# Flat format (recommended)
+flat_records = [
+    {"name": "Generator1", "property": "Max Capacity", "value": 100, "band": 1},
+    {"name": "Generator1", "property": "Max Capacity", "value": 200, "band": 2},
+    {"name": "Generator2", "property": "Heat Rate", "value": 9.9, "datafile_text": "gen2.csv"},
 ]
 
-# Bulk add properties
+# Nested format (legacy; will be removed in the future)
+nested_records = [
+    {"name": "Generator3", "properties": {"Max Capacity": {"value": 150, "band": 1}}},
+]
+
 db.add_properties_from_records(
-    property_records,
+    flat_records + nested_records,
     object_class=ClassEnum.Generator,
     parent_class=ClassEnum.System,
     collection=CollectionEnum.Generators,
