@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0](https://github.com/NREL/plexosdb/compare/v1.2.2...v1.3.0) (2025-12-11)
+
+
+### 🚀 Features
+
+* Making add_from_records more robust ([#85](https://github.com/NREL/plexosdb/issues/85)) ([827b2dd](https://github.com/NREL/plexosdb/commit/827b2ddaa24cd5c9531d4f78fab8f4e1cb441ff2))
+
+
+### 📦 Build
+
+* **deps:** bump pre-commit from 4.2.0 to 4.5.0 ([#82](https://github.com/NREL/plexosdb/issues/82)) ([a590ce9](https://github.com/NREL/plexosdb/commit/a590ce949bef17e8bfa81fe70bf75293d2e88aa8))
+* **deps:** bump ruff from 0.14.7 to 0.14.8 ([#83](https://github.com/NREL/plexosdb/issues/83)) ([c4123e1](https://github.com/NREL/plexosdb/commit/c4123e13f38d43586e1ba306b09b7b73c04b7b59))
+
 ## [1.2.2](https://github.com/NREL/plexosdb/compare/v1.2.1...v1.2.2) (2025-12-06)
 
 
