@@ -57,6 +57,83 @@ def test_bulk_insert_properties_from_records(db_base: PlexosDB):
     assert properties[0]["scenario_name"] == "Base Case"
 
 
+def test_add_properties_supports_flat_records_with_metadata(db_instance_with_schema: PlexosDB):
+    from datetime import datetime
+    from plexosdb import ClassEnum, CollectionEnum
+
+    db = db_instance_with_schema
+    db.add_object(ClassEnum.Generator, "FlatGen")
+
+    records = [
+        {
+            "name": "FlatGen",
+            "property": "Max Capacity",
+            "value": 120.5,
+            "band": 1,
+            "date_from": datetime(2025, 1, 1),
+            "date_to": datetime(2025, 2, 1),
+        },
+        {
+            "name": "FlatGen",
+            "property": "Max Energy",
+            "value": 350.0,
+            "datafile_text": "profile.csv",
+        },
+    ]
+
+    db.add_properties_from_records(
+        records,
+        object_class=ClassEnum.Generator,
+        collection=CollectionEnum.Generators,
+        parent_class=ClassEnum.System,
+        scenario="Planning",
+    )
+
+    data_rows = db._db.fetchall("SELECT membership_id, property_id, value FROM t_data")
+    assert len(data_rows) == 2
+
+    band_rows = db._db.fetchall("SELECT data_id, band_id FROM t_band")
+    assert len(band_rows) == 1
+    assert band_rows[0][1] == 1
+
+    date_from_rows = db._db.fetchall("SELECT date FROM t_date_from")
+    date_to_rows = db._db.fetchall("SELECT date FROM t_date_to")
+    assert date_from_rows[0][0].startswith("2025-01-01")
+    assert date_to_rows[0][0].startswith("2025-02-01")
+
+    text_rows = db._db.fetchall("SELECT class_id, value FROM t_text")
+    assert len(text_rows) == 1
+    assert text_rows[0][1] == "profile.csv"
+
+
+def test_add_properties_nested_records_emit_deprecation(db_instance_with_schema: PlexosDB):
+    from plexosdb import ClassEnum, CollectionEnum
+
+    db = db_instance_with_schema
+    db.add_object(ClassEnum.Generator, "LegacyGen")
+
+    records = [
+        {
+            "name": "LegacyGen",
+            "properties": {
+                "Max Capacity": {"value": 75.0},
+            },
+        }
+    ]
+
+    with pytest.warns(DeprecationWarning):
+        db.add_properties_from_records(
+            records,
+            object_class=ClassEnum.Generator,
+            collection=CollectionEnum.Generators,
+            parent_class=ClassEnum.System,
+            scenario="Legacy",
+        )
+
+    values = db._db.fetchall("SELECT value FROM t_data")
+    assert values == [(75.0,)]
+
+
 def test_bulk_insert_memberships_from_records(db_base: PlexosDB):
     from plexosdb import ClassEnum, CollectionEnum
 
@@ -110,3 +187,40 @@ def test_bulk_insert_memberships_from_records(db_base: PlexosDB):
     ]
     with pytest.raises(KeyError):
         _ = db.add_memberships_from_records(memberships)
+
+
+def test_add_properties_from_records_no_records(db_instance_with_schema: PlexosDB, caplog):
+    """Gracefully handle empty payload."""
+    from plexosdb import ClassEnum, CollectionEnum
+
+    db = db_instance_with_schema
+    db.add_object(ClassEnum.Generator, "EmptyGen")
+
+    db.add_properties_from_records(
+        [],
+        object_class=ClassEnum.Generator,
+        collection=CollectionEnum.Generators,
+        parent_class=ClassEnum.System,
+        scenario="None",
+    )
+
+    assert "No records provided" in caplog.text
+    assert db._db.fetchone("SELECT COUNT(*) FROM t_data")[0] == 0
+
+
+def test_add_properties_from_records_unknown_property(db_instance_with_schema: PlexosDB):
+    """Return early when properties are not recognized for the collection."""
+    from plexosdb import ClassEnum, CollectionEnum
+
+    db = db_instance_with_schema
+    db.add_object(ClassEnum.Generator, "BadPropGen")
+
+    db.add_properties_from_records(
+        [{"name": "BadPropGen", "property": "Unknown", "value": 1}],
+        object_class=ClassEnum.Generator,
+        collection=CollectionEnum.Generators,
+        parent_class=ClassEnum.System,
+        scenario="None",
+    )
+
+    assert db._db.fetchone("SELECT COUNT(*) FROM t_data")[0] == 0
